@@ -129,7 +129,6 @@ The application includes a complete authentication flow:
 
 - **[INSTALLATION.md](./INSTALLATION.md)** - Setup and installation guide
 - **[STRUCTURE_GUIDE.md](./STRUCTURE_GUIDE.md)** - Detailed structure analysis
-- **[PROJECT_OVERVIEW.md](./PROJECT_OVERVIEW.md)** - Complete project overview
 
 ## 🚀 Available Scripts
 
