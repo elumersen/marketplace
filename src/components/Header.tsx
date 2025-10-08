@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { User, LogOut } from 'lucide-react';
+import { User, LogOut, Bell, Search, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export const Header = () => {
@@ -26,35 +26,76 @@ export const Header = () => {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-card px-6">
-      <div className="flex-1" />
-      <div className="flex items-center gap-4">
+    <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200 bg-white/80 backdrop-blur-xl px-8 shadow-sm">
+      {/* Search Bar */}
+      <div className="flex-1 max-w-xl">
+        <div className="relative group">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+          <input
+            type="text"
+            placeholder="Search transactions, invoices, customers..."
+            className="w-full h-10 pl-10 pr-4 rounded-xl border-2 border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-indigo-500 focus:bg-white transition-all placeholder:text-slate-400"
+          />
+        </div>
+      </div>
+
+      {/* Right Side Actions */}
+      <div className="flex items-center gap-3">
+        {/* Notifications */}
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="relative rounded-xl hover:bg-slate-100 transition-colors group"
+        >
+          <Bell className="h-5 w-5 text-slate-600 group-hover:text-indigo-600 transition-colors" />
+          <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full border-2 border-white"></span>
+        </Button>
+
+        {/* Settings */}
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="rounded-xl hover:bg-slate-100 transition-colors group"
+          onClick={() => navigate('/settings')}
+        >
+          <Settings className="h-5 w-5 text-slate-600 group-hover:text-indigo-600 transition-colors" />
+        </Button>
+
+        {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-              <Avatar>
-                <AvatarFallback>{user ? getInitials(user.email) : 'U'}</AvatarFallback>
+            <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:ring-2 hover:ring-indigo-500/20 transition-all">
+              <Avatar className="h-10 w-10 border-2 border-indigo-200">
+                <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-semibold">
+                  {user ? getInitials(user.email) : 'U'}
+                </AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-64 p-2 shadow-xl border-slate-200">
+            <DropdownMenuLabel className="p-3">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{user?.name}</p>
-                <p className="text-xs leading-none text-muted-foreground">
+                <p className="text-sm font-semibold text-slate-900">{user?.name || 'User'}</p>
+                <p className="text-xs text-slate-500">
                   {user?.email}
                 </p>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('/settings')}>
-              <User className="mr-2 h-4 w-4" />
-              <span>Profile</span>
+            <DropdownMenuSeparator className="bg-slate-200" />
+            <DropdownMenuItem 
+              onClick={() => navigate('/settings')}
+              className="p-3 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer transition-colors group"
+            >
+              <User className="mr-3 h-4 w-4 text-slate-500 group-hover:text-indigo-600" />
+              <span className="font-medium">Profile Settings</span>
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
+            <DropdownMenuSeparator className="bg-slate-200" />
+            <DropdownMenuItem 
+              onClick={handleLogout}
+              className="p-3 rounded-lg hover:bg-red-50 hover:text-red-600 cursor-pointer transition-colors group"
+            >
+              <LogOut className="mr-3 h-4 w-4 text-slate-500 group-hover:text-red-600" />
+              <span className="font-medium">Log out</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
