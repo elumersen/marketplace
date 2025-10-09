@@ -47,7 +47,7 @@ export const Login = () => {
       <Card className="relative w-full max-w-md backdrop-blur-xl bg-white/95 shadow-2xl border-white/20 animate-in fade-in-50 slide-in-from-bottom-10 duration-700">
         <CardHeader className="space-y-3 pb-6">
           <img 
-            src="/src/assets/images/logo.png" 
+            src="/images/logo.png" 
             alt="JTC Ledger Logo" 
             className="h-16 w-auto object-contain"
           />
