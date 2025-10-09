@@ -46,10 +46,12 @@ export const Login = () => {
       {/* Login Card */}
       <Card className="relative w-full max-w-md backdrop-blur-xl bg-white/95 shadow-2xl border-white/20 animate-in fade-in-50 slide-in-from-bottom-10 duration-700">
         <CardHeader className="space-y-3 pb-6">
-          <div className="mx-auto rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 p-3 shadow-lg">
-            <TrendingUp className="w-8 h-8 text-white" />
-          </div>
-          <CardTitle className="text-4xl font-bold text-center bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+          <img 
+            src="/src/assets/images/logo.png" 
+            alt="JTC Ledger Logo" 
+            className="h-16 w-auto object-contain"
+          />
+          <CardTitle className="text-4xl font-bold text-center bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent leading-normal">
             JTM Ledger
           </CardTitle>
           {/* <CardDescription className="text-center text-base">
