@@ -75,7 +75,7 @@ export const Header = () => {
           <DropdownMenuContent align="end" className="w-64 p-2 shadow-xl border-slate-200">
             <DropdownMenuLabel className="p-3">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-semibold text-slate-900">{user?.name || 'User'}</p>
+                <p className="text-sm font-semibold text-slate-900">{user?.firstName || 'User'}</p>
                 <p className="text-xs text-slate-500">
                   {user?.email}
                 </p>
