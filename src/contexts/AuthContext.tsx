@@ -1,15 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
-interface User {
-  email: string;
-  name: string;
-}
+import { authAPI, tokenManager, getErrorMessage } from '@/lib/api';
+import type { User } from '@/types/api.types';
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   isLoading: boolean;
+  error: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,45 +15,72 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if user is logged in (from localStorage)
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    const initAuth = async () => {
+      const token = tokenManager.getToken();
+      
+      if (token) {
+        try {
+          const response = await authAPI.getProfile();
+          setUser(response.user);
+        } catch (err) {
+          tokenManager.removeToken();
+          setUser(null);
+        }
+      }
+      
+      setIsLoading(false);
+    };
+
+    initAuth();
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Simulate API call
-    // In production, this would make an actual API request
     try {
-      // For demo purposes, accept any email/password combination
-      // In production, validate against backend
-      if (email && password) {
-        const user = {
-          email,
-          name: email.split('@')[0],
-        };
-        setUser(user);
-        localStorage.setItem('user', JSON.stringify(user));
-        return true;
-      }
+      setError(null);
+      setIsLoading(true);
+
+      // Call login API
+      const response = await authAPI.login(email, password);
+      
+      // Store token
+      tokenManager.setToken(response.token);
+      
+      // Store user in state
+      setUser(response.user);
+      
+      // Optionally store user in localStorage for persistence
+      localStorage.setItem('user', JSON.stringify(response.user));
+      
+      return true;
+    } catch (err) {
+      const errorMessage = getErrorMessage(err);
+      setError(errorMessage);
+      console.error('Login error:', errorMessage);
       return false;
-    } catch (error) {
-      console.error('Login error:', error);
-      return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const logout = () => {
+    // Clear token
+    tokenManager.removeToken();
+    
+    // Clear user state
     setUser(null);
+    
+    // Clear localStorage
     localStorage.removeItem('user');
+    
+    // Clear any errors
+    setError(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading, error }}>
       {children}
     </AuthContext.Provider>
   );
@@ -68,4 +93,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
