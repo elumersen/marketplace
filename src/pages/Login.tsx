@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 export const Login = () => {
   const [email, setEmail] = useState('');
@@ -24,7 +25,7 @@ export const Login = () => {
     try {
       const success = await login(email, password);
       if (success) {
-        navigate('/dashboard');
+        navigate('/');
       } else {
         setError('Invalid email or password');
       }
@@ -129,7 +130,7 @@ export const Login = () => {
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  <Spinner size="sm" variant="white" className="mr-2" />
                   Logging in...
                 </>
               ) : (
