@@ -31,6 +31,8 @@ import type {
   Reconciliation,
   CreateReconciliationData,
   ReconciliationQueryParams,
+  AccountQueryParams,
+  PaginatedResponse,
 } from '@/types/api.types';
 
 // API Configuration
@@ -236,11 +238,16 @@ export const userAPI = {
 };
 
 export const accountAPI = {
-  getAll: (): Promise<Account[]> => api.get<Account[]>('/accounts'),
-  getById: (id: string): Promise<Account> => api.get<Account>(`/accounts/${id}`),
-  create: (data: CreateAccountData): Promise<Account> => api.post<Account>('/accounts', data),
-  update: (id: string, data: Partial<CreateAccountData>): Promise<Account> => api.put<Account>(`/accounts/${id}`, data),
-  delete: (id: string): Promise<void> => api.delete(`/accounts/${id}`),
+  getAll: (params?: AccountQueryParams): Promise<PaginatedResponse<Account> & { success: boolean; message: string }> => 
+    api.get<PaginatedResponse<Account> & { success: boolean; message: string }>('/accounts', { params }),
+  getById: (id: string): Promise<{ success: boolean; message: string; data: Account }> => 
+    api.get<{ success: boolean; message: string; data: Account }>(`/accounts/${id}`),
+  create: (data: CreateAccountData): Promise<{ success: boolean; message: string; data: Account }> => 
+    api.post<{ success: boolean; message: string; data: Account }>('/accounts', data),
+  update: (id: string, data: Partial<CreateAccountData>): Promise<{ success: boolean; message: string; data: Account }> => 
+    api.put<{ success: boolean; message: string; data: Account }>(`/accounts/${id}`, data),
+  delete: (id: string): Promise<{ success: boolean; message: string; data: null }> => 
+    api.delete<{ success: boolean; message: string; data: null }>(`/accounts/${id}`),
 };
 
 export const transactionAPI = {
