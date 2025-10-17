@@ -130,7 +130,7 @@ export const Login = () => {
             >
               {isLoading ? (
                 <>
-                  <Spinner size="sm" variant="white" className="mr-2" />
+                  <Spinner size="sm" className="mr-2" />
                   Logging in...
                 </>
               ) : (
