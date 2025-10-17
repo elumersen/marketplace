@@ -12,6 +12,8 @@ export interface PaginatedResponse<T> {
     limit: number;
     total: number;
     totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
   };
 }
 
@@ -63,27 +65,47 @@ export interface Account {
   code: string;
   name: string;
   type: AccountType;
-  subType: string | null;
+  subType: string;
   description: string | null;
+  balance: number;
   parentId: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  parent?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
+  createdByUser?: {
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+  updatedByUser?: {
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
 }
 
 export enum AccountType {
-  ASSET = 'ASSET',
-  LIABILITY = 'LIABILITY',
-  EQUITY = 'EQUITY',
-  REVENUE = 'REVENUE',
-  EXPENSE = 'EXPENSE',
+  Income = 'Income',
+  Other_Income = 'Other_Income',
+  Expense = 'Expense',
+  Other_Expense = 'Other_Expense',
+  Cost_of_Goods_Sold = 'Cost_of_Goods_Sold',
+  Current_Assets = 'Current_Assets',
+  Fixed_Assets = 'Fixed_Assets',
+  Current_Liabilities = 'Current_Liabilities',
+  Equity = 'Equity',
 }
 
 export interface CreateAccountData {
   code: string;
   name: string;
   type: AccountType;
-  subType?: string;
+  subType: string;
   description?: string;
   parentId?: string;
 }
@@ -407,5 +429,12 @@ export interface JournalEntryQueryParams {
 export interface ReconciliationQueryParams {
   bankAccountId?: string;
   status?: ReconciliationStatus;
+}
+
+export interface AccountQueryParams {
+  isActive?: boolean;
+  type?: string;
+  page?: number;
+  limit?: number;
 }
 

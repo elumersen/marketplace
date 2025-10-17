@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { MainLayout } from '@/layouts/MainLayout';
+import { Toaster } from '@/components/ui/toaster';
 import { Login } from '@/pages/Login';
 import { Dashboard } from '@/pages/Dashboard';
 // Income pages
@@ -71,6 +72,7 @@ function App() {
             <Route path="/settings" element={<Settings />} />
           </Route>
         </Routes>
+        <Toaster />
       </BrowserRouter>
     </AuthProvider>
   );
