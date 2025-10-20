@@ -434,6 +434,7 @@ export interface ReconciliationQueryParams {
 export interface AccountQueryParams {
   isActive?: boolean;
   type?: string;
+  search?: string;
   page?: number;
   limit?: number;
 }

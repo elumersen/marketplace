@@ -72,7 +72,7 @@ export const ChartOfAccounts = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [activeFilter, setActiveFilter] = useState<string>('all');
+  const [activeFilter, setActiveFilter] = useState<string>('active');
   const [showNewAccountModal, setShowNewAccountModal] = useState(false);
   const [showEditAccountModal, setShowEditAccountModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
@@ -127,13 +127,14 @@ export const ChartOfAccounts = () => {
     try {
       setLoading(true);
       
-      const params: { isActive?: boolean; type?: string; page?: number; limit?: number } = {
+      const params: { isActive?: boolean; type?: string; search?: string; page?: number; limit?: number } = {
         page,
         limit,
       };
       if (activeFilter === 'active') params.isActive = true;
       if (activeFilter === 'inactive') params.isActive = false;
       if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
+      if (searchTerm) params.search = searchTerm;
 
       const response = await accountAPI.getAll(params);
       setAccounts(response.data);
@@ -151,8 +152,20 @@ export const ChartOfAccounts = () => {
     }
   };
 
+  // Debounced search effect
   useEffect(() => {
-    fetchAccounts(1, itemsPerPage); // Reset to page 1 when filters change
+    const timeoutId = setTimeout(() => {
+      fetchAccounts(1, itemsPerPage); // Reset to page 1 when filters change
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timeoutId);
+  }, [typeFilter, activeFilter, searchTerm]);
+
+  // Immediate effect for non-search filters
+  useEffect(() => {
+    if (!searchTerm) {
+      fetchAccounts(1, itemsPerPage);
+    }
   }, [typeFilter, activeFilter]);
 
   // Handle pagination changes
@@ -251,13 +264,6 @@ export const ChartOfAccounts = () => {
     return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
-  // Client-side search filtering (since we're using server-side pagination)
-  const filteredAccounts = accounts.filter(account => {
-    const matchesSearch = account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         account.code.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -306,10 +312,9 @@ export const ChartOfAccounts = () => {
             <div>
               <Select value={activeFilter} onValueChange={setActiveFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="All Status" />
+                  <SelectValue placeholder="Active" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
@@ -335,7 +340,6 @@ export const ChartOfAccounts = () => {
                 <TableHead>Type</TableHead>
                 <TableHead>Sub Type</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
-                <TableHead className="text-center">Status</TableHead>
                 <TableHead className="text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -349,14 +353,14 @@ export const ChartOfAccounts = () => {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : filteredAccounts.length === 0 ? (
+              ) : accounts.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No accounts found matching your criteria.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredAccounts.map((account) => (
+                accounts.map((account) => (
                   <TableRow key={account.id}>
                     <TableCell className="font-mono text-sm">{account.code}</TableCell>
                     <TableCell>
@@ -381,20 +385,7 @@ export const ChartOfAccounts = () => {
                       {formatCurrency(account.balance)}
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={account.isActive ? "default" : "destructive"}>
-                        {account.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">
-                        {/* <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          title="View Account Details"
-                          className="hover:bg-blue-50 hover:text-blue-600"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button> */}
                         <Button 
                           variant="ghost" 
                           size="sm" 
@@ -575,27 +566,6 @@ export const ChartOfAccounts = () => {
                     </FormItem>
                   )}
                 />
-
-                {/* Description */}
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel className="text-sm font-medium">
-                        Description
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Optional description"
-                          className="h-11"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </div>
 
               <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-6 border-t">
@@ -734,27 +704,6 @@ export const ChartOfAccounts = () => {
                           ))}
                         </SelectContent>
                       </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Description */}
-                <FormField
-                  control={editForm.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel className="text-sm font-medium">
-                        Description
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Optional description"
-                          className="h-11"
-                          {...field}
-                        />
-                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
