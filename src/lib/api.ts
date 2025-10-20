@@ -246,6 +246,8 @@ export const accountAPI = {
     api.post<{ success: boolean; message: string; data: Account }>('/accounts', data),
   update: (id: string, data: Partial<CreateAccountData>): Promise<{ success: boolean; message: string; data: Account }> => 
     api.put<{ success: boolean; message: string; data: Account }>(`/accounts/${id}`, data),
+  toggleStatus: (id: string): Promise<{ success: boolean; message: string; data: Account }> => 
+    api.patch<{ success: boolean; message: string; data: Account }>(`/accounts/${id}/toggle-status`),
   delete: (id: string): Promise<{ success: boolean; message: string; data: null }> => 
     api.delete<{ success: boolean; message: string; data: null }>(`/accounts/${id}`),
 };
