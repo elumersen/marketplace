@@ -52,7 +52,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { accountAPI, getErrorMessage } from '@/lib/api';
 import { Account, AccountType } from '@/types/api.types';
-import { Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
 
 // Form schema for account creation
 const accountFormSchema = z.object({
@@ -62,7 +62,6 @@ const accountFormSchema = z.object({
     message: 'Please select an account type',
   }),
   subType: z.string().min(1, 'Sub type is required'),
-  description: z.string().optional(),
 });
 
 type AccountFormValues = z.infer<typeof accountFormSchema>;
@@ -85,7 +84,6 @@ export const ChartOfAccounts = () => {
       name: '',
       type: AccountType.Current_Assets,
       subType: '',
-      description: '',
     },
   });
 
@@ -97,7 +95,6 @@ export const ChartOfAccounts = () => {
       name: '',
       type: AccountType.Current_Assets,
       subType: '',
-      description: '',
     },
   });
 
@@ -133,6 +130,7 @@ export const ChartOfAccounts = () => {
       };
       if (activeFilter === 'active') params.isActive = true;
       if (activeFilter === 'inactive') params.isActive = false;
+      // If activeFilter is 'all', we don't set isActive parameter to show all accounts
       if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
       if (searchTerm) params.search = searchTerm;
 
@@ -223,6 +221,24 @@ export const ChartOfAccounts = () => {
     }
   };
 
+  const handleToggleAccountStatus = async (id: string) => {
+    try {
+      const response = await accountAPI.toggleStatus(id);
+      toast({
+        variant: "success",
+        title: "Success",
+        description: response.message,
+      });
+      fetchAccounts(currentPage, itemsPerPage);
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: getErrorMessage(err),
+      });
+    }
+  };
+
   const handleDeleteAccount = async (id: string) => {
     try {
       const response = await accountAPI.delete(id);
@@ -248,7 +264,6 @@ export const ChartOfAccounts = () => {
       name: account.name,
       type: account.type,
       subType: account.subType,
-      description: account.description || '',
     });
     setShowEditAccountModal(true);
   };
@@ -346,7 +361,7 @@ export const ChartOfAccounts = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={8} className="text-center py-8">
                     <div className="flex flex-col items-center gap-2">
                       <Spinner size="lg" />
                       <span className="text-sm text-muted-foreground">Loading accounts...</span>
@@ -355,7 +370,7 @@ export const ChartOfAccounts = () => {
                 </TableRow>
               ) : accounts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No accounts found matching your criteria.
                   </TableCell>
                 </TableRow>
@@ -399,18 +414,59 @@ export const ChartOfAccounts = () => {
                           <AlertDialogTrigger asChild>
                             <Button 
                               variant="ghost" 
+                              size="sm" 
+                              title={account.isActive ? "Deactivate Account" : "Activate Account"}
+                              className={account.isActive 
+                                ? "text-orange-600 hover:text-orange-700 hover:bg-orange-50" 
+                                : "text-green-600 hover:text-green-700 hover:bg-green-50"
+                              }
+                            >
+                              {account.isActive ? (
+                                <ToggleRight className="h-4 w-4" />
+                              ) : (
+                                <ToggleLeft className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="text-lg font-semibold">
+                                {account.isActive ? "Deactivate Account" : "Activate Account"}
+                              </AlertDialogTitle>
+                              <AlertDialogDescription className="text-base">
+                                Are you sure you want to {account.isActive ? "deactivate" : "activate"} the account <strong>"{account.name}"</strong>?
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter className="gap-2">
+                              <AlertDialogCancel className="flex-1">Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleToggleAccountStatus(account.id)}
+                                className={`flex-1 ${account.isActive 
+                                  ? "bg-orange-600 hover:bg-orange-700 focus:ring-orange-600" 
+                                  : "bg-green-600 hover:bg-green-700 focus:ring-green-600"
+                                }`}
+                              >
+                                {account.isActive ? "Deactivate" : "Activate"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="ghost" 
                               size="sm"
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              title="Delete Account"
+                              title="Permanently Delete Account"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle className="text-lg font-semibold">Delete Account</AlertDialogTitle>
+                              <AlertDialogTitle className="text-lg font-semibold">Permanently Delete Account</AlertDialogTitle>
                               <AlertDialogDescription className="text-base">
-                                Are you sure you want to deactivate the account <strong>"{account.name}"</strong>?
+                                Are you sure you want to permanently delete the account <strong>"{account.name}"</strong>?
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter className="gap-2">
@@ -419,7 +475,7 @@ export const ChartOfAccounts = () => {
                                 onClick={() => handleDeleteAccount(account.id)}
                                 className="flex-1 bg-red-600 hover:bg-red-700 focus:ring-red-600"
                               >
-                                Deactivate Account
+                                Delete
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
