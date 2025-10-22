@@ -27,12 +27,14 @@ import type {
   CreateBankAccountData,
   JournalEntry,
   CreateJournalEntryData,
+  UpdateJournalEntryData,
   JournalEntryQueryParams,
   Reconciliation,
   CreateReconciliationData,
   ReconciliationQueryParams,
   AccountQueryParams,
   PaginatedResponse,
+  JournalEntryStatus,
 } from '@/types/api.types';
 
 // API Configuration
@@ -301,11 +303,18 @@ export const itemAPI = {
 };
 
 export const journalEntryAPI = {
-  getAll: (params?: JournalEntryQueryParams): Promise<JournalEntry[]> => api.get<JournalEntry[]>('/journal-entries', { params }),
-  getById: (id: string): Promise<JournalEntry> => api.get<JournalEntry>(`/journal-entries/${id}`),
-  create: (data: CreateJournalEntryData): Promise<JournalEntry> => api.post<JournalEntry>('/journal-entries', data),
-  update: (id: string, data: Partial<CreateJournalEntryData>): Promise<JournalEntry> => api.put<JournalEntry>(`/journal-entries/${id}`, data),
-  delete: (id: string): Promise<void> => api.delete(`/journal-entries/${id}`),
+  getAll: (params?: JournalEntryQueryParams): Promise<{ journalEntries: JournalEntry[] }> => 
+    api.get<{ journalEntries: JournalEntry[] }>('/journal-entries', { params }),
+  getById: (id: string): Promise<{ journalEntry: JournalEntry }> => 
+    api.get<{ journalEntry: JournalEntry }>(`/journal-entries/${id}`),
+  create: (data: CreateJournalEntryData): Promise<{ message: string; journalEntry: JournalEntry }> => 
+    api.post<{ message: string; journalEntry: JournalEntry }>('/journal-entries', data),
+  update: (id: string, data: UpdateJournalEntryData): Promise<{ message: string; journalEntry: JournalEntry }> => 
+    api.put<{ message: string; journalEntry: JournalEntry }>(`/journal-entries/${id}`, data),
+  updateStatus: (id: string, status: JournalEntryStatus): Promise<{ message: string; journalEntry: JournalEntry }> => 
+    api.patch<{ message: string; journalEntry: JournalEntry }>(`/journal-entries/${id}/status`, { status }),
+  delete: (id: string): Promise<{ message: string }> => 
+    api.delete<{ message: string }>(`/journal-entries/${id}`),
 };
 
 export const bankAccountAPI = {

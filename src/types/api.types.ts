@@ -336,12 +336,23 @@ export interface CreateBankAccountData {
 export interface JournalEntry {
   id: string;
   entryNumber: string;
-  date: string;
-  description: string;
+  entryDate: string;
+  description: string | null;
   status: JournalEntryStatus;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
   lines?: JournalEntryLine[];
+  createdByUser?: {
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+  updatedByUser?: {
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
 }
 
 export interface JournalEntryLine {
@@ -357,13 +368,27 @@ export interface JournalEntryLine {
 export enum JournalEntryStatus {
   DRAFT = 'DRAFT',
   POSTED = 'POSTED',
-  VOIDED = 'VOIDED',
+  VOID = 'VOID',
 }
 
 export interface CreateJournalEntryData {
-  date: string;
-  description: string;
+  entryNumber?: string;
+  entryDate: string;
+  description?: string;
+  status?: JournalEntryStatus;
   lines: Array<{
+    accountId: string;
+    description?: string;
+    debit: number;
+    credit: number;
+  }>;
+}
+
+export interface UpdateJournalEntryData {
+  entryDate?: string;
+  description?: string;
+  status?: JournalEntryStatus;
+  lines?: Array<{
     accountId: string;
     description?: string;
     debit: number;
@@ -437,5 +462,7 @@ export interface AccountQueryParams {
   search?: string;
   page?: number;
   limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
