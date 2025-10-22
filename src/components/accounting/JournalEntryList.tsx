@@ -165,7 +165,8 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
 
   const calculateTotalAmount = (entry: JournalEntry) => {
     if (!entry.lines) return 0;
-    return entry.lines.reduce((sum, line) => sum + line.debit + line.credit, 0) / 2;
+    // Return the total debit amount (or credit amount, they should be equal)
+    return entry.lines.reduce((sum, line) => sum + line.debit, 0);
   };
 
   return (
