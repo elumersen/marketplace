@@ -58,6 +58,7 @@ function App() {
             {/* Banking */}
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/registers" element={<Registers />} />
+            <Route path="/registers/:accountId" element={<Registers />} />
             <Route path="/reconciliations" element={<Reconciliations />} />
             
             {/* Accounting */}
