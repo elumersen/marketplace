@@ -285,30 +285,81 @@ export interface Transaction {
   id: string;
   bankAccountId: string;
   bankAccount?: BankAccount;
-  date: string;
+  transactionDate: string;
   description: string;
   type: TransactionType;
   amount: number;
-  category: string | null;
+  payee?: string;
+  referenceNumber?: string;
   isReconciled: boolean;
-  reconciliationId: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export enum TransactionType {
+  CHECK = 'CHECK',
   DEPOSIT = 'DEPOSIT',
-  WITHDRAWAL = 'WITHDRAWAL',
+  EXPENSE = 'EXPENSE',
+  INVOICE = 'INVOICE',
+  RECEIVE_PAYMENT = 'RECEIVE_PAYMENT',
+  BILL = 'BILL',
+  BILL_PAYMENT = 'BILL_PAYMENT',
   TRANSFER = 'TRANSFER',
+  CREDIT_CARD_PAYMENT = 'CREDIT_CARD_PAYMENT',
+  JOURNAL_ENTRY = 'JOURNAL_ENTRY',
+}
+
+// Register types
+export interface RegisterTransaction {
+  id: string;
+  transactionDate: string;
+  type: TransactionType;
+  description: string;
+  debitAmount: number;
+  creditAmount: number;
+  payee?: string;
+  referenceNumber?: string;
+  isReconciled: boolean;
+  runningBalance: number;
+  source: 'journal_entry' | 'bank_transaction';
+  bankAccount?: {
+    id: string;
+    name: string;
+    accountNumber: string;
+  };
+  journalEntry?: {
+    id: string;
+    entryNumber: string;
+    entryDate: string;
+    description?: string;
+    createdByUser?: {
+      email: string;
+      firstName: string | null;
+      lastName: string | null;
+    };
+  };
+}
+
+export interface AccountRegister {
+  account: Account;
+  transactions: RegisterTransaction[];
+  currentBalance: number;
 }
 
 export interface CreateTransactionData {
   bankAccountId: string;
-  date: string;
+  transactionDate: string;
   description: string;
   type: TransactionType;
   amount: number;
-  category?: string;
+  payee?: string;
+  referenceNumber?: string;
+  checkNumber?: string;
+  expenseAccountId?: string;
+  toBankAccountId?: string;
+  fromBankAccountId?: string;
+  invoiceId?: string;
+  billId?: string;
 }
 
 // Bank Account types

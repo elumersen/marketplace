@@ -23,6 +23,7 @@ import type {
   Transaction,
   CreateTransactionData,
   TransactionQueryParams,
+  AccountRegister,
   BankAccount,
   CreateBankAccountData,
   JournalEntry,
@@ -260,6 +261,8 @@ export const transactionAPI = {
   create: (data: CreateTransactionData): Promise<Transaction> => api.post<Transaction>('/transactions', data),
   update: (id: string, data: Partial<CreateTransactionData>): Promise<Transaction> => api.put<Transaction>(`/transactions/${id}`, data),
   delete: (id: string): Promise<void> => api.delete(`/transactions/${id}`),
+  getAccountRegister: (accountId: string, params?: { startDate?: string; endDate?: string }): Promise<AccountRegister> => 
+    api.get<AccountRegister>(`/transactions/register/${accountId}`, { params }),
 };
 
 export const customerAPI = {
@@ -318,10 +321,10 @@ export const journalEntryAPI = {
 };
 
 export const bankAccountAPI = {
-  getAll: (): Promise<BankAccount[]> => api.get<BankAccount[]>('/bank-accounts'),
-  getById: (id: string): Promise<BankAccount> => api.get<BankAccount>(`/bank-accounts/${id}`),
-  create: (data: CreateBankAccountData): Promise<BankAccount> => api.post<BankAccount>('/bank-accounts', data),
-  update: (id: string, data: Partial<CreateBankAccountData>): Promise<BankAccount> => api.put<BankAccount>(`/bank-accounts/${id}`, data),
+  getAll: (): Promise<BankAccount[]> => api.get<{ bankAccounts: BankAccount[] }>('/bank-accounts').then(res => res.bankAccounts),
+  getById: (id: string): Promise<BankAccount> => api.get<{ bankAccount: BankAccount }>(`/bank-accounts/${id}`).then(res => res.bankAccount),
+  create: (data: CreateBankAccountData): Promise<BankAccount> => api.post<{ bankAccount: BankAccount }>('/bank-accounts', data).then(res => res.bankAccount),
+  update: (id: string, data: Partial<CreateBankAccountData>): Promise<BankAccount> => api.put<{ bankAccount: BankAccount }>(`/bank-accounts/${id}`, data).then(res => res.bankAccount),
   delete: (id: string): Promise<void> => api.delete(`/bank-accounts/${id}`),
 };
 
