@@ -30,7 +30,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   
   const [formData, setFormData] = useState<CreateTransactionData>({
-    bankAccountId: accountId || '',
+    bankAccountId: '',
     transactionDate: new Date().toISOString().split('T')[0],
     type: 'DEPOSIT' as TransactionType,
     amount: 0,
