@@ -141,8 +141,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   );
 
   const showCheckNumber = formData.type === 'CHECK' || formData.type === 'BILL_PAYMENT';
-  const showExpenseAccount = formData.type === 'EXPENSE';
-  const showToBankAccount = formData.type === 'TRANSFER';
+  const showExpenseAccount = formData.type === 'EXPENSE' || formData.type === 'CHECK';
+  const showToBankAccount = formData.type === 'TRANSFER' || formData.type === 'CREDIT_CARD_PAYMENT';
 
   // Reset form when dialog closes
   const handleOpenChange = (open: boolean) => {
@@ -208,13 +208,16 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                   <SelectValue placeholder="Select transaction type" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="EXPENSE">Expense</SelectItem>
                   <SelectItem value="CHECK">Check</SelectItem>
                   <SelectItem value="DEPOSIT">Deposit</SelectItem>
-                  <SelectItem value="EXPENSE">Expense</SelectItem>
+                  <SelectItem value="INVOICE">Invoice</SelectItem>
                   <SelectItem value="RECEIVE_PAYMENT">Receive Payment</SelectItem>
+                  <SelectItem value="BILL">Bill</SelectItem>
                   <SelectItem value="BILL_PAYMENT">Bill Payment</SelectItem>
                   <SelectItem value="TRANSFER">Transfer</SelectItem>
                   <SelectItem value="CREDIT_CARD_PAYMENT">Credit Card Payment</SelectItem>
+                  <SelectItem value="JOURNAL_ENTRY">Journal Entry</SelectItem>
                 </SelectContent>
               </Select>
             </div>
