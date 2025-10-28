@@ -29,12 +29,16 @@ const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   [TransactionType.JOURNAL_ENTRY]: 'Journal Entry',
 };
 
-// Transaction types for the form dropdown (subset of all available types)
 const TRANSACTION_TYPES = [
   { value: TransactionType.EXPENSE, label: TRANSACTION_TYPE_LABELS[TransactionType.EXPENSE] },
-  { value: TransactionType.DEPOSIT, label: TRANSACTION_TYPE_LABELS[TransactionType.DEPOSIT] },
   { value: TransactionType.CHECK, label: TRANSACTION_TYPE_LABELS[TransactionType.CHECK] },
+  { value: TransactionType.DEPOSIT, label: TRANSACTION_TYPE_LABELS[TransactionType.DEPOSIT] },
+  { value: TransactionType.INVOICE, label: TRANSACTION_TYPE_LABELS[TransactionType.INVOICE] },
+  { value: TransactionType.RECEIVE_PAYMENT, label: TRANSACTION_TYPE_LABELS[TransactionType.RECEIVE_PAYMENT] },
+  { value: TransactionType.BILL, label: TRANSACTION_TYPE_LABELS[TransactionType.BILL] },
+  { value: TransactionType.BILL_PAYMENT, label: TRANSACTION_TYPE_LABELS[TransactionType.BILL_PAYMENT] },
   { value: TransactionType.TRANSFER, label: TRANSACTION_TYPE_LABELS[TransactionType.TRANSFER] },
+  { value: TransactionType.CREDIT_CARD_PAYMENT, label: TRANSACTION_TYPE_LABELS[TransactionType.CREDIT_CARD_PAYMENT] },
   { value: TransactionType.JOURNAL_ENTRY, label: TRANSACTION_TYPE_LABELS[TransactionType.JOURNAL_ENTRY] },
 ];
 
