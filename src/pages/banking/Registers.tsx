@@ -11,7 +11,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { format } from 'date-fns';
 import { accountAPI, transactionAPI } from '@/lib/api';
 import type { Account, AccountRegister, RegisterTransaction } from '@/types/api.types';
-import { TransactionForm } from '@/components/banking/TransactionForm';
+import { QBOTransactionForm } from '@/components/banking/QBOTransactionForm';
 
 export const Registers = () => {
   const { accountId } = useParams<{ accountId: string }>();
@@ -119,11 +119,9 @@ export const Registers = () => {
   };
 
   const getAccountNameDisplay = (transaction: RegisterTransaction) => {
-    if (transaction.bankAccount) {
-      return transaction.bankAccount.name;
-    }
-    if (transaction.journalEntry) {
-      return selectedAccount?.name || 'Account';
+    // Use pairedAccount if available (from journal entries or expense account)
+    if (transaction.pairedAccount) {
+      return transaction.pairedAccount;
     }
     return '-';
   };
@@ -218,18 +216,20 @@ export const Registers = () => {
               </p>
             )}
           </div>
-          <div className="flex gap-2">
-            <TransactionForm 
-              accountId={selectedAccount?.id}
-              onTransactionCreated={() => {
-                if (selectedAccount) {
-                  loadRegister(selectedAccount.id);
-                }
-              }}
-            />
-          </div>
         </div>
       </div>
+
+      {/* QBO Transaction Form */}
+      {selectedAccount && (
+        <QBOTransactionForm
+          registerAccountId={selectedAccount.id}
+          onSuccess={() => {
+            if (selectedAccount) {
+              loadRegister(selectedAccount.id);
+            }
+          }}
+        />
+      )}
 
       {/* Filters */}
       <Card className="mb-6 py-4">
