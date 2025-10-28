@@ -338,6 +338,7 @@ export interface RegisterTransaction {
       lastName: string | null;
     };
   };
+  pairedAccount?: string;
 }
 
 export interface AccountRegister {
@@ -391,6 +392,8 @@ export interface JournalEntry {
   description: string | null;
   status: JournalEntryStatus;
   isActive: boolean;
+  transactionType?: TransactionType;
+  payee?: string | null;
   createdAt: string;
   updatedAt: string;
   lines?: JournalEntryLine[];
@@ -427,6 +430,8 @@ export interface CreateJournalEntryData {
   entryDate: string;
   description?: string;
   status?: JournalEntryStatus;
+  transactionType?: TransactionType;
+  payee?: string;
   lines: Array<{
     accountId: string;
     description?: string;
@@ -439,6 +444,8 @@ export interface UpdateJournalEntryData {
   entryDate?: string;
   description?: string;
   status?: JournalEntryStatus;
+  transactionType?: TransactionType;
+  payee?: string;
   lines?: Array<{
     accountId: string;
     description?: string;

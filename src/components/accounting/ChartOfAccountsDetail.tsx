@@ -6,7 +6,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { useToast } from '@/hooks/use-toast';
 import { accountAPI, getErrorMessage } from '@/lib/api';
 import { Account } from '@/types/api.types';
-import { ArrowLeft, Edit, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, ToggleLeft, ToggleRight, Trash2, BookOpen } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +30,7 @@ export const ChartOfAccountsDetail = ({ accountId, onBack, onEdit }: ChartOfAcco
   const [account, setAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchAccount();
@@ -183,6 +185,15 @@ export const ChartOfAccountsDetail = ({ accountId, onBack, onEdit }: ChartOfAcco
         </div>
         
         <div className="flex items-center gap-2">
+          <Button 
+            variant="default" 
+            onClick={() => navigate(`/registers/${accountId}`)}
+            className="flex items-center gap-2"
+          >
+            <BookOpen className="h-4 w-4" />
+            View Register
+          </Button>
+          
           <Button 
             variant="outline" 
             onClick={() => onEdit(account)}

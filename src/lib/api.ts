@@ -266,18 +266,26 @@ export const transactionAPI = {
 };
 
 export const customerAPI = {
-  getAll: (): Promise<Customer[]> => api.get<Customer[]>('/customers'),
-  getById: (id: string): Promise<Customer> => api.get<Customer>(`/customers/${id}`),
-  create: (data: CreateCustomerData): Promise<Customer> => api.post<Customer>('/customers', data),
-  update: (id: string, data: Partial<CreateCustomerData>): Promise<Customer> => api.put<Customer>(`/customers/${id}`, data),
+  getAll: (): Promise<{ success: boolean; message: string; data: Customer[] }> => 
+    api.get<{ success: boolean; message: string; data: Customer[] }>('/customers'),
+  getById: (id: string): Promise<{ success: boolean; message: string; data: Customer }> => 
+    api.get<{ success: boolean; message: string; data: Customer }>(`/customers/${id}`),
+  create: (data: CreateCustomerData): Promise<{ success: boolean; message: string; data: Customer }> => 
+    api.post<{ success: boolean; message: string; data: Customer }>('/customers', data),
+  update: (id: string, data: Partial<CreateCustomerData>): Promise<{ success: boolean; message: string; data: Customer }> => 
+    api.put<{ success: boolean; message: string; data: Customer }>(`/customers/${id}`, data),
   delete: (id: string): Promise<void> => api.delete(`/customers/${id}`),
 };
 
 export const vendorAPI = {
-  getAll: (): Promise<Vendor[]> => api.get<Vendor[]>('/vendors'),
-  getById: (id: string): Promise<Vendor> => api.get<Vendor>(`/vendors/${id}`),
-  create: (data: CreateVendorData): Promise<Vendor> => api.post<Vendor>('/vendors', data),
-  update: (id: string, data: Partial<CreateVendorData>): Promise<Vendor> => api.put<Vendor>(`/vendors/${id}`, data),
+  getAll: (): Promise<{ success: boolean; message: string; data: Vendor[] }> => 
+    api.get<{ success: boolean; message: string; data: Vendor[] }>('/vendors'),
+  getById: (id: string): Promise<{ success: boolean; message: string; data: Vendor }> => 
+    api.get<{ success: boolean; message: string; data: Vendor }>(`/vendors/${id}`),
+  create: (data: CreateVendorData): Promise<{ success: boolean; message: string; data: Vendor }> => 
+    api.post<{ success: boolean; message: string; data: Vendor }>('/vendors', data),
+  update: (id: string, data: Partial<CreateVendorData>): Promise<{ success: boolean; message: string; data: Vendor }> => 
+    api.put<{ success: boolean; message: string; data: Vendor }>(`/vendors/${id}`, data),
   delete: (id: string): Promise<void> => api.delete(`/vendors/${id}`),
 };
 
