@@ -202,7 +202,12 @@ export const JournalEntryDetail: React.FC<JournalEntryDetailProps> = ({
                 Entry Date
               </div>
               <p className="font-medium">
-                {format(new Date(journalEntry.entryDate), 'MMMM dd, yyyy')}
+                {(() => {
+                  const dateOnly = journalEntry.entryDate.split('T')[0];
+                  const [year, month, day] = dateOnly.split('-').map(Number);
+                  const date = new Date(year, month - 1, day);
+                  return format(date, 'MMMM dd, yyyy');
+                })()}
               </p>
             </div>
 

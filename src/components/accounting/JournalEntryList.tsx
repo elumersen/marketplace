@@ -274,7 +274,12 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                   {filteredEntries.map((entry) => (
                     <TableRow key={entry.id}>
                       <TableCell className="font-medium">{entry.entryNumber}</TableCell>
-                      <TableCell>{format(new Date(entry.entryDate), 'MMM dd, yyyy')}</TableCell>
+                      <TableCell>{(() => {
+                        const dateOnly = entry.entryDate.split('T')[0];
+                        const [year, month, day] = dateOnly.split('-').map(Number);
+                        const date = new Date(year, month - 1, day);
+                        return format(date, 'MMM dd, yyyy');
+                      })()}</TableCell>
                       <TableCell className="max-w-xs truncate">
                         {entry.description || 'No description'}
                       </TableCell>
