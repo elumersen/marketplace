@@ -269,7 +269,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
               onValueChange={(value) => setTransactionType(value as TransactionType)} 
               disabled={loading}
             >
-              <SelectTrigger className="h-6 w-32 text-xs">
+              <SelectTrigger className="h-6 w-40 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -295,9 +295,9 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
       </div>
 
       {/* Transaction Entry Row */}
-      <div className="grid grid-cols-12 gap-2 p-3 items-center">
+      <div className="flex flex-wrap gap-2 p-3 items-center">
         {/* Date */}
-        <div className="col-span-1">
+        <div className="w-36 flex-none">
           <Input
             ref={dateInputRef}
             type="date"
@@ -310,7 +310,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
         </div>
 
         {/* Ref No */}
-        <div className="col-span-1">
+        <div className="w-20 flex-none">
           <Input
             ref={refNoInputRef}
             value={refNo}
@@ -323,7 +323,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
         </div>
 
         {/* Payee */}
-        <div className="col-span-2">
+        <div className="flex-1 min-w-0">
           <Popover open={payeeOpen} onOpenChange={setPayeeOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -377,7 +377,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
         </div>
 
         {/* Account */}
-        <div className="col-span-3">
+        <div className="flex-1 min-w-0">
           <Popover open={accountOpen} onOpenChange={setAccountOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -428,7 +428,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
         </div>
 
         {/* Debit/Credit Toggle */}
-        <div className="col-span-1">
+        <div className="w-20 flex-none">
           <Button
             ref={debitCreditRef}
             variant={debitCredit === 'debit' ? 'destructive' : 'default'}
@@ -441,7 +441,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
         </div>
 
         {/* Amount */}
-        <div className="col-span-1">
+        <div className="w-28 flex-none">
           <Input
             ref={amountInputRef}
             type="number"
@@ -456,7 +456,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
         </div>
 
         {/* Memo */}
-        <div className="col-span-2">
+        <div className="flex-1 min-w-0">
           <Input
             ref={memoInputRef}
             value={memo}
@@ -469,7 +469,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
         </div>
 
         {/* Save Button */}
-        <div className="col-span-1">
+        <div className="w-20 flex-none">
           <Button
             type="button"
             onClick={handleSave}

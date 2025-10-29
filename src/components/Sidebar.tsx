@@ -18,7 +18,6 @@ import {
   BarChart3,
   Settings,
   LogOut,
-  Sparkles,
   ChevronRight,
 } from 'lucide-react';
 
@@ -60,16 +59,19 @@ export const Sidebar = () => {
       <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl"></div>
       
       {/* Header */}
-      <div className="relative flex h-20 items-center px-6 border-b border-slate-700/50 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 p-2 shadow-lg shadow-indigo-500/20">
-            <Sparkles className="h-5 w-5 text-white" />
+      <div className="relative flex h-24 items-center px-6 border-b border-slate-700/50 backdrop-blur-sm group">
+        <div className="flex items-center gap-4 w-full">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl blur-lg opacity-50 group-hover:opacity-75 transition-opacity"></div>
+            <div className="relative h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+              <span className="text-2xl font-bold text-white">JTM</span>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+          <div className="flex-1 overflow-hidden">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300 bg-clip-text text-transparent animate-pulse-once">
               JTM Ledger
             </h1>
-            <p className="text-[10px] text-slate-400 font-medium">Financial Management</p>
+            <p className="text-[10px] text-slate-400 font-medium truncate">Financial Management System</p>
           </div>
         </div>
       </div>
