@@ -82,7 +82,7 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
 
   const loadAccounts = async () => {
     try {
-      const response = await accountAPI.getAll({ isActive: true });
+      const response = await accountAPI.getAll({ isActive: true, all: 'true' });
       setAccounts(response.data || []);
     } catch (error) {
       console.error('Failed to load accounts:', error);

@@ -522,5 +522,6 @@ export interface AccountQueryParams {
   limit?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  all?: string; // 'true' to fetch all accounts without pagination
 }
 

@@ -48,7 +48,7 @@ export const Registers = () => {
 
   const loadAccounts = async () => {
     try {
-      const response = await accountAPI.getAll();
+      const response = await accountAPI.getAll( { all: 'true', isActive: true });
       setAccounts(response.data);
     } catch (error) {
       console.error('Failed to load accounts:', error);
@@ -87,7 +87,10 @@ export const Registers = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'MM/dd/yyyy');
+    const dateOnly = dateString.split('T')[0];
+    const [year, month, day] = dateOnly.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return format(date, 'MM/dd/yyyy');
   };
 
   const getTransactionTypeDisplay = (transaction: RegisterTransaction) => {
@@ -219,18 +222,6 @@ export const Registers = () => {
         </div>
       </div>
 
-      {/* QBO Transaction Form */}
-      {selectedAccount && (
-        <QBOTransactionForm
-          registerAccountId={selectedAccount.id}
-          onSuccess={() => {
-            if (selectedAccount) {
-              loadRegister(selectedAccount.id);
-            }
-          }}
-        />
-      )}
-
       {/* Filters */}
       <Card className="mb-6 py-4">
         <CardContent>
@@ -278,6 +269,18 @@ export const Registers = () => {
         </CardContent>
       </Card>
 
+      {/* QBO Transaction Form */}
+      {selectedAccount && (
+        <QBOTransactionForm
+          registerAccountId={selectedAccount.id}
+          onSuccess={() => {
+            if (selectedAccount) {
+              loadRegister(selectedAccount.id);
+            }
+          }}
+        />
+      )}
+
       {/* Register Table */}
       <Card>
         <CardHeader>
@@ -303,7 +306,7 @@ export const Registers = () => {
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Payee/Customer</TableHead>
+                    <TableHead>Customer/Vendor</TableHead>
                     <TableHead>Account</TableHead>
                     <TableHead className="text-right">Debit</TableHead>
                     <TableHead className="text-right">Credit</TableHead>

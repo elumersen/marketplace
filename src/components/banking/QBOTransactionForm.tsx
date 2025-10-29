@@ -94,7 +94,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
   const loadAutocompleteData = async () => {
     try {
       const [accountsResponse, customersResponse, vendorsResponse] = await Promise.all([
-        accountAPI.getAll({ isActive: true }),
+        accountAPI.getAll({ isActive: true, all: 'true' }),
         customerAPI.getAll(),
         vendorAPI.getAll(),
       ]);
@@ -315,7 +315,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
             ref={refNoInputRef}
             value={refNo}
             onChange={(e) => setRefNo(e.target.value)}
-            placeholder="Ref"
+            placeholder="Ref No"
             className="h-9 text-sm"
             onKeyDown={(e) => handleKeyDown(e, 'refNo')}
             disabled={loading}
@@ -336,19 +336,19 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
                 )}
                 disabled={loading}
               >
-                {payee || "Payee"}
+                {payee || "Customer/Vendor"}
                 <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[20rem] p-0" align="start">
               <Command>
                 <CommandInput 
-                  placeholder="Search payee..." 
+                  placeholder="Search customer/vendor..." 
                   value={payee}
                   onValueChange={setPayee}
                 />
                 <CommandList>
-                  <CommandEmpty>No payee found.</CommandEmpty>
+                  <CommandEmpty>No customer/vendor found.</CommandEmpty>
                   <CommandGroup>
                     {getFilteredPayees(payee).map((p, idx) => (
                       <CommandItem
@@ -377,7 +377,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
         </div>
 
         {/* Account */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 overflow-hidden">
           <Popover open={accountOpen} onOpenChange={setAccountOpen}>
             <PopoverTrigger asChild>
               <Button
