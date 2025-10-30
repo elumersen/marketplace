@@ -98,6 +98,7 @@ export const Registers = () => {
       'CHECK': 'Check',
       'DEPOSIT': 'Deposit',
       'EXPENSE': 'Expense',
+      'REFUND': 'Refund',
       'INVOICE': 'Invoice',
       'RECEIVE_PAYMENT': 'Receive Payment',
       'BILL': 'Bill',
@@ -178,7 +179,7 @@ export const Registers = () => {
               <SelectContent>
                 {accounts.map((account) => (
                   <SelectItem key={account.id} value={account.id}>
-                    {account.code} - {account.name}
+                    {account.code} - {account.name}{account.subType ? ` (${account.subType})` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -215,7 +216,7 @@ export const Registers = () => {
             <h1 className="text-3xl font-bold">Account Register</h1>
             {selectedAccount && (
               <p className="text-muted-foreground">
-                {selectedAccount.code} - {selectedAccount.name}
+                {selectedAccount.code} - {selectedAccount.name} {selectedAccount.subType ? `(${selectedAccount.subType})` : ''}
               </p>
             )}
           </div>
@@ -235,6 +236,7 @@ export const Registers = () => {
                 <SelectContent>
                   {accounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
+                      {/* {account.code} - {account.name}{account.subType ? ` (${account.subType})` : ''} */}
                       {account.code} - {account.name}
                     </SelectItem>
                   ))}

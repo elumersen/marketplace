@@ -300,6 +300,7 @@ export enum TransactionType {
   CHECK = 'CHECK',
   DEPOSIT = 'DEPOSIT',
   EXPENSE = 'EXPENSE',
+  REFUND = 'REFUND',
   INVOICE = 'INVOICE',
   RECEIVE_PAYMENT = 'RECEIVE_PAYMENT',
   BILL = 'BILL',

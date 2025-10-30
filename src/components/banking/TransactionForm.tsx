@@ -209,6 +209,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="EXPENSE">Expense</SelectItem>
+                  <SelectItem value="REFUND">Refund</SelectItem>
                   <SelectItem value="CHECK">Check</SelectItem>
                   <SelectItem value="DEPOSIT">Deposit</SelectItem>
                   <SelectItem value="INVOICE">Invoice</SelectItem>

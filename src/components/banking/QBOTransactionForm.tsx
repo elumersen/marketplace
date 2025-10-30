@@ -6,9 +6,11 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Account, Customer, Vendor, JournalEntryStatus, TransactionType } from '@/types/api.types';
 import { accountAPI, customerAPI, vendorAPI, journalEntryAPI, getErrorMessage } from '@/lib/api';
+import { getPostingRule, describeRule } from '@/lib/postingRules';
 import { useToast } from '@/hooks/use-toast';
 import { Check, ChevronsUpDown, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 interface QBOTransactionFormProps {
   registerAccountId: string;
@@ -20,6 +22,7 @@ const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   [TransactionType.CHECK]: 'Check',
   [TransactionType.DEPOSIT]: 'Deposit',
   [TransactionType.EXPENSE]: 'Expense',
+  [TransactionType.REFUND]: 'Refund',
   [TransactionType.INVOICE]: 'Invoice',
   [TransactionType.RECEIVE_PAYMENT]: 'Receive Payment',
   [TransactionType.BILL]: 'Bill',
@@ -31,6 +34,7 @@ const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
 
 const TRANSACTION_TYPES = [
   { value: TransactionType.EXPENSE, label: TRANSACTION_TYPE_LABELS[TransactionType.EXPENSE] },
+  { value: TransactionType.REFUND, label: TRANSACTION_TYPE_LABELS[TransactionType.REFUND] },
   { value: TransactionType.CHECK, label: TRANSACTION_TYPE_LABELS[TransactionType.CHECK] },
   { value: TransactionType.DEPOSIT, label: TRANSACTION_TYPE_LABELS[TransactionType.DEPOSIT] },
   { value: TransactionType.INVOICE, label: TRANSACTION_TYPE_LABELS[TransactionType.INVOICE] },
@@ -57,6 +61,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
   const [accountId, setAccountId] = useState('');
   const [amount, setAmount] = useState<number | ''>('');
   const [debitCredit, setDebitCredit] = useState<'debit' | 'credit'>('debit');
+  const [ruleLock, setRuleLock] = useState<'debit' | 'credit' | 'both' | 'none'>('both');
   const [memo, setMemo] = useState('');
 
   // Autocomplete data
@@ -80,6 +85,17 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
   useEffect(() => {
     loadAutocompleteData();
   }, []);
+
+  // Recompute posting rule whenever register account, accounts, or transaction type changes
+  useEffect(() => {
+    if (!accounts.length) return;
+    const register = accounts.find(a => a.id === registerAccountId);
+    const rule = getPostingRule(register?.subType, transactionType);
+    setRuleLock(rule);
+    if (rule === 'debit' || rule === 'credit') {
+      setDebitCredit(rule);
+    }
+  }, [accounts, registerAccountId, transactionType]);
 
   // Auto-focus on date field when component mounts
   useEffect(() => {
@@ -131,41 +147,60 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
       return;
     }
 
+    // Enforce rule
+    if (ruleLock === 'none') {
+      toast({
+        variant: "destructive",
+        title: "Not Allowed",
+        description: describeRule(ruleLock),
+      });
+      return;
+    }
+    if (ruleLock === 'debit' || ruleLock === 'credit') {
+      // Lock side to rule
+      if (debitCredit !== ruleLock) setDebitCredit(ruleLock);
+    }
+
     setLoading(true);
     try {
       const amountValue = Number(amount);
-      const isDebit = debitCredit === 'debit';
-
-      // Create a journal entry with two lines
-      const lines = isDebit
-        ? [
-            {
-              accountId: accountId,
-              description: memo || payee || undefined,
-              debit: amountValue,
-              credit: 0,
-            },
-            {
-              accountId: registerAccountId,
-              description: memo || payee || undefined,
-              debit: 0,
-              credit: amountValue,
-            },
-          ]
-        : [
-            {
-              accountId: registerAccountId,
-              description: memo || payee || undefined,
-              debit: amountValue,
-              credit: 0,
-            },
-            {
-              accountId: accountId,
-              description: memo || payee || undefined,
-              debit: 0,
-              credit: amountValue,
-            },
-          ];
+      // The posting rule tells us what is allowed for the REGISTER account side.
+      // So, line for registerAccountId: debit if ruleLock==debit, credit if ruleLock==credit; both if 'both' (controlled by toggle)
+      // Counter account is always opposite side.
+      const regSide = ruleLock === 'both' ? debitCredit : ruleLock;
+      let lines;
+      if (regSide === 'debit') {
+        lines = [
+          {
+            accountId: registerAccountId,
+            description: memo || payee || undefined,
+            debit: amountValue,
+            credit: 0,
+          },
+          {
+            accountId: accountId,
+            description: memo || payee || undefined,
+            debit: 0,
+            credit: amountValue,
+          }
+        ];
+      } else {
+        // credit
+        lines = [
+          {
+            accountId: registerAccountId,
+            description: memo || payee || undefined,
+            debit: 0,
+            credit: amountValue,
+          },
+          {
+            accountId: accountId,
+            description: memo || payee || undefined,
+            debit: amountValue,
+            credit: 0,
+          }
+        ];
+      }
 
       const data = {
         entryDate,
@@ -252,6 +287,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
   };
 
   const toggleDebitCredit = () => {
+    if (ruleLock !== 'both') return; // locked
     setDebitCredit(prev => prev === 'debit' ? 'credit' : 'debit');
   };
 
@@ -269,15 +305,17 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
               onValueChange={(value) => setTransactionType(value as TransactionType)} 
               disabled={loading}
             >
-              <SelectTrigger className="h-6 w-40 text-xs">
+              <SelectTrigger className="h-8 w-40 text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TRANSACTION_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
+                {TRANSACTION_TYPES.map((type) => {
+                  return (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
@@ -428,16 +466,26 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
         </div>
 
         {/* Debit/Credit Toggle */}
-        <div className="w-20 flex-none">
-          <Button
-            ref={debitCreditRef}
-            variant={debitCredit === 'debit' ? 'destructive' : 'default'}
-            onClick={toggleDebitCredit}
-            className="h-9 w-full"
-            disabled={loading}
-          >
-            {debitCredit === 'debit' ? 'Debit' : 'Credit'}
-          </Button>
+        <div className="w-18 flex-none">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span tabIndex={0} style={{ display: 'inline-block' }}>
+                <Button
+                  ref={debitCreditRef}
+                  variant={debitCredit === 'debit' ? 'destructive' : 'default'}
+                  onClick={toggleDebitCredit}
+                  className="h-9 w-full"
+                  disabled={loading || ruleLock !== 'both'}
+                  tabIndex={-1}
+                >
+                  {debitCredit === 'debit' ? 'Debit' : 'Credit'}
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {describeRule(ruleLock)}
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Amount */}
@@ -473,7 +521,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
           <Button
             type="button"
             onClick={handleSave}
-            disabled={loading}
+            disabled={loading || ruleLock === 'none'}
             className="h-9 w-full"
             size="sm"
           >
