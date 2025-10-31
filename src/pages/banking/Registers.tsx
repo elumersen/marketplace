@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Spinner } from '@/components/ui/spinner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { MessageCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { accountAPI, transactionAPI } from '@/lib/api';
 import type { Account, AccountRegister, RegisterTransaction } from '@/types/api.types';
@@ -23,6 +25,8 @@ export const Registers = () => {
   const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
+  const [memoDialogOpen, setMemoDialogOpen] = useState(false);
+  const [selectedMemo, setSelectedMemo] = useState<string>('');
 
   // Load accounts on component mount
   useEffect(() => {
@@ -89,7 +93,7 @@ export const Registers = () => {
   const formatDate = (dateString: string) => {
     const dateOnly = dateString.split('T')[0];
     const [year, month, day] = dateOnly.split('-').map(Number);
-    const date = new Date(year, month - 1, day);
+    const date = new Date(year, month - 1, day + 1);
     return format(date, 'MM/dd/yyyy');
   };
 
@@ -141,6 +145,15 @@ export const Registers = () => {
   const clearFilters = () => {
     setStartDate(undefined);
     setEndDate(undefined);
+  };
+
+  const handleMemoClick = (description: string | undefined) => {
+    setSelectedMemo(description || '');
+    setMemoDialogOpen(true);
+  };
+
+  const hasMemo = (transaction: RegisterTransaction) => {
+    return !!transaction.description && transaction.description.trim() !== '';
   };
 
   // Show loading state while accounts are being loaded
@@ -307,9 +320,11 @@ export const Registers = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
+                    <TableHead>Ref No</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Customer/Vendor</TableHead>
                     <TableHead>Account</TableHead>
+                    <TableHead className="text-center">Memo</TableHead>
                     <TableHead className="text-right">Debit</TableHead>
                     <TableHead className="text-right">Credit</TableHead>
                     <TableHead className="text-right">Balance</TableHead>
@@ -319,7 +334,7 @@ export const Registers = () => {
                 <TableBody>
                   {register.transactions.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                         No transactions found for the selected period
                       </TableCell>
                     </TableRow>
@@ -327,9 +342,23 @@ export const Registers = () => {
                     register.transactions.map((transaction) => (
                       <TableRow key={transaction.id}>
                         <TableCell>{formatDate(transaction.transactionDate)}</TableCell>
+                        <TableCell>{transaction.referenceNumber || '-'}</TableCell>
                         <TableCell>{getTransactionTypeDisplay(transaction)}</TableCell>
                         <TableCell>{getPayeeDisplay(transaction)}</TableCell>
                         <TableCell>{getAccountNameDisplay(transaction)}</TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 relative"
+                            onClick={() => handleMemoClick(transaction.description)}
+                          >
+                            <MessageCircle className={`h-4 w-4 ${hasMemo(transaction) ? 'text-blue-600' : 'text-gray-400'}`} />
+                            {hasMemo(transaction) && (
+                              <span className="absolute top-0 right-0 h-2 w-2 bg-blue-600 rounded-full border-2 border-white"></span>
+                            )}
+                          </Button>
+                        </TableCell>
                         <TableCell className="text-right">
                           {transaction.debitAmount > 0 ? formatCurrency(transaction.debitAmount) : '-'}
                         </TableCell>
@@ -357,6 +386,22 @@ export const Registers = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Memo Dialog */}
+      <Dialog open={memoDialogOpen} onOpenChange={setMemoDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Memo</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {selectedMemo ? (
+              <p className="text-sm whitespace-pre-wrap">{selectedMemo}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">No memo available</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

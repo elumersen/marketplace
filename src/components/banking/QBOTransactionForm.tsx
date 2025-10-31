@@ -97,6 +97,23 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
     }
   }, [accounts, registerAccountId, transactionType]);
 
+  // Reset transaction type if current selection is not allowed for the register account
+  useEffect(() => {
+    if (!accounts.length) return;
+    const register = accounts.find(a => a.id === registerAccountId);
+    const rule = getPostingRule(register?.subType, transactionType);
+    if (rule === 'none') {
+      // Find first allowed transaction type
+      const allowedType = TRANSACTION_TYPES.find((type) => {
+        const typeRule = getPostingRule(register?.subType, type.value);
+        return typeRule !== 'none';
+      });
+      if (allowedType) {
+        setTransactionType(allowedType.value);
+      }
+    }
+  }, [accounts, registerAccountId]);
+
   // Auto-focus on date field when component mounts
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -147,6 +164,16 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
       return;
     }
 
+    // Prevent selecting the same account as the register account
+    if (accountId === registerAccountId) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Account",
+        description: "Cannot select the same account as the register account",
+      });
+      return;
+    }
+
     // Enforce rule
     if (ruleLock === 'none') {
       toast({
@@ -164,22 +191,19 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
     setLoading(true);
     try {
       const amountValue = Number(amount);
-      // The posting rule tells us what is allowed for the REGISTER account side.
-      // So, line for registerAccountId: debit if ruleLock==debit, credit if ruleLock==credit; both if 'both' (controlled by toggle)
-      // Counter account is always opposite side.
       const regSide = ruleLock === 'both' ? debitCredit : ruleLock;
       let lines;
       if (regSide === 'debit') {
         lines = [
           {
             accountId: registerAccountId,
-            description: memo || payee || undefined,
+            description: memo,
             debit: amountValue,
             credit: 0,
           },
           {
             accountId: accountId,
-            description: memo || payee || undefined,
+            description: memo,
             debit: 0,
             credit: amountValue,
           }
@@ -189,13 +213,13 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
         lines = [
           {
             accountId: registerAccountId,
-            description: memo || payee || undefined,
+            description: memo,
             debit: 0,
             credit: amountValue,
           },
           {
             accountId: accountId,
-            description: memo || payee || undefined,
+            description: memo,
             debit: amountValue,
             credit: 0,
           }
@@ -204,10 +228,11 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
 
       const data = {
         entryDate,
-        description: payee || memo || refNo || 'Transaction Entry',
+        description: memo,
         status: 'POSTED' as JournalEntryStatus,
         transactionType: transactionType,
-        payee: payee || undefined,
+        payee: payee,
+        entryNumber: refNo || undefined,
         lines,
       };
 
@@ -292,6 +317,21 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
   };
 
   const selectedAccount = accounts.find(acc => acc.id === accountId);
+  const registerAccount = accounts.find(acc => acc.id === registerAccountId);
+
+  // Filter transaction types based on posting rules for the register account
+  // If register account is not loaded yet, show all types temporarily
+  const allowedTransactionTypes = registerAccount
+    ? TRANSACTION_TYPES.filter((type) => {
+        const rule = getPostingRule(registerAccount.subType, type.value);
+        return rule !== 'none';
+      })
+    : TRANSACTION_TYPES;
+
+  // Don't show form if there are no allowed transaction types (and register account is loaded)
+  if (registerAccount && allowedTransactionTypes.length === 0) {
+    return null;
+  }
 
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-lg mb-2">
@@ -309,7 +349,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TRANSACTION_TYPES.map((type) => {
+                {allowedTransactionTypes.map((type) => {
                   return (
                     <SelectItem key={type.value} value={type.value}>
                       {type.label}
@@ -438,26 +478,28 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
                 <CommandList>
                   <CommandEmpty>No account found.</CommandEmpty>
                   <CommandGroup>
-                    {accounts.map((account) => (
-                      <CommandItem
-                        key={account.id}
-                        value={account.id}
-                        onSelect={() => {
-                          setAccountId(account.id);
-                          setAccountOpen(false);
-                          setTimeout(() => {
-                            if (amountInputRef.current) {
-                              amountInputRef.current.focus();
-                              amountInputRef.current.select();
-                            }
-                          }, 50);
-                        }}
-                      >
-                        <Check className="mr-2 h-4 w-4 opacity-0 data-[selected=true]:opacity-100" />
-                        <span className="font-mono text-xs">{account.code}</span>
-                        <span className="ml-2 text-sm">{account.name}</span>
-                      </CommandItem>
-                    ))}
+                    {accounts
+                      .filter((account) => account.id !== registerAccountId)
+                      .map((account) => (
+                        <CommandItem
+                          key={account.id}
+                          value={account.id}
+                          onSelect={() => {
+                            setAccountId(account.id);
+                            setAccountOpen(false);
+                            setTimeout(() => {
+                              if (amountInputRef.current) {
+                                amountInputRef.current.focus();
+                                amountInputRef.current.select();
+                              }
+                            }, 50);
+                          }}
+                        >
+                          <Check className="mr-2 h-4 w-4 opacity-0 data-[selected=true]:opacity-100" />
+                          <span className="font-mono text-xs">{account.code}</span>
+                          <span className="ml-2 text-sm">{account.name}</span>
+                        </CommandItem>
+                      ))}
                   </CommandGroup>
                 </CommandList>
               </Command>
