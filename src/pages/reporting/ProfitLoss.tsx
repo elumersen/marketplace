@@ -6,12 +6,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { Input } from '@/components/ui/input';
+// import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { accountAPI, getErrorMessage } from '@/lib/api';
 import { Account, AccountType } from '@/types/api.types';
 import { ChevronDown, ChevronRight, TrendingUp } from 'lucide-react';
-import { format } from 'date-fns';
+// import { format } from 'date-fns';s
 
 interface AccountGroup {
   type: AccountType;
@@ -37,8 +37,8 @@ const PROFIT_LOSS_TYPES: AccountType[] = [
 export const ProfitLoss = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
-  const [startDate, setStartDate] = useState<Date>(new Date(new Date().getFullYear(), 0, 1));
-  const [endDate, setEndDate] = useState<Date>(new Date());
+  // const [startDate, setStartDate] = useState<Date>(new Date(new Date().getFullYear(), 0, 1));
+  // const [endDate, setEndDate] = useState<Date>(new Date());
   const [expandedTypes, setExpandedTypes] = useState<Set<AccountType>>(
     new Set(PROFIT_LOSS_TYPES)
   );

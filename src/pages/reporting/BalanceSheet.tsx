@@ -6,12 +6,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { Input } from '@/components/ui/input';
+// import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { accountAPI, getErrorMessage } from '@/lib/api';
 import { Account, AccountType } from '@/types/api.types';
 import { ChevronDown, ChevronRight, FileText } from 'lucide-react';
-import { format } from 'date-fns';
+// import { format } from 'date-fns';
 
 interface AccountGroup {
   type: AccountType;
@@ -63,7 +63,7 @@ const SUBTYPE_MAPPING: Record<string, string[]> = {
 export const BalanceSheet = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
-  const [asOfDate, setAsOfDate] = useState<Date>(new Date());
+  // const [asOfDate, setAsOfDate] = useState<Date>(new Date());
   const [expandedTypes, setExpandedTypes] = useState<Set<AccountType>>(
     new Set(BALANCE_SHEET_TYPES)
   );
