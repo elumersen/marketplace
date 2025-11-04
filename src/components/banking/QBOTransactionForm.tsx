@@ -81,6 +81,8 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
   const debitCreditRef = useRef<HTMLButtonElement>(null);
   const amountInputRef = useRef<HTMLInputElement>(null);
   const memoInputRef = useRef<HTMLInputElement>(null);
+  const payeeCommandListRef = useRef<HTMLDivElement>(null);
+  const accountCommandListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadAutocompleteData();
@@ -424,8 +426,43 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
                   placeholder="Search customer/vendor..." 
                   value={payee}
                   onValueChange={setPayee}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Tab' && !e.shiftKey) {
+                      const filteredPayees = getFilteredPayees(payee);
+                      if (filteredPayees.length > 0) {
+                        e.preventDefault();
+                        // Find the highlighted item (cmdk uses aria-selected="true")
+                        const highlightedItem = payeeCommandListRef.current?.querySelector(
+                          '[cmdk-item][aria-selected="true"]'
+                        ) as HTMLElement | null;
+                        
+                        let selectedPayee: { type: string; name: string } | null = null;
+                        
+                        if (highlightedItem) {
+                          // Extract the payee name from the highlighted item
+                          // The item contains: <Check /> <span>Name</span> <span>Type</span>
+                          const spans = highlightedItem.querySelectorAll('span');
+                          const payeeName = spans[0]?.textContent?.trim() || '';
+                          selectedPayee = filteredPayees.find(p => p.name === payeeName) || null;
+                        }
+                        
+                        // Fall back to first item if no highlighted item found
+                        if (!selectedPayee) {
+                          selectedPayee = filteredPayees[0];
+                        }
+                        
+                        setPayee(selectedPayee.name);
+                        setPayeeOpen(false);
+                        setTimeout(() => {
+                          if (accountInputRef.current) {
+                            accountInputRef.current.click();
+                          }
+                        }, 50);
+                      }
+                    }
+                  }}
                 />
-                <CommandList>
+                <CommandList ref={payeeCommandListRef}>
                   <CommandEmpty>No customer/vendor found.</CommandEmpty>
                   <CommandGroup>
                     {getFilteredPayees(payee).map((p, idx) => (
@@ -474,8 +511,46 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
             </PopoverTrigger>
             <PopoverContent className="w-[30rem] p-0" align="start">
               <Command>
-                <CommandInput placeholder="Search account..." />
-                <CommandList>
+                <CommandInput 
+                  placeholder="Search account..." 
+                  onKeyDown={(e) => {
+                    if (e.key === 'Tab' && !e.shiftKey) {
+                      const filteredAccounts = accounts.filter((account) => account.id !== registerAccountId);
+                      if (filteredAccounts.length > 0) {
+                        e.preventDefault();
+                        // Find the highlighted item (cmdk uses aria-selected="true")
+                        const highlightedItem = accountCommandListRef.current?.querySelector(
+                          '[cmdk-item][aria-selected="true"]'
+                        ) as HTMLElement | null;
+                        
+                        let selectedAccount: Account | null = null;
+                        
+                        if (highlightedItem) {
+                          // Extract the account code from the highlighted item
+                          // The item contains: <Check /> <span>Code</span> <span>Name</span>
+                          const spans = highlightedItem.querySelectorAll('span');
+                          const accountCode = spans[0]?.textContent?.trim() || '';
+                          selectedAccount = filteredAccounts.find(a => a.code === accountCode) || null;
+                        }
+                        
+                        // Fall back to first account if no highlighted item found
+                        if (!selectedAccount) {
+                          selectedAccount = filteredAccounts[0];
+                        }
+                        
+                        setAccountId(selectedAccount.id);
+                        setAccountOpen(false);
+                        setTimeout(() => {
+                          if (amountInputRef.current) {
+                            amountInputRef.current.focus();
+                            amountInputRef.current.select();
+                          }
+                        }, 50);
+                      }
+                    }
+                  }}
+                />
+                <CommandList ref={accountCommandListRef}>
                   <CommandEmpty>No account found.</CommandEmpty>
                   <CommandGroup>
                     {accounts
@@ -483,7 +558,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
                       .map((account) => (
                         <CommandItem
                           key={account.id}
-                          value={account.id}
+                          value={`${account.code} ${account.name}`}
                           onSelect={() => {
                             setAccountId(account.id);
                             setAccountOpen(false);
