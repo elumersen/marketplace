@@ -10,7 +10,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { accountAPI, getErrorMessage } from '@/lib/api';
 import { Account, AccountType } from '@/types/api.types';
-import { ChevronDown, ChevronRight, FileText } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 // import { format } from 'date-fns';
 
 interface AccountGroup {
@@ -62,6 +63,7 @@ const SUBTYPE_MAPPING: Record<string, string[]> = {
 
 export const BalanceSheet = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [plAccounts, setPlAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   // const [asOfDate, setAsOfDate] = useState<Date>(new Date());
   const [expandedTypes, setExpandedTypes] = useState<Set<AccountType>>(
@@ -80,7 +82,7 @@ export const BalanceSheet = () => {
       setLoading(true);
       const allAccounts: Account[] = [];
       
-      // Fetch accounts for each type
+      // Fetch accounts for each balance sheet type
       for (const type of BALANCE_SHEET_TYPES) {
         const response = await accountAPI.getAll({ 
           type, 
@@ -93,6 +95,29 @@ export const BalanceSheet = () => {
       }
       
       setAccounts(allAccounts);
+
+      // Fetch P&L accounts for Net Income calculation
+      const plAccountTypes: AccountType[] = [
+        AccountType.Income,
+        AccountType.Other_Income,
+        AccountType.Expense,
+        AccountType.Other_Expense,
+        AccountType.Cost_of_Goods_Sold,
+      ];
+      
+      const allPlAccounts: Account[] = [];
+      for (const type of plAccountTypes) {
+        const response = await accountAPI.getAll({ 
+          type, 
+          isActive: true,
+          all: 'true'
+        });
+        if (response.data) {
+          allPlAccounts.push(...response.data);
+        }
+      }
+      
+      setPlAccounts(allPlAccounts);
     } catch (err) {
       toast({
         variant: 'destructive',
@@ -109,7 +134,10 @@ export const BalanceSheet = () => {
     const groups: Record<string, AccountGroup> = {};
     
     BALANCE_SHEET_TYPES.forEach(type => {
-      const typeAccounts = accounts.filter(acc => acc.type === type);
+      // Filter out Net_Income accounts since we calculate it dynamically from P&L
+      const typeAccounts = accounts.filter(acc => 
+        acc.type === type && acc.subType !== 'Net_Income'
+      );
       if (typeAccounts.length > 0) {
         const total = typeAccounts.reduce((sum, acc) => sum + acc.balance, 0);
         groups[type] = {
@@ -193,6 +221,33 @@ export const BalanceSheet = () => {
     setExpandedSubTypes(newExpanded);
   };
 
+  // Calculate Net Income from P&L accounts
+  const netIncome = useMemo(() => {
+    const incomeGroups: Record<string, Account[]> = {};
+    
+    // Group P&L accounts by type
+    plAccounts.forEach(acc => {
+      if (!incomeGroups[acc.type]) {
+        incomeGroups[acc.type] = [];
+      }
+      incomeGroups[acc.type].push(acc);
+    });
+
+    // Calculate total income
+    const income = (incomeGroups[AccountType.Income] || []).reduce((sum, acc) => sum + acc.balance, 0);
+    const otherIncome = (incomeGroups[AccountType.Other_Income] || []).reduce((sum, acc) => sum + acc.balance, 0);
+    const totalIncome = income + otherIncome;
+
+    // Calculate total expenses
+    const expense = (incomeGroups[AccountType.Expense] || []).reduce((sum, acc) => sum + acc.balance, 0);
+    const otherExpense = (incomeGroups[AccountType.Other_Expense] || []).reduce((sum, acc) => sum + acc.balance, 0);
+    const cogs = (incomeGroups[AccountType.Cost_of_Goods_Sold] || []).reduce((sum, acc) => sum + acc.balance, 0);
+    const totalExpenses = expense + otherExpense + cogs;
+
+    // Net Income = Income - Expenses
+    return totalIncome - totalExpenses;
+  }, [plAccounts]);
+
   // Calculate totals
   const totalAssets = useMemo(() => {
     const currentAssets = groupedAccounts[AccountType.Current_Assets]?.total || 0;
@@ -205,12 +260,19 @@ export const BalanceSheet = () => {
   }, [groupedAccounts]);
 
   const totalEquity = useMemo(() => {
-    return groupedAccounts[AccountType.Equity]?.total || 0;
-  }, [groupedAccounts]);
+    // Equity accounts total + Net Income
+    const equityAccountsTotal = groupedAccounts[AccountType.Equity]?.total || 0;
+    return equityAccountsTotal + netIncome;
+  }, [groupedAccounts, netIncome]);
 
   const totalLiabilitiesAndEquity = useMemo(() => {
     return totalLiabilities + totalEquity;
   }, [totalLiabilities, totalEquity]);
+
+  // Calculate difference for validation
+  const balanceDifference = useMemo(() => {
+    return totalAssets - totalLiabilitiesAndEquity;
+  }, [totalAssets, totalLiabilitiesAndEquity]);
 
   if (loading) {
     return (
@@ -252,6 +314,17 @@ export const BalanceSheet = () => {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Balance validation alert */}
+          {Math.abs(balanceDifference) > 0.01 && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Balance Sheet Out of Balance:</strong> Total Assets ({formatCurrency(totalAssets)}) 
+                does not equal Total Liabilities & Equity ({formatCurrency(totalLiabilitiesAndEquity)}). 
+                Difference: {formatCurrency(Math.abs(balanceDifference))}
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Left Column: Assets */}
             <div className="space-y-1">
@@ -596,14 +669,24 @@ export const BalanceSheet = () => {
                 </Collapsible>
               )}
 
-              {/* Total Equity */}
+              {/* Net Income (calculated from P&L) */}
+              <div className="flex items-center justify-between p-2 pl-6 border-t border-b my-2">
+                <span className="font-semibold text-sm">
+                  Net Income
+                </span>
+                <span className="font-semibold text-sm">
+                  {formatCurrency(netIncome)}
+                </span>
+              </div>
+
+              {/* Total Equity (accounts + Net Income) */}
               {groupedAccounts[AccountType.Equity] && (
                 <div className="flex items-center justify-between p-2 pl-6">
                   <span className="font-semibold text-sm">
                     Total Equity
                   </span>
                   <span className="font-semibold text-sm">
-                    {formatCurrency(groupedAccounts[AccountType.Equity].total)}
+                    {formatCurrency(totalEquity)}
                   </span>
                 </div>
               )}
@@ -613,6 +696,13 @@ export const BalanceSheet = () => {
                 <span className="font-bold text-base">Total Liabilities & Equity</span>
                 <span className="font-bold">{formatCurrency(totalLiabilitiesAndEquity)}</span>
               </div>
+              
+              {/* Balance validation indicator */}
+              {Math.abs(balanceDifference) <= 0.01 && (
+                <div className="flex items-center justify-center p-2 text-xs text-green-600">
+                  <span>✓ Balance Sheet is balanced</span>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
