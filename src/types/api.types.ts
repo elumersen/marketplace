@@ -189,18 +189,22 @@ export interface Invoice {
   taxAmount: number;
   totalAmount: number;
   paidAmount: number;
+  balanceDue?: number;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
-  items?: InvoiceItem[];
+  lines?: InvoiceLine[];
+  journalEntry?: JournalEntry;
 }
 
-export interface InvoiceItem {
+export interface InvoiceLine {
   id: string;
   invoiceId: string;
-  itemId: string | null;
+  itemId: string;
   item?: Item;
-  description: string;
+  accountId?: string;
+  account?: Account;
+  description: string | null;
   quantity: number;
   unitPrice: number;
   amount: number;
@@ -212,17 +216,21 @@ export enum InvoiceStatus {
   PAID = 'PAID',
   PARTIALLY_PAID = 'PARTIALLY_PAID',
   OVERDUE = 'OVERDUE',
-  CANCELLED = 'CANCELLED',
+  VOID = 'VOID',
 }
 
 export interface CreateInvoiceData {
+  invoiceNumber: string;
   customerId: string;
   invoiceDate: string;
   dueDate: string;
+  status?: InvoiceStatus;
+  taxAmount?: number;
   notes?: string;
-  items: Array<{
-    itemId?: string;
-    description: string;
+  lines: Array<{
+    itemId: string;
+    accountId?: string;
+    description?: string;
     quantity: number;
     unitPrice: number;
   }>;

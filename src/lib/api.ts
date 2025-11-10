@@ -290,11 +290,16 @@ export const vendorAPI = {
 };
 
 export const invoiceAPI = {
-  getAll: (params?: InvoiceQueryParams): Promise<Invoice[]> => api.get<Invoice[]>('/invoices', { params }),
-  getById: (id: string): Promise<Invoice> => api.get<Invoice>(`/invoices/${id}`),
-  create: (data: CreateInvoiceData): Promise<Invoice> => api.post<Invoice>('/invoices', data),
-  update: (id: string, data: Partial<CreateInvoiceData>): Promise<Invoice> => api.put<Invoice>(`/invoices/${id}`, data),
-  delete: (id: string): Promise<void> => api.delete(`/invoices/${id}`),
+  getAll: (params?: InvoiceQueryParams): Promise<{ invoices: Invoice[] }> => 
+    api.get<{ invoices: Invoice[] }>('/invoices', { params }),
+  getById: (id: string): Promise<{ invoice: Invoice }> => 
+    api.get<{ invoice: Invoice }>(`/invoices/${id}`),
+  create: (data: CreateInvoiceData): Promise<{ message: string; invoice: Invoice }> => 
+    api.post<{ message: string; invoice: Invoice }>('/invoices', data),
+  update: (id: string, data: Partial<CreateInvoiceData>): Promise<{ message: string; invoice: Invoice }> => 
+    api.put<{ message: string; invoice: Invoice }>(`/invoices/${id}`, data),
+  delete: (id: string): Promise<{ message: string }> => 
+    api.delete<{ message: string }>(`/invoices/${id}`),
 };
 
 export const billAPI = {
