@@ -322,7 +322,7 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({
         </CardContent>
       </Card>
 
-      {invoice.receivePayments && invoice.receivePayments.length > 0 && (
+      {/* {invoice.receivePayments && invoice.receivePayments.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Payments</CardTitle>
@@ -360,7 +360,7 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({
             </div>
           </CardContent>
         </Card>
-      )}
+      )} */}
     </div>
   );
 };
