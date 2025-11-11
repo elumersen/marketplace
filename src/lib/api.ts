@@ -14,6 +14,7 @@ import type {
   CreateVendorData,
   Item,
   CreateItemData,
+  ItemType,
   Invoice,
   CreateInvoiceData,
   InvoiceQueryParams,
@@ -311,11 +312,14 @@ export const billAPI = {
 };
 
 export const itemAPI = {
-  getAll: (): Promise<Item[]> => api.get<Item[]>('/items'),
-  getById: (id: string): Promise<Item> => api.get<Item>(`/items/${id}`),
-  create: (data: CreateItemData): Promise<Item> => api.post<Item>('/items', data),
-  update: (id: string, data: Partial<CreateItemData>): Promise<Item> => api.put<Item>(`/items/${id}`, data),
-  delete: (id: string): Promise<void> => api.delete(`/items/${id}`),
+  getAll: (params?: { isActive?: boolean; type?: ItemType }): Promise<{ items: Item[] }> =>
+    api.get<{ items: Item[] }>('/items', { params }),
+  getById: (id: string): Promise<{ item: Item }> => api.get<{ item: Item }>(`/items/${id}`),
+  create: (data: CreateItemData & { description?: string; sku?: string; cost?: number; taxable?: boolean }): Promise<{ message: string; item: Item }> =>
+    api.post<{ message: string; item: Item }>('/items', data),
+  update: (id: string, data: Partial<CreateItemData> & { description?: string; sku?: string; cost?: number; taxable?: boolean; isActive?: boolean }): Promise<{ message: string; item: Item }> =>
+    api.put<{ message: string; item: Item }>(`/items/${id}`, data),
+  delete: (id: string): Promise<{ message: string }> => api.delete<{ message: string }>(`/items/${id}`),
 };
 
 export const journalEntryAPI = {
@@ -351,4 +355,3 @@ export const reconciliationAPI = {
 
 // Export the main axios instance for advanced use cases
 export default apiClient;
-
