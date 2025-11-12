@@ -10,6 +10,7 @@ import { Customers } from '@/pages/income/Customers';
 import { Invoices } from '@/pages/income/Invoices';
 import { ReceivePayments } from '@/pages/income/ReceivePayments';
 import { ItemsServices } from '@/pages/income/ItemsServices';
+import { Proposals } from '@/pages/income/Proposals';
 // Expenses pages
 import { Vendors } from '@/pages/expenses/Vendors';
 import { Bills } from '@/pages/expenses/Bills';
@@ -27,6 +28,7 @@ import { BalanceSheet } from '@/pages/reporting/BalanceSheet';
 // Settings
 import { Settings } from '@/pages/Settings';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { RecurringTransactions } from '@/pages/accounting/RecurringTransactions';
 
 function App() {
   return (
@@ -50,6 +52,7 @@ function App() {
               <Route path="/customers" element={<Customers />} />
               <Route path="/invoices" element={<Invoices />} />
               <Route path="/receive-payments" element={<ReceivePayments />} />
+              <Route path="/proposals" element={<Proposals />} />
               <Route path="/items-services" element={<ItemsServices />} />
               
               {/* Expenses */}
@@ -66,6 +69,7 @@ function App() {
               {/* Accounting */}
               <Route path="/chart-of-accounts" element={<ChartOfAccounts />} />
               <Route path="/journal-entries" element={<JournalEntries />} />
+              <Route path="/recurring-transactions" element={<RecurringTransactions />} />
               
               {/* Reporting */}
               <Route path="/profit-loss" element={<ProfitLoss />} />
