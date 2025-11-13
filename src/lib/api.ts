@@ -18,6 +18,9 @@ import type {
   Invoice,
   CreateInvoiceData,
   InvoiceQueryParams,
+  ReceivePayment,
+  CreateReceivePaymentData,
+  UpdateReceivePaymentData,
   Bill,
   CreateBillData,
   BillQueryParams,
@@ -301,6 +304,19 @@ export const invoiceAPI = {
     api.put<{ message: string; invoice: Invoice }>(`/invoices/${id}`, data),
   delete: (id: string): Promise<{ message: string }> => 
     api.delete<{ message: string }>(`/invoices/${id}`),
+};
+
+export const receivePaymentAPI = {
+  getAll: (params?: { invoiceId?: string; bankAccountId?: string; startDate?: string; endDate?: string }): Promise<{ receivePayments: ReceivePayment[] }> => 
+    api.get<{ receivePayments: ReceivePayment[] }>('/receive-payments', { params }),
+  getById: (id: string): Promise<{ receivePayment: ReceivePayment }> => 
+    api.get<{ receivePayment: ReceivePayment }>(`/receive-payments/${id}`),
+  create: (data: CreateReceivePaymentData): Promise<{ message: string; receivePayment: ReceivePayment }> => 
+    api.post<{ message: string; receivePayment: ReceivePayment }>('/receive-payments', data),
+  update: (id: string, data: UpdateReceivePaymentData): Promise<{ message: string; receivePayment: ReceivePayment }> => 
+    api.put<{ message: string; receivePayment: ReceivePayment }>(`/receive-payments/${id}`, data),
+  delete: (id: string): Promise<{ message: string }> => 
+    api.delete<{ message: string }>(`/receive-payments/${id}`),
 };
 
 export const billAPI = {

@@ -318,7 +318,7 @@ export const BalanceSheet = () => {
           {Math.abs(balanceDifference) > 0.01 && (
             <Alert variant="destructive" className="mb-6">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
+              <AlertDescription className="mt-[2px]">
                 <strong>Balance Sheet Out of Balance:</strong> Total Assets ({formatCurrency(totalAssets)}) 
                 does not equal Total Liabilities & Equity ({formatCurrency(totalLiabilitiesAndEquity)}). 
                 Difference: {formatCurrency(Math.abs(balanceDifference))}
