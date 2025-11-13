@@ -15,10 +15,11 @@ import {
   CreditCard,
   Landmark,
   BookOpen,
-  BarChart3,
   Settings,
   LogOut,
   ChevronRight,
+  Repeat,
+  BookOpenText,
 } from 'lucide-react';
 
 const navigation = [
@@ -27,6 +28,7 @@ const navigation = [
   { name: 'Customers', href: '/customers', icon: Users },
   { name: 'Invoices', href: '/invoices', icon: FileText },
   { name: 'Receive Payments', href: '/receive-payments', icon: DollarSign },
+  { name: 'Proposals', href: '/proposals', icon: FileText },
   { name: 'Items & Services', href: '/items-services', icon: Package },
   { section: 'Expenses' },
   { name: 'Vendors', href: '/vendors', icon: Building2 },
@@ -37,8 +39,9 @@ const navigation = [
   { name: 'Registers', href: '/registers', icon: BookOpen },
   { name: 'Reconciliations', href: '/reconciliations', icon: Landmark },
   { section: 'Accounting' },
-  { name: 'Chart of Accounts', href: '/chart-of-accounts', icon: BarChart3 },
+  { name: 'Chart of Accounts', href: '/chart-of-accounts', icon: BookOpenText },
   { name: 'Journal Entries', href: '/journal-entries', icon: BookOpen },
+  { name: 'Recurring Transactions', href: '/recurring-transactions', icon: Repeat },
   { section: 'Reporting' },
   { name: 'Profit & Loss', href: '/profit-loss', icon: TrendingUp },
   { name: 'Balance Sheet', href: '/balance-sheet', icon: FileText },

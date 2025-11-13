@@ -160,6 +160,10 @@ export interface Item {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  taxable: boolean;
+  cost: number | null;
+  incomeAccount?: Account | null;
+  expenseAccount?: Account | null;
 }
 
 export enum ItemType {
@@ -174,6 +178,8 @@ export interface CreateItemData {
   unitPrice: number;
   incomeAccountId?: string;
   expenseAccountId?: string;
+  taxable?: boolean;
+  cost?: number;
 }
 
 // Invoice types
@@ -194,6 +200,7 @@ export interface Invoice {
   createdAt: string;
   updatedAt: string;
   lines?: InvoiceLine[];
+  receivePayments?: ReceivePayment[];
   journalEntry?: JournalEntry;
 }
 
@@ -234,6 +241,51 @@ export interface CreateInvoiceData {
     quantity: number;
     unitPrice: number;
   }>;
+}
+
+// Receive Payment types
+export interface ReceivePayment {
+  id: string;
+  invoiceId: string;
+  invoice?: Invoice;
+  bankAccountId: string;
+  bankAccount?: BankAccount;
+  paymentDate: string;
+  amount: number;
+  referenceNumber: string | null;
+  notes: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  journalEntry?: JournalEntry;
+  transaction?: Transaction;
+  createdByUser?: {
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+  updatedByUser?: {
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+}
+
+export interface CreateReceivePaymentData {
+  invoiceId: string;
+  bankAccountId: string;
+  paymentDate: string;
+  amount: number;
+  referenceNumber?: string;
+  notes?: string;
+}
+
+export interface UpdateReceivePaymentData {
+  paymentDate?: string;
+  amount?: number;
+  referenceNumber?: string;
+  notes?: string;
+  isActive?: boolean;
 }
 
 // Bill types
@@ -533,4 +585,3 @@ export interface AccountQueryParams {
   sortOrder?: 'asc' | 'desc';
   all?: string; // 'true' to fetch all accounts without pagination
 }
-
