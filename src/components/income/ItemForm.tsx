@@ -37,11 +37,9 @@ interface ItemFormProps {
   initialData?: Partial<CreateItemData> & {
     id?: string;
     description?: string;
-    unitPrice?: number;
+    amount?: number;
     incomeAccountId?: string | null;
     expenseAccountId?: string | null;
-    taxable?: boolean;
-    cost?: number | null;
     isActive?: boolean;
   };
   onSuccess: (item: Item) => void;
@@ -72,12 +70,10 @@ export const ItemForm: React.FC<ItemFormProps> = ({
   const [formData, setFormData] = useState({
     name: initialData?.name ?? '',
     description: initialData?.description ?? '',
-    type: initialData?.type ?? ItemType.SERVICE,
-    unitPrice: initialData?.unitPrice ?? 0,
+    type: initialData?.type ?? ItemType.INCOME,
+    amount: initialData?.amount ?? 0,
     incomeAccountId: initialData?.incomeAccountId ?? '',
     expenseAccountId: initialData?.expenseAccountId ?? '',
-    taxable: initialData?.taxable ?? false,
-    cost: initialData?.cost ?? 0,
     isActive: initialData?.isActive ?? true,
   });
 
@@ -120,9 +116,22 @@ export const ItemForm: React.FC<ItemFormProps> = ({
       return;
     }
 
-    if (!formData.unitPrice || formData.unitPrice < 0) {
-      setError('Unit price must be zero or greater');
+    if (!formData.amount || formData.amount < 0) {
+      setError('Amount must be zero or greater');
       return;
+    }
+
+    // Validate account requirements based on type
+    if (formData.type === ItemType.INCOME) {
+      if (!formData.incomeAccountId || formData.incomeAccountId === 'none') {
+        setError('Income account is required for income items');
+        return;
+      }
+    } else if (formData.type === ItemType.EXPENSE) {
+      if (!formData.expenseAccountId || formData.expenseAccountId === 'none') {
+        setError('Expense account is required for expense items');
+        return;
+      }
     }
 
     try {
@@ -130,24 +139,20 @@ export const ItemForm: React.FC<ItemFormProps> = ({
 
       const payload: CreateItemData & {
         description?: string;
-        taxable?: boolean;
-        cost?: number;
         isActive?: boolean;
       } = {
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
         type: formData.type,
-        unitPrice: Number(formData.unitPrice),
+        amount: Number(formData.amount),
         incomeAccountId:
-          !formData.incomeAccountId || formData.incomeAccountId === 'none'
-            ? undefined
-            : formData.incomeAccountId,
+          formData.type === ItemType.INCOME && formData.incomeAccountId && formData.incomeAccountId !== 'none'
+            ? formData.incomeAccountId
+            : undefined,
         expenseAccountId:
-          !formData.expenseAccountId || formData.expenseAccountId === 'none'
-            ? undefined
-            : formData.expenseAccountId,
-        taxable: formData.taxable,
-        cost: formData.cost ? Number(formData.cost) : undefined,
+          formData.type === ItemType.EXPENSE && formData.expenseAccountId && formData.expenseAccountId !== 'none'
+            ? formData.expenseAccountId
+            : undefined,
         isActive: formData.isActive,
       };
 
@@ -214,53 +219,42 @@ export const ItemForm: React.FC<ItemFormProps> = ({
               <Label htmlFor="type">Type *</Label>
               <Select
                 value={formData.type}
-                onValueChange={(value: ItemType) =>
-                  setFormData((prev) => ({ ...prev, type: value }))
-                }
+                onValueChange={(value: ItemType) => {
+                  // Clear account selections when type changes
+                  setFormData((prev) => ({
+                    ...prev,
+                    type: value,
+                    incomeAccountId: value === ItemType.INCOME ? prev.incomeAccountId : '',
+                    expenseAccountId: value === ItemType.EXPENSE ? prev.expenseAccountId : '',
+                  }));
+                }}
               >
                 <SelectTrigger id="type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ItemType.SERVICE}>Service</SelectItem>
-                  <SelectItem value={ItemType.PRODUCT}>Product</SelectItem>
+                  <SelectItem value={ItemType.INCOME}>Income</SelectItem>
+                  <SelectItem value={ItemType.EXPENSE}>Expense</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="unitPrice">Unit Price *</Label>
+              <Label htmlFor="amount">Amount *</Label>
               <Input
-                id="unitPrice"
+                id="amount"
                 type="number"
                 step="0.01"
                 min={0}
-                value={formData.unitPrice}
+                value={formData.amount}
                 onChange={(event) =>
                   setFormData((prev) => ({
                     ...prev,
-                    unitPrice: Number(event.target.value),
+                    amount: Number(event.target.value),
                   }))
                 }
                 placeholder="0.00"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="cost">Cost (optional)</Label>
-              <Input
-                id="cost"
-                type="number"
-                step="0.01"
-                min={0}
-                value={formData.cost}
-                onChange={(event) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    cost: Number(event.target.value),
-                  }))
-                }
-                placeholder="0.00"
+                required
               />
             </div>
           </div>
@@ -284,33 +278,35 @@ export const ItemForm: React.FC<ItemFormProps> = ({
           <Separator />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="incomeAccountId">Income Account</Label>
-              <Select
-                value={formData.incomeAccountId || undefined}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    incomeAccountId: value,
-                  }))
-                }
-              >
-                <SelectTrigger id="incomeAccountId">
-                  <SelectValue placeholder="Select income account" />
-                </SelectTrigger>
-                <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                {incomeAccounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.label}
-                  </SelectItem>
-                ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {formData.type === ItemType.INCOME && (
+              <div className="space-y-2">
+                <Label htmlFor="incomeAccountId">Income Account *</Label>
+                <Select
+                  value={formData.incomeAccountId || undefined}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      incomeAccountId: value,
+                    }))
+                  }
+                >
+                  <SelectTrigger id="incomeAccountId">
+                    <SelectValue placeholder="Select income account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {incomeAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="expenseAccountId">Expense Account</Label>
+            {formData.type === ItemType.EXPENSE && (
+              <div className="space-y-2">
+                <Label htmlFor="expenseAccountId">Expense Account *</Label>
                 <Select
                   value={formData.expenseAccountId || undefined}
                   onValueChange={(value) =>
@@ -320,30 +316,19 @@ export const ItemForm: React.FC<ItemFormProps> = ({
                     }))
                   }
                 >
-                <SelectTrigger id="expenseAccountId">
-                  <SelectValue placeholder="Select expense account" />
-                </SelectTrigger>
-                <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                {expenseAccounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.label}
-                  </SelectItem>
-                ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Switch
-              id="taxable"
-              checked={formData.taxable}
-              onCheckedChange={(checked) =>
-                setFormData((prev) => ({ ...prev, taxable: checked }))
-              }
-            />
-            <Label htmlFor="taxable">Taxable</Label>
+                  <SelectTrigger id="expenseAccountId">
+                    <SelectValue placeholder="Select expense account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {expenseAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           {isEditing && (

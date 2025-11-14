@@ -27,7 +27,7 @@ interface ItemDetailProps {
 }
 
 const typeLabel = (type: ItemType) =>
-  type === ItemType.PRODUCT ? 'Product' : 'Service';
+  type === ItemType.INCOME ? 'Income' : 'Expense';
 
 export const ItemDetail: React.FC<ItemDetailProps> = ({
   itemId,
@@ -121,21 +121,9 @@ export const ItemDetail: React.FC<ItemDetailProps> = ({
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <p className="text-sm text-gray-500">Unit Price</p>
+              <p className="text-sm text-gray-500">Amount</p>
               <p className="text-lg font-semibold">
-                {formatCurrency(item.unitPrice)}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Cost</p>
-              <p className="text-lg font-semibold">
-                {item.cost !== null ? formatCurrency(item.cost) : '—'}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Taxable</p>
-              <p className="text-lg font-semibold">
-                {item.taxable ? 'Yes' : 'No'}
+                {formatCurrency(item.amount)}
               </p>
             </div>
           </div>

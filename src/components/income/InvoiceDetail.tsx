@@ -333,28 +333,31 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
-                    <TableHead>Amount</TableHead>
+                    <TableHead>Amount Applied</TableHead>
                     <TableHead>Reference</TableHead>
-                    <TableHead>Bank Account</TableHead>
+                    <TableHead>Total Payment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {invoice.receivePayments.map((payment) => (
-                    <TableRow key={payment.id}>
-                      <TableCell>
-                        {format(new Date(payment.paymentDate), 'MMM dd, yyyy')}
-                      </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {formatCurrency(payment.amount)}
-                      </TableCell>
-                      <TableCell>{payment.referenceNumber || 'N/A'}</TableCell>
-                      <TableCell>
-                        {payment.bankAccount
-                          ? `${payment.bankAccount.name}${payment.bankAccount.accountNumber ? ` (${payment.bankAccount.accountNumber})` : ''}`
-                          : 'N/A'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {invoice.receivePayments.map((rpi) => {
+                    const payment = rpi.receivePayment;
+                    if (!payment) return null;
+                    
+                    return (
+                      <TableRow key={rpi.id}>
+                        <TableCell>
+                          {format(new Date(payment.paymentDate), 'MMM dd, yyyy')}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {formatCurrency(rpi.amount)}
+                        </TableCell>
+                        <TableCell>{payment.referenceNumber || 'N/A'}</TableCell>
+                        <TableCell className="text-right font-mono">
+                          {formatCurrency(payment.amount)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

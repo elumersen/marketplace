@@ -139,7 +139,7 @@ export const Login = () => {
             </Button>
 
             {/* Additional Links */}
-            <div className="pt-4 text-center">
+            {/* <div className="pt-4 text-center">
               <button
                 type="button"
                 className="text-sm text-gray-600 hover:text-indigo-600 transition-colors underline-offset-4 hover:underline"
@@ -147,11 +147,10 @@ export const Login = () => {
               >
                 Forgot your password?
               </button>
-            </div>
+            </div> */}
           </form>
         </CardContent>
       </Card>
     </div>
   );
 };
-

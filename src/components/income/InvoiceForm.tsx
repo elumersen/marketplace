@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -118,7 +118,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
       setNewLine({
         ...newLine,
         itemId: item.id,
-        unitPrice: item.unitPrice,
+        unitPrice: item.amount,
         description: item.description || item.name,
         accountId: (item as any).incomeAccountId || '',
       });
@@ -244,9 +244,6 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>{isEditing ? 'Edit Invoice' : 'Create New Invoice'}</CardTitle>
-              <CardDescription>
-                {isEditing ? 'Update invoice details and line items' : 'Create a new invoice for a customer'}
-              </CardDescription>
             </div>
             <Button type="button" variant="ghost" onClick={onCancel}>
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -490,7 +487,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 <SelectContent>
                   {items.filter(item => item.isActive).map((item) => (
                     <SelectItem key={item.id} value={item.id}>
-                      {item.name} - ${item.unitPrice.toFixed(2)}
+                      {item.name} - ${item.amount.toFixed(2)}
                     </SelectItem>
                   ))}
                 </SelectContent>

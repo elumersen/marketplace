@@ -59,7 +59,7 @@ type StatusFilter = 'all' | 'active' | 'inactive';
 type TypeFilter = 'all' | ItemType;
 
 const typeLabel = (type: ItemType) =>
-  type === ItemType.PRODUCT ? 'Product' : 'Service';
+  type === ItemType.INCOME ? 'Income' : 'Expense';
 
 export const ItemList: React.FC<ItemListProps> = ({
   onView,
@@ -186,8 +186,8 @@ export const ItemList: React.FC<ItemListProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All types</SelectItem>
-                  <SelectItem value={ItemType.PRODUCT}>Product</SelectItem>
-                  <SelectItem value={ItemType.SERVICE}>Service</SelectItem>
+                  <SelectItem value={ItemType.INCOME}>Income</SelectItem>
+                  <SelectItem value={ItemType.EXPENSE}>Expense</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -236,7 +236,7 @@ export const ItemList: React.FC<ItemListProps> = ({
                     <TableHead>Name</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
                     <TableHead>Income Account</TableHead>
                     <TableHead>Expense Account</TableHead>
                     <TableHead>Status</TableHead>
@@ -252,7 +252,7 @@ export const ItemList: React.FC<ItemListProps> = ({
                         {item.description || '—'}
                       </TableCell>
                       <TableCell className="text-right font-mono">
-                        {formatCurrency(item.unitPrice)}
+                        {formatCurrency(item.amount)}
                       </TableCell>
                       <TableCell>
                         {item.incomeAccount
