@@ -99,8 +99,10 @@ export const ReceivePayments = () => {
           {sheetMode === 'edit' && selectedPayment && (
             <ReceivePaymentForm
               initialData={{
-                invoiceId: selectedPayment.invoiceId,
-                bankAccountId: selectedPayment.bankAccountId,
+                invoices: selectedPayment.invoices?.map((rpi) => ({
+                  invoiceId: rpi.invoiceId,
+                  amount: rpi.amount,
+                })),
                 paymentDate: selectedPayment.paymentDate,
                 amount: selectedPayment.amount,
                 referenceNumber: selectedPayment.referenceNumber,

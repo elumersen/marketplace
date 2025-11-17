@@ -331,9 +331,9 @@ export const itemAPI = {
   getAll: (params?: { isActive?: boolean; type?: ItemType }): Promise<{ items: Item[] }> =>
     api.get<{ items: Item[] }>('/items', { params }),
   getById: (id: string): Promise<{ item: Item }> => api.get<{ item: Item }>(`/items/${id}`),
-  create: (data: CreateItemData & { description?: string; sku?: string; cost?: number; taxable?: boolean }): Promise<{ message: string; item: Item }> =>
+  create: (data: CreateItemData & { description?: string; sku?: string }): Promise<{ message: string; item: Item }> =>
     api.post<{ message: string; item: Item }>('/items', data),
-  update: (id: string, data: Partial<CreateItemData> & { description?: string; sku?: string; cost?: number; taxable?: boolean; isActive?: boolean }): Promise<{ message: string; item: Item }> =>
+  update: (id: string, data: Partial<CreateItemData> & { description?: string; sku?: string; isActive?: boolean }): Promise<{ message: string; item: Item }> =>
     api.put<{ message: string; item: Item }>(`/items/${id}`, data),
   delete: (id: string): Promise<{ message: string }> => api.delete<{ message: string }>(`/items/${id}`),
 };

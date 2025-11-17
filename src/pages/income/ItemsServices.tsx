@@ -96,11 +96,9 @@ export const ItemsServices = () => {
                 name: selectedItem.name,
                 description: selectedItem.description ?? '',
                 type: selectedItem.type,
-                unitPrice: selectedItem.unitPrice,
+                amount: selectedItem.amount,
                 incomeAccountId: selectedItem.incomeAccountId ?? undefined,
                 expenseAccountId: selectedItem.expenseAccountId ?? undefined,
-                taxable: selectedItem.taxable,
-                cost: selectedItem.cost ?? undefined,
                 isActive: selectedItem.isActive,
               }}
               onSuccess={handleFormSuccess}
