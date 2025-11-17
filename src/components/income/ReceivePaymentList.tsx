@@ -15,7 +15,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -56,12 +55,10 @@ import {
 import {
   ReceivePayment,
   Invoice,
-  BankAccount,
 } from '@/types/api.types';
 import {
   receivePaymentAPI,
   invoiceAPI,
-  bankAccountAPI,
   getErrorMessage,
 } from '@/lib/api';
 import { format } from 'date-fns';
@@ -73,12 +70,8 @@ interface ReceivePaymentListProps {
   refreshSignal?: number;
 }
 
-type StatusFilter = 'all' | 'active' | 'inactive';
-
 interface Filters {
-  status: StatusFilter;
   invoiceId?: string;
-  bankAccountId?: string;
   startDate?: string;
   endDate?: string;
 }
@@ -98,9 +91,7 @@ export const ReceivePaymentList: React.FC<ReceivePaymentListProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<Filters>({
-    status: 'active',
     invoiceId: undefined,
-    bankAccountId: undefined,
     startDate: '',
     endDate: '',
   });
@@ -109,7 +100,6 @@ export const ReceivePaymentList: React.FC<ReceivePaymentListProps> = ({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null);
   const [invoices, setInvoices] = useState<InvoiceOption[]>([]);
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
 
   useEffect(() => {
     setFilters((prev) => ({
@@ -130,10 +120,7 @@ export const ReceivePaymentList: React.FC<ReceivePaymentListProps> = ({
 
   const loadFilterOptions = async () => {
     try {
-      const [invoiceRes, bankAccountRes] = await Promise.all([
-        invoiceAPI.getAll(),
-        bankAccountAPI.getAll(),
-      ]);
+      const invoiceRes = await invoiceAPI.getAll();
 
       const invoiceOptions =
         invoiceRes.invoices?.map((invoice) => ({
@@ -145,7 +132,6 @@ export const ReceivePaymentList: React.FC<ReceivePaymentListProps> = ({
         })) ?? [];
 
       setInvoices(invoiceOptions);
-      setBankAccounts(bankAccountRes);
     } catch (err) {
       console.error('Failed to load filter options:', err);
     }
@@ -156,15 +142,9 @@ export const ReceivePaymentList: React.FC<ReceivePaymentListProps> = ({
       setLoading(true);
       setError(null);
 
-      const params: Record<string, string | boolean> = {};
-      if (filters.status !== 'all') {
-        params.isActive = filters.status === 'active';
-      }
+      const params: Record<string, string> = {};
       if (filters.invoiceId) {
         params.invoiceId = filters.invoiceId;
-      }
-      if (filters.bankAccountId) {
-        params.bankAccountId = filters.bankAccountId;
       }
       if (filters.startDate) {
         params.startDate = filters.startDate;
@@ -212,27 +192,19 @@ export const ReceivePaymentList: React.FC<ReceivePaymentListProps> = ({
     }).format(amount);
   };
 
-  const statusBadge = (isActive: boolean) => (
-    <Badge variant={isActive ? 'default' : 'secondary'}>
-      {isActive ? 'Active' : 'Inactive'}
-    </Badge>
-  );
-
   const filteredPayments = useMemo(() => {
     if (!searchTerm) return receivePayments;
 
     const lower = searchTerm.toLowerCase();
     return receivePayments.filter((payment) => {
-      const invoiceNumber =
-        payment.invoice?.invoiceNumber?.toLowerCase() ?? '';
-      const customerName =
-        payment.invoice?.customer?.name?.toLowerCase() ?? '';
+      // Check all invoices in the payment
+      const invoiceMatches = payment.invoices?.some((rpi) => {
+        const invoiceNumber = rpi.invoice?.invoiceNumber?.toLowerCase() ?? '';
+        const customerName = rpi.invoice?.customer?.name?.toLowerCase() ?? '';
+        return invoiceNumber.includes(lower) || customerName.includes(lower);
+      });
       const reference = payment.referenceNumber?.toLowerCase() ?? '';
-      return (
-        invoiceNumber.includes(lower) ||
-        customerName.includes(lower) ||
-        reference.includes(lower)
-      );
+      return invoiceMatches || reference.includes(lower);
     });
   }, [receivePayments, searchTerm]);
 
@@ -257,7 +229,7 @@ export const ReceivePaymentList: React.FC<ReceivePaymentListProps> = ({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className="space-y-2">
               <Label htmlFor="search">Search</Label>
               <div className="relative">
@@ -296,53 +268,6 @@ export const ReceivePaymentList: React.FC<ReceivePaymentListProps> = ({
                         : ''}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="bankAccountId">Bank Account</Label>
-              <Select
-                value={filters.bankAccountId ?? 'all'}
-                onValueChange={(value) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    bankAccountId: value === 'all' ? undefined : value,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All bank accounts" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All bank accounts</SelectItem>
-                  {bankAccounts.map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.name}
-                      {account.accountNumber
-                        ? ` (${account.accountNumber})`
-                        : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={filters.status}
-                onValueChange={(value: StatusFilter) =>
-                  setFilters((prev) => ({ ...prev, status: value }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -393,12 +318,9 @@ export const ReceivePaymentList: React.FC<ReceivePaymentListProps> = ({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
-                    <TableHead>Invoice</TableHead>
-                    <TableHead>Customer</TableHead>
+                    <TableHead>Invoices</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Bank Account</TableHead>
                     <TableHead>Reference</TableHead>
-                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -408,26 +330,33 @@ export const ReceivePaymentList: React.FC<ReceivePaymentListProps> = ({
                       <TableCell>
                         {format(new Date(payment.paymentDate), 'MMM dd, yyyy')}
                       </TableCell>
-                      <TableCell className="font-medium">
-                        {payment.invoice?.invoiceNumber ?? '—'}
-                      </TableCell>
                       <TableCell>
-                        {payment.invoice?.customer?.name ?? '—'}
+                        <div className="space-y-1">
+                          {payment.invoices && payment.invoices.length > 0 ? (
+                            payment.invoices.map((rpi, idx) => (
+                              <div key={rpi.id || idx} className="text-sm">
+                                <span className="font-medium">
+                                  {rpi.invoice?.invoiceNumber ?? '—'}
+                                </span>
+                                {rpi.invoice?.customer?.name && (
+                                  <span className="text-muted-foreground ml-2">
+                                    — {rpi.invoice.customer.name}
+                                  </span>
+                                )}
+                                <span className="text-muted-foreground ml-2">
+                                  ({formatCurrency(rpi.amount)})
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         {formatCurrency(payment.amount)}
                       </TableCell>
-                      <TableCell>
-                        {payment.bankAccount
-                          ? `${payment.bankAccount.name}${
-                              payment.bankAccount.accountNumber
-                                ? ` (${payment.bankAccount.accountNumber})`
-                                : ''
-                            }`
-                          : '—'}
-                      </TableCell>
                       <TableCell>{payment.referenceNumber || '—'}</TableCell>
-                      <TableCell>{statusBadge(payment.isActive)}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -472,8 +401,7 @@ export const ReceivePaymentList: React.FC<ReceivePaymentListProps> = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Payment</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this payment? This action cannot
-              be undone.
+              Are you sure you want to delete this payment?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

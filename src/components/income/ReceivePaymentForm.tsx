@@ -22,27 +22,24 @@ import {
   ArrowLeft,
   Save,
   AlertCircle,
-  CalendarDays,
-  Receipt,
+  Plus,
+  X,
 } from 'lucide-react';
 import {
   ReceivePayment,
   CreateReceivePaymentData,
   UpdateReceivePaymentData,
   Invoice,
-  BankAccount,
 } from '@/types/api.types';
 import {
   receivePaymentAPI,
   invoiceAPI,
-  bankAccountAPI,
   getErrorMessage,
 } from '@/lib/api';
 
 interface ReceivePaymentFormProps {
   initialData?: {
-    invoiceId?: string;
-    bankAccountId?: string;
+    invoices?: Array<{ invoiceId: string; amount: number }>;
     paymentDate?: string;
     amount?: number;
     referenceNumber?: string | null;
@@ -59,6 +56,11 @@ type InvoiceOption = Pick<
   'id' | 'invoiceNumber' | 'customer' | 'totalAmount' | 'paidAmount' | 'balanceDue'
 >;
 
+interface InvoicePayment {
+  invoiceId: string;
+  amount: number;
+}
+
 export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
   initialData,
   onSuccess,
@@ -67,15 +69,12 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
   receivePaymentId,
 }) => {
   const [invoices, setInvoices] = useState<InvoiceOption[]>([]);
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [invoicePayments, setInvoicePayments] = useState<InvoicePayment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoiceLoading, setInvoiceLoading] = useState<Record<string, boolean>>({});
 
   const [formData, setFormData] = useState({
-    invoiceId: initialData?.invoiceId ?? '',
-    bankAccountId: initialData?.bankAccountId ?? '',
     paymentDate: initialData?.paymentDate
       ? new Date(initialData.paymentDate)
       : new Date(),
@@ -84,30 +83,22 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
     notes: initialData?.notes ?? '',
   });
 
-  const initialAmount = useMemo(
-    () => initialData?.amount ?? 0,
-    [initialData?.amount]
-  );
-
   useEffect(() => {
     loadOptions();
   }, []);
 
   useEffect(() => {
-    if (formData.invoiceId) {
-      fetchInvoice(formData.invoiceId);
-    } else {
-      setSelectedInvoice(null);
+    if (initialData?.invoices && initialData.invoices.length > 0) {
+      setInvoicePayments(initialData.invoices);
+    } else if (!isEditing) {
+      // Start with one empty invoice payment
+      setInvoicePayments([{ invoiceId: '', amount: 0 }]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.invoiceId]);
+  }, [initialData, isEditing]);
 
   const loadOptions = async () => {
     try {
-      const [invoiceRes, bankAccountRes] = await Promise.all([
-        invoiceAPI.getAll(),
-        bankAccountAPI.getAll(),
-      ]);
+      const invoiceRes = await invoiceAPI.getAll();
 
       const mappedInvoices =
         invoiceRes.invoices?.map((invoice) => ({
@@ -122,34 +113,34 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
         })) ?? [];
 
       setInvoices(mappedInvoices);
-      setBankAccounts(bankAccountRes);
 
-      if (
-        initialData?.invoiceId &&
-        !mappedInvoices.find((inv) => inv.id === initialData.invoiceId)
-      ) {
-        // Ensure the invoice used in editing appears in the list.
-        try {
-          const invoice = await invoiceAPI.getById(initialData.invoiceId);
-          setInvoices((prev) => [
-            ...prev,
-            {
-              id: invoice.invoice.id,
-              invoiceNumber: invoice.invoice.invoiceNumber,
-              customer: invoice.invoice.customer,
-              totalAmount: invoice.invoice.totalAmount,
-              paidAmount: invoice.invoice.paidAmount,
-              balanceDue:
-                invoice.invoice.balanceDue ??
-                Number(
-                  (
-                    invoice.invoice.totalAmount - invoice.invoice.paidAmount
-                  ).toFixed(2)
-                ),
-            },
-          ]);
-        } catch (err) {
-          console.error('Failed to load invoice for editing:', err);
+      // If editing and we have invoice IDs, ensure they're in the list
+      if (isEditing && initialData?.invoices) {
+        for (const invPayment of initialData.invoices) {
+          if (!mappedInvoices.find((inv) => inv.id === invPayment.invoiceId)) {
+            try {
+              const invoice = await invoiceAPI.getById(invPayment.invoiceId);
+              setInvoices((prev) => [
+                ...prev,
+                {
+                  id: invoice.invoice.id,
+                  invoiceNumber: invoice.invoice.invoiceNumber,
+                  customer: invoice.invoice.customer,
+                  totalAmount: invoice.invoice.totalAmount,
+                  paidAmount: invoice.invoice.paidAmount,
+                  balanceDue:
+                    invoice.invoice.balanceDue ??
+                    Number(
+                      (
+                        invoice.invoice.totalAmount - invoice.invoice.paidAmount
+                      ).toFixed(2)
+                    ),
+                },
+              ]);
+            } catch (err) {
+              console.error('Failed to load invoice for editing:', err);
+            }
+          }
         }
       }
     } catch (err) {
@@ -157,72 +148,131 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
     }
   };
 
-  const fetchInvoice = async (invoiceId: string) => {
-    setInvoiceLoading(true);
+  const fetchInvoice = async (invoiceId: string, index: number) => {
+    if (!invoiceId) return;
+    
+    setInvoiceLoading((prev) => ({ ...prev, [index]: true }));
     try {
       const response = await invoiceAPI.getById(invoiceId);
-      setSelectedInvoice(response.invoice);
       const balance =
         response.invoice.balanceDue ??
         Number(
           (response.invoice.totalAmount - response.invoice.paidAmount).toFixed(2)
         );
-      if (!isEditing || formData.amount === 0) {
-        setFormData((prev) => ({
-          ...prev,
-          amount: Number(balance.toFixed(2)),
-        }));
-      }
+      
+      // Update the amount for this invoice payment
+      setInvoicePayments((prev) => {
+        const updated = [...prev];
+        if (updated[index]) {
+          updated[index] = {
+            ...updated[index],
+            invoiceId,
+            amount: balance > 0 ? Number(balance.toFixed(2)) : 0,
+          };
+        }
+        return updated;
+      });
     } catch (err) {
       console.error('Failed to fetch invoice details:', err);
-      setSelectedInvoice(null);
     } finally {
-      setInvoiceLoading(false);
+      setInvoiceLoading((prev) => ({ ...prev, [index]: false }));
     }
+  };
+
+  const addInvoicePayment = () => {
+    setInvoicePayments((prev) => [...prev, { invoiceId: '', amount: 0 }]);
+  };
+
+  const removeInvoicePayment = (index: number) => {
+    setInvoicePayments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateInvoicePayment = (index: number, field: 'invoiceId' | 'amount', value: string | number) => {
+    setInvoicePayments((prev) => {
+      const updated = [...prev];
+      if (updated[index]) {
+        updated[index] = {
+          ...updated[index],
+          [field]: field === 'amount' ? Number(value) : value,
+        };
+      }
+      return updated;
+    });
+
+    if (field === 'invoiceId' && value) {
+      fetchInvoice(value as string, index);
+    }
+  };
+
+  const calculateTotalAmount = useMemo(() => {
+    return invoicePayments.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+  }, [invoicePayments]);
+
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      amount: Number(calculateTotalAmount.toFixed(2)),
+    }));
+  }, [calculateTotalAmount]);
+
+  const getInvoiceBalance = (invoiceId: string) => {
+    if (!invoiceId) return null;
+    const invoice = invoices.find((inv) => inv.id === invoiceId);
+    if (!invoice) return null;
+    return invoice.balanceDue ?? Number((invoice.totalAmount - invoice.paidAmount).toFixed(2));
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
 
-    if (!formData.invoiceId && !isEditing) {
-      setError('Invoice is required');
+    if (invoicePayments.length === 0) {
+      setError('At least one invoice is required');
       return;
     }
 
-    if (!formData.bankAccountId) {
-      setError('Bank account is required');
-      return;
-    }
+    // Validate all invoice payments
+    for (let i = 0; i < invoicePayments.length; i++) {
+      const invPayment = invoicePayments[i];
+      if (!invPayment.invoiceId) {
+        setError(`Invoice ${i + 1} is required`);
+        return;
+      }
+      if (!invPayment.amount || invPayment.amount <= 0) {
+        setError(`Amount for invoice ${i + 1} must be greater than zero`);
+        return;
+      }
 
-    if (!formData.paymentDate) {
-      setError('Payment date is required');
-      return;
-    }
-
-    if (!formData.amount || formData.amount <= 0) {
-      setError('Amount must be greater than zero');
-      return;
-    }
-
-    if (selectedInvoice) {
-      const outstanding = invoiceBalance ?? 0;
-      const allowed = isEditing ? outstanding + initialAmount : outstanding;
-      if (formData.amount > allowed + 0.01) {
+      const balance = getInvoiceBalance(invPayment.invoiceId);
+      if (balance !== null && invPayment.amount > balance + 0.01) {
+        const invoice = invoices.find((inv) => inv.id === invPayment.invoiceId);
         setError(
-          `Amount exceeds the outstanding balance for this invoice (${formatCurrency(
-            allowed
-          )}).`
+          `Amount for invoice ${invoice?.invoiceNumber || invPayment.invoiceId} (${formatCurrency(
+            invPayment.amount
+          )}) exceeds outstanding balance (${formatCurrency(balance)})`
         );
         return;
       }
+    }
+
+    // Validate total amount matches sum of invoice amounts
+    const totalAmount = invoicePayments.reduce((sum, inv) => sum + inv.amount, 0);
+    if (Math.abs(totalAmount - formData.amount) > 0.01) {
+      setError(
+        `Total amount (${formatCurrency(formData.amount)}) must equal sum of invoice amounts (${formatCurrency(totalAmount)})`
+      );
+      return;
     }
 
     try {
       setLoading(true);
       const payloadBase = {
         paymentDate: formData.paymentDate.toISOString(),
-        amount: Number(formData.amount),
+        amount: Number(formData.amount.toFixed(2)),
+        invoices: invoicePayments.map((inv) => ({
+          invoiceId: inv.invoiceId,
+          amount: Number(inv.amount.toFixed(2)),
+        })),
         referenceNumber: formData.referenceNumber
           ? formData.referenceNumber
           : undefined,
@@ -240,12 +290,7 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
         onSuccess(response.receivePayment);
       } else {
         const payload: CreateReceivePaymentData = {
-          invoiceId: formData.invoiceId,
-          bankAccountId: formData.bankAccountId,
-          paymentDate: payloadBase.paymentDate,
-          amount: payloadBase.amount,
-          referenceNumber: payloadBase.referenceNumber,
-          notes: payloadBase.notes,
+          ...payloadBase,
         };
         const response = await receivePaymentAPI.create(payload);
         onSuccess(response.receivePayment);
@@ -258,18 +303,6 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
       setLoading(false);
     }
   };
-
-  const invoiceBalance = useMemo(() => {
-    if (!selectedInvoice) return null;
-    return (
-      selectedInvoice.balanceDue ??
-      Number(
-        (
-          selectedInvoice.totalAmount - selectedInvoice.paidAmount
-        ).toFixed(2)
-      )
-    );
-  }, [selectedInvoice]);
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-US', {
@@ -303,75 +336,6 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="invoiceId">Invoice *</Label>
-              <Select
-                value={formData.invoiceId || undefined}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    invoiceId: value,
-                  }))
-                }
-                disabled={isEditing}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select invoice" />
-                </SelectTrigger>
-                <SelectContent>
-                  {invoices.length === 0 && (
-                    <SelectItem value="none" disabled>
-                      No invoices available
-                    </SelectItem>
-                  )}
-                  {invoices.map((invoice) => (
-                    <SelectItem key={invoice.id} value={invoice.id}>
-                      {invoice.invoiceNumber}
-                      {invoice.customer?.name
-                        ? ` — ${invoice.customer.name}`
-                        : ''}
-                      {typeof invoice.balanceDue === 'number'
-                        ? ` (${formatCurrency(invoice.balanceDue)})`
-                        : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="bankAccountId">Bank Account *</Label>
-              <Select
-                value={formData.bankAccountId || undefined}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    bankAccountId: value,
-                  }))
-                }
-                disabled={isEditing}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select bank account" />
-                </SelectTrigger>
-                <SelectContent>
-                  {bankAccounts.length === 0 && (
-                    <SelectItem value="none" disabled>
-                      No bank accounts available
-                    </SelectItem>
-                  )}
-                  {bankAccounts.map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.name}
-                      {account.accountNumber
-                        ? ` (${account.accountNumber})`
-                        : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
               <Label>Payment Date *</Label>
               <DatePicker
                 date={formData.paymentDate}
@@ -382,36 +346,10 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
                   }))
                 }
               />
-              {selectedInvoice && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      amount: Number((invoiceBalance ?? 0 + (isEditing ? initialAmount : 0)).toFixed(2)),
-                    }))
-                  }
-                >
-                  Fill outstanding
-                </Button>
-              )}
-              {selectedInvoice && (
-                <p className="text-xs text-muted-foreground">
-                  Outstanding balance:{' '}
-                  <span className="font-medium">
-                    {formatCurrency(invoiceBalance ?? 0)}
-                  </span>
-                  {isEditing && initialAmount
-                    ? ` • Original payment: ${formatCurrency(initialAmount)}`
-                    : ''}
-                </p>
-              )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount *</Label>
+              <Label htmlFor="amount">Total Amount *</Label>
               <Input
                 id="amount"
                 type="number"
@@ -424,8 +362,153 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
                   }))
                 }
                 min={0.01}
+                readOnly
+                className="bg-muted"
               />
+              <p className="text-xs text-muted-foreground">
+                Automatically calculated from invoice amounts
+              </p>
             </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label>Invoices *</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addInvoicePayment}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Invoice
+              </Button>
+            </div>
+
+            {invoicePayments.map((invPayment, index) => {
+              const invoice = invoices.find((inv) => inv.id === invPayment.invoiceId);
+              const balance = getInvoiceBalance(invPayment.invoiceId);
+
+              return (
+                <Card key={index}>
+                  <CardContent className="pt-6">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Invoice {index + 1} *</Label>
+                          <Select
+                            value={invPayment.invoiceId || undefined}
+                            onValueChange={(value) =>
+                              updateInvoicePayment(index, 'invoiceId', value)
+                            }
+                            disabled={isEditing && invoicePayments.length > 0}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select invoice" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {invoices.length === 0 && (
+                                <SelectItem value="none" disabled>
+                                  No invoices available
+                                </SelectItem>
+                              )}
+                              {invoices.map((inv) => (
+                                <SelectItem key={inv.id} value={inv.id}>
+                                  {inv.invoiceNumber}
+                                  {inv.customer?.name
+                                    ? ` — ${inv.customer.name}`
+                                    : ''}
+                                  {typeof inv.balanceDue === 'number'
+                                    ? ` (${formatCurrency(inv.balanceDue)})`
+                                    : ''}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {invoiceLoading[index] && (
+                            <p className="text-xs text-muted-foreground">
+                              Loading invoice details...
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Amount *</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={invPayment.amount || ''}
+                            onChange={(event) =>
+                              updateInvoicePayment(
+                                index,
+                                'amount',
+                                event.target.value
+                              )
+                            }
+                            min={0.01}
+                            placeholder="0.00"
+                          />
+                          {balance !== null && (
+                            <p className="text-xs text-muted-foreground">
+                              Outstanding: {formatCurrency(balance)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {invoicePayments.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeInvoicePayment(index)}
+                          className="mt-8"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+
+                    {invoice && (
+                      <div className="mt-4 p-3 bg-muted rounded-md">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Customer:</span>
+                            <p className="font-medium">
+                              {invoice.customer?.name ?? '—'}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Total:</span>
+                            <p className="font-medium">
+                              {formatCurrency(invoice.totalAmount)}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Paid:</span>
+                            <p className="font-medium">
+                              {formatCurrency(invoice.paidAmount)}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Outstanding:</span>
+                            <p
+                              className={`font-medium ${
+                                balance && balance > 0
+                                  ? 'text-red-600'
+                                  : 'text-green-600'
+                              }`}
+                            >
+                              {formatCurrency(balance ?? 0)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -461,88 +544,6 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
             </div>
           </div>
 
-          <div className="space-y-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Receipt className="h-4 w-4" />
-                  Invoice Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {formData.invoiceId && invoiceLoading && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <CalendarDays className="h-4 w-4 animate-pulse" />
-                    Loading invoice details...
-                  </div>
-                )}
-                {!formData.invoiceId && (
-                  <p className="text-sm text-gray-600">
-                    Select an invoice to view its outstanding balance.
-                  </p>
-                )}
-                {selectedInvoice && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <div className="space-y-1">
-                      <span className="text-gray-500">Invoice Number</span>
-                      <p className="font-medium">
-                        {selectedInvoice.invoiceNumber}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-gray-500">Customer</span>
-                      <p className="font-medium">
-                        {selectedInvoice.customer?.name ?? '—'}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-gray-500">Total</span>
-                      <p className="font-medium">
-                        {formatCurrency(selectedInvoice.totalAmount)}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-gray-500">Paid</span>
-                      <p className="font-medium">
-                        {formatCurrency(selectedInvoice.paidAmount)}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-gray-500">Outstanding</span>
-                      <p
-                        className={`font-medium ${
-                          invoiceBalance && invoiceBalance > 0
-                            ? 'text-red-600'
-                            : 'text-green-600'
-                        }`}
-                      >
-                        {formatCurrency(invoiceBalance ?? 0)}
-                      </p>
-                    </div>
-                    {isEditing && (
-                      <div className="space-y-1">
-                        <span className="text-gray-500">Current Payment</span>
-                        <p className="font-medium">
-                          {formatCurrency(initialAmount)}
-                        </p>
-                        {selectedInvoice && (
-                          <p className="text-xs text-muted-foreground mt-3">
-                            Tip: you can split payments across invoices later. For now,
-                            we recommend applying{' '}
-                            <span className="font-semibold">
-                              {formatCurrency(invoiceBalance ?? 0)}
-                            </span>{' '}
-                            to clear this balance.
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancel
@@ -557,4 +558,3 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
     </form>
   );
 };
-

@@ -154,32 +154,28 @@ export interface Item {
   name: string;
   description: string | null;
   type: ItemType;
-  unitPrice: number;
+  amount: number;
   incomeAccountId: string | null;
   expenseAccountId: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  taxable: boolean;
-  cost: number | null;
   incomeAccount?: Account | null;
   expenseAccount?: Account | null;
 }
 
 export enum ItemType {
-  SERVICE = 'SERVICE',
-  PRODUCT = 'PRODUCT',
+  INCOME = 'INCOME',
+  EXPENSE = 'EXPENSE',
 }
 
 export interface CreateItemData {
   name: string;
   description?: string;
   type: ItemType;
-  unitPrice: number;
+  amount: number;
   incomeAccountId?: string;
   expenseAccountId?: string;
-  taxable?: boolean;
-  cost?: number;
 }
 
 // Invoice types
@@ -200,7 +196,7 @@ export interface Invoice {
   createdAt: string;
   updatedAt: string;
   lines?: InvoiceLine[];
-  receivePayments?: ReceivePayment[];
+  receivePayments?: ReceivePaymentInvoice[];
   journalEntry?: JournalEntry;
 }
 
@@ -244,21 +240,25 @@ export interface CreateInvoiceData {
 }
 
 // Receive Payment types
+export interface ReceivePaymentInvoice {
+  id: string;
+  receivePaymentId: string;
+  invoiceId: string;
+  amount: number;
+  invoice?: Invoice;
+  receivePayment?: ReceivePayment;
+}
+
 export interface ReceivePayment {
   id: string;
-  invoiceId: string;
-  invoice?: Invoice;
-  bankAccountId: string;
-  bankAccount?: BankAccount;
   paymentDate: string;
   amount: number;
   referenceNumber: string | null;
   notes: string | null;
-  isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  invoices?: ReceivePaymentInvoice[];
   journalEntry?: JournalEntry;
-  transaction?: Transaction;
   createdByUser?: {
     email: string;
     firstName: string | null;
@@ -272,8 +272,7 @@ export interface ReceivePayment {
 }
 
 export interface CreateReceivePaymentData {
-  invoiceId: string;
-  bankAccountId: string;
+  invoices: Array<{ invoiceId: string; amount: number }>;
   paymentDate: string;
   amount: number;
   referenceNumber?: string;
@@ -281,11 +280,11 @@ export interface CreateReceivePaymentData {
 }
 
 export interface UpdateReceivePaymentData {
+  invoices?: Array<{ invoiceId: string; amount: number }>;
   paymentDate?: string;
   amount?: number;
   referenceNumber?: string;
   notes?: string;
-  isActive?: boolean;
 }
 
 // Bill types

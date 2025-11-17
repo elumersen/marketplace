@@ -91,8 +91,7 @@ export const ReceivePaymentDetail: React.FC<ReceivePaymentDetailProps> = ({
     );
   }
 
-  const invoice = receivePayment.invoice;
-  const bankAccount = receivePayment.bankAccount;
+  const invoices = receivePayment.invoices || [];
   const journalEntry = receivePayment.journalEntry;
 
   return (
@@ -117,7 +116,6 @@ export const ReceivePaymentDetail: React.FC<ReceivePaymentDetailProps> = ({
         <div className="flex items-center space-x-3">
           <Button
             onClick={() => onEdit?.(receivePayment)}
-            disabled={!receivePayment.isActive}
           >
             <Edit className="h-4 w-4 mr-2" />
             Edit
@@ -171,71 +169,67 @@ export const ReceivePaymentDetail: React.FC<ReceivePaymentDetailProps> = ({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Receipt className="h-5 w-5" />
-            Invoice Applied To
+            Invoices Applied To
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {invoice ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <span className="text-sm text-gray-500 flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Invoice Number
-                </span>
-                <p className="font-medium">{invoice.invoiceNumber}</p>
-              </div>
-              <div className="space-y-2">
-                <span className="text-sm text-gray-500">Customer</span>
-                <p className="font-medium">{invoice.customer?.name ?? '—'}</p>
-              </div>
-              <div className="space-y-2">
-                <span className="text-sm text-gray-500">Invoice Total</span>
-                <p className="font-medium">
-                  {formatCurrency(invoice.totalAmount)}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <span className="text-sm text-gray-500">Paid Amount</span>
-                <p className="font-medium">
-                  {formatCurrency(invoice.paidAmount)}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <span className="text-sm text-gray-500">Balance Due</span>
-                <p className="font-medium">
-                  {formatCurrency(
-                    invoice.balanceDue ??
-                      invoice.totalAmount - invoice.paidAmount
-                  )}
-                </p>
-              </div>
+          {invoices.length > 0 ? (
+            <div className="space-y-4">
+              {invoices.map((rpi) => {
+                const invoice = rpi.invoice;
+                if (!invoice) return null;
+                
+                return (
+                  <div
+                    key={rpi.id}
+                    className="border rounded-lg p-4 space-y-4"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="space-y-2">
+                        <span className="text-sm text-gray-500 flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          Invoice Number
+                        </span>
+                        <p className="font-medium">{invoice.invoiceNumber}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <span className="text-sm text-gray-500">Customer</span>
+                        <p className="font-medium">{invoice.customer?.name ?? '—'}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <span className="text-sm text-gray-500">Amount Applied</span>
+                        <p className="font-medium text-lg">
+                          {formatCurrency(rpi.amount)}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <span className="text-sm text-gray-500">Invoice Total</span>
+                        <p className="font-medium">
+                          {formatCurrency(invoice.totalAmount)}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <span className="text-sm text-gray-500">Paid Amount</span>
+                        <p className="font-medium">
+                          {formatCurrency(invoice.paidAmount)}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <span className="text-sm text-gray-500">Balance Due</span>
+                        <p className="font-medium">
+                          {formatCurrency(
+                            invoice.balanceDue ??
+                              invoice.totalAmount - invoice.paidAmount
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
-            <p className="text-gray-600">Invoice information unavailable.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Bank Account</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {bankAccount ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <p className="text-sm text-gray-500">Account Name</p>
-                <p className="font-medium">{bankAccount.name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Account Number</p>
-                <p className="font-medium">
-                  {bankAccount.accountNumber || '—'}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <p className="text-gray-600">No bank account information.</p>
+            <p className="text-gray-600">No invoices applied to this payment.</p>
           )}
         </CardContent>
       </Card>

@@ -60,7 +60,7 @@ export const ChartOfAccountsForm = ({
     [AccountType.Expense]: ['Expense'],
     [AccountType.Other_Expense]: ['Other_Expense'],
     [AccountType.Cost_of_Goods_Sold]: ['Cost_of_Goods_Sold'],
-    [AccountType.Current_Assets]: ['Cash_Cash_Equivalents', 'Accounts_Receivable', 'Other_Current_Assets'],
+    [AccountType.Current_Assets]: ['Cash_Cash_Equivalents', 'Accounts_Receivable', 'Undeposited_Funds', 'Other_Current_Assets'],
     [AccountType.Fixed_Assets]: ['Property_Plant_Equipment', 'Accumulated_Depreciation', 'Intangible_Assets', 'Accumulated_Amortization', 'Other_Fixed_Assets'],
     [AccountType.Current_Liabilities]: ['Accounts_Payable', 'Credit_Card', 'Long_Term_Liabilities', 'Other_Current_Liabilities'],
     [AccountType.Equity]: ['Equity', 'Retained_Earnings', 'Net_Income'],
