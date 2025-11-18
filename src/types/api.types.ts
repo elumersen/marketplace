@@ -203,14 +203,18 @@ export interface Invoice {
 export interface InvoiceLine {
   id: string;
   invoiceId: string;
-  itemId: string;
-  item?: Item;
+  itemId: string | null; // Optional - item may be deleted
+  item?: Item | null;
   accountId?: string;
   account?: Account;
   description: string | null;
   quantity: number;
   unitPrice: number;
   amount: number;
+  // Item snapshot data (preserved even if item is deleted/changed)
+  itemName?: string | null;
+  itemDescription?: string | null;
+  itemAmount?: number | null;
 }
 
 export enum InvoiceStatus {
@@ -309,12 +313,16 @@ export interface Bill {
 export interface BillItem {
   id: string;
   billId: string;
-  itemId: string | null;
-  item?: Item;
+  itemId: string | null; // Optional - item may be deleted
+  item?: Item | null;
   description: string;
   quantity: number;
   unitPrice: number;
   amount: number;
+  // Item snapshot data (preserved even if item is deleted/changed)
+  itemName?: string | null;
+  itemDescription?: string | null;
+  itemAmount?: number | null;
 }
 
 export enum BillStatus {
