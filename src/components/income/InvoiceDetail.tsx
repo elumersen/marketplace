@@ -288,7 +288,7 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({
                   {invoice.lines.map((line) => (
                     <TableRow key={line.id}>
                       <TableCell className="font-medium">
-                        {line.item?.name || 'Item'}
+                        {line.item?.name || line.itemName || 'Item'}
                       </TableCell>
                       <TableCell>{line.description || 'N/A'}</TableCell>
                       <TableCell className="text-right">{line.quantity}</TableCell>

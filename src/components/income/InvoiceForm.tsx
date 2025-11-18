@@ -364,11 +364,12 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   </TableHeader>
                   <TableBody>
                     {lines.map((line, index) => {
-                      const item = items.find(i => i.id === line.itemId);
+                      const item = line.itemId ? items.find(i => i.id === line.itemId) : null;
+                      const itemName = item?.name || (line as any).itemName || 'Unknown';
                       return (
                         <TableRow key={index}>
                           <TableCell className="font-medium">
-                            {item?.name || 'Unknown'}
+                            {itemName}
                           </TableCell>
                           <TableCell>
                             <Input
@@ -485,7 +486,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   <SelectValue placeholder="Select item" />
                 </SelectTrigger>
                 <SelectContent>
-                  {items.filter(item => item.isActive).map((item) => (
+                  {items.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
                       {item.name} - ${item.amount.toFixed(2)}
                     </SelectItem>
