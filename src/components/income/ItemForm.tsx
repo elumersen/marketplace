@@ -17,7 +17,6 @@ import {
 } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, Save, AlertCircle } from 'lucide-react';
 import {
@@ -40,7 +39,6 @@ interface ItemFormProps {
     amount?: number;
     incomeAccountId?: string | null;
     expenseAccountId?: string | null;
-    isActive?: boolean;
   };
   onSuccess: (item: Item) => void;
   onCancel: () => void;
@@ -74,7 +72,6 @@ export const ItemForm: React.FC<ItemFormProps> = ({
     amount: initialData?.amount ?? 0,
     incomeAccountId: initialData?.incomeAccountId ?? '',
     expenseAccountId: initialData?.expenseAccountId ?? '',
-    isActive: initialData?.isActive ?? true,
   });
 
   useEffect(() => {
@@ -139,7 +136,6 @@ export const ItemForm: React.FC<ItemFormProps> = ({
 
       const payload: CreateItemData & {
         description?: string;
-        isActive?: boolean;
       } = {
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
@@ -153,7 +149,6 @@ export const ItemForm: React.FC<ItemFormProps> = ({
           formData.type === ItemType.EXPENSE && formData.expenseAccountId && formData.expenseAccountId !== 'none'
             ? formData.expenseAccountId
             : undefined,
-        isActive: formData.isActive,
       };
 
       if (isEditing && itemId) {
@@ -179,13 +174,8 @@ export const ItemForm: React.FC<ItemFormProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>
-                {isEditing ? 'Update Item' : 'Create Item or Service'}
+                {isEditing ? 'Update Product or Service' : 'Create Product or Service'}
               </CardTitle>
-              {/* <CardDescription>
-                {isEditing
-                  ? 'Adjust details of your product or service.'
-                  : 'List a new product or service that you sell.'}
-              </CardDescription> */}
             </div>
             <Button type="button" variant="outline" onClick={onCancel}>
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -331,26 +321,13 @@ export const ItemForm: React.FC<ItemFormProps> = ({
             )}
           </div>
 
-          {isEditing && (
-            <div className="flex items-center gap-2">
-              <Switch
-                id="isActive"
-                checked={formData.isActive}
-                onCheckedChange={(checked) =>
-                  setFormData((prev) => ({ ...prev, isActive: checked }))
-                }
-              />
-              <Label htmlFor="isActive">Active</Label>
-            </div>
-          )}
-
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
               <Save className="h-4 w-4 mr-2" />
-              {loading ? 'Saving...' : isEditing ? 'Update Item' : 'Create Item'}
+              {loading ? 'Saving...' : isEditing ? 'Update Product or Service' : 'Create Product or Service'}
             </Button>
           </div>
         </CardContent>

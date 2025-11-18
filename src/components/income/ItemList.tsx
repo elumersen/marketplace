@@ -10,7 +10,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -41,7 +40,6 @@ import { itemAPI, getErrorMessage } from '@/lib/api';
 import {
   Search,
   Plus,
-  Eye,
   Edit,
   MoreHorizontal,
   Package,
@@ -49,20 +47,17 @@ import {
 } from 'lucide-react';
 
 interface ItemListProps {
-  onView?: (item: Item) => void;
   onEdit?: (item: Item) => void;
   onCreateNew?: () => void;
   refreshSignal?: number;
 }
 
-type StatusFilter = 'all' | 'active' | 'inactive';
 type TypeFilter = 'all' | ItemType;
 
 const typeLabel = (type: ItemType) =>
   type === ItemType.INCOME ? 'Income' : 'Expense';
 
 export const ItemList: React.FC<ItemListProps> = ({
-  onView,
   onEdit,
   onCreateNew,
   refreshSignal = 0,
@@ -71,7 +66,6 @@ export const ItemList: React.FC<ItemListProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -79,19 +73,13 @@ export const ItemList: React.FC<ItemListProps> = ({
   useEffect(() => {
     loadItems();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, typeFilter, refreshSignal]);
+  }, [typeFilter, refreshSignal]);
 
   const loadItems = async () => {
     try {
       setLoading(true);
       setError(null);
       const response = await itemAPI.getAll({
-        isActive:
-          statusFilter === 'all'
-            ? undefined
-            : statusFilter === 'active'
-            ? true
-            : false,
         type: typeFilter === 'all' ? undefined : typeFilter,
       });
       setItems(response.items ?? []);
@@ -138,12 +126,6 @@ export const ItemList: React.FC<ItemListProps> = ({
     }
   };
 
-  const statusBadge = (isActive: boolean) => (
-    <Badge variant={isActive ? 'default' : 'secondary'}>
-      {isActive ? 'Active' : 'Inactive'}
-    </Badge>
-  );
-
   return (
     <div className="space-y-6">
       <Card>
@@ -151,16 +133,16 @@ export const ItemList: React.FC<ItemListProps> = ({
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
-              Items & Services
+              Products & Services
             </CardTitle>
             <Button onClick={onCreateNew}>
               <Plus className="h-4 w-4 mr-2" />
-              New Item
+              New Product or Service
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="space-y-2">
               <Label htmlFor="search">Search</Label>
               <div className="relative">
@@ -191,23 +173,6 @@ export const ItemList: React.FC<ItemListProps> = ({
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={statusFilter}
-                onValueChange={(value: StatusFilter) => setStatusFilter(value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           {error && (
@@ -235,11 +200,9 @@ export const ItemList: React.FC<ItemListProps> = ({
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Type</TableHead>
+                    <TableHead>Account</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Income Account</TableHead>
-                    <TableHead>Expense Account</TableHead>
-                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -248,23 +211,21 @@ export const ItemList: React.FC<ItemListProps> = ({
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell>{typeLabel(item.type)}</TableCell>
+                      <TableCell>
+                        {item.type === ItemType.INCOME
+                          ? item.incomeAccount
+                            ? `${item.incomeAccount.code} - ${item.incomeAccount.name}`
+                            : '—'
+                          : item.expenseAccount
+                          ? `${item.expenseAccount.code} - ${item.expenseAccount.name}`
+                          : '—'}
+                      </TableCell>
                       <TableCell className="max-w-md truncate">
                         {item.description || '—'}
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         {formatCurrency(item.amount)}
                       </TableCell>
-                      <TableCell>
-                        {item.incomeAccount
-                          ? `${item.incomeAccount.code} - ${item.incomeAccount.name}`
-                          : '—'}
-                      </TableCell>
-                      <TableCell>
-                        {item.expenseAccount
-                          ? `${item.expenseAccount.code} - ${item.expenseAccount.name}`
-                          : '—'}
-                      </TableCell>
-                      <TableCell>{statusBadge(item.isActive)}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -273,10 +234,6 @@ export const ItemList: React.FC<ItemListProps> = ({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => onView?.(item)}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              View
-                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => onEdit?.(item)}>
                               <Edit className="h-4 w-4 mr-2" />
                               Edit
