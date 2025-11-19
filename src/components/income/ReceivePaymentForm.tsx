@@ -57,6 +57,7 @@ type InvoiceOption = Pick<
 >;
 
 interface InvoicePayment {
+  id: string;
   invoiceId: string;
   amount: number;
 }
@@ -89,10 +90,16 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
 
   useEffect(() => {
     if (initialData?.invoices && initialData.invoices.length > 0) {
-      setInvoicePayments(initialData.invoices);
+      setInvoicePayments(
+        initialData.invoices.map((inv) => ({
+          id: `inv-${Date.now()}-${Math.random()}`,
+          invoiceId: inv.invoiceId,
+          amount: inv.amount,
+        }))
+      );
     } else if (!isEditing) {
       // Start with one empty invoice payment
-      setInvoicePayments([{ invoiceId: '', amount: 0 }]);
+      setInvoicePayments([{ id: `inv-${Date.now()}-${Math.random()}`, invoiceId: '', amount: 0 }]);
     }
   }, [initialData, isEditing]);
 
@@ -148,10 +155,10 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
     }
   };
 
-  const fetchInvoice = async (invoiceId: string, index: number) => {
+  const fetchInvoice = async (invoiceId: string, paymentId: string) => {
     if (!invoiceId) return;
     
-    setInvoiceLoading((prev) => ({ ...prev, [index]: true }));
+    setInvoiceLoading((prev) => ({ ...prev, [paymentId]: true }));
     try {
       const response = await invoiceAPI.getById(invoiceId);
       const balance =
@@ -162,45 +169,48 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
       
       // Update the amount for this invoice payment
       setInvoicePayments((prev) => {
-        const updated = [...prev];
-        if (updated[index]) {
-          updated[index] = {
-            ...updated[index],
-            invoiceId,
-            amount: balance > 0 ? Number(balance.toFixed(2)) : 0,
-          };
-        }
-        return updated;
+        return prev.map((inv) =>
+          inv.id === paymentId
+            ? {
+                ...inv,
+                invoiceId,
+                amount: balance > 0 ? Number(balance.toFixed(2)) : 0,
+              }
+            : inv
+        );
       });
     } catch (err) {
       console.error('Failed to fetch invoice details:', err);
     } finally {
-      setInvoiceLoading((prev) => ({ ...prev, [index]: false }));
+      setInvoiceLoading((prev) => ({ ...prev, [paymentId]: false }));
     }
   };
 
   const addInvoicePayment = () => {
-    setInvoicePayments((prev) => [...prev, { invoiceId: '', amount: 0 }]);
+    setInvoicePayments((prev) => [
+      { id: `inv-${Date.now()}-${Math.random()}`, invoiceId: '', amount: 0 },
+      ...prev,
+    ]);
   };
 
-  const removeInvoicePayment = (index: number) => {
-    setInvoicePayments((prev) => prev.filter((_, i) => i !== index));
+  const removeInvoicePayment = (id: string) => {
+    setInvoicePayments((prev) => prev.filter((inv) => inv.id !== id));
   };
 
-  const updateInvoicePayment = (index: number, field: 'invoiceId' | 'amount', value: string | number) => {
+  const updateInvoicePayment = (id: string, field: 'invoiceId' | 'amount', value: string | number) => {
     setInvoicePayments((prev) => {
-      const updated = [...prev];
-      if (updated[index]) {
-        updated[index] = {
-          ...updated[index],
-          [field]: field === 'amount' ? Number(value) : value,
-        };
-      }
-      return updated;
+      return prev.map((inv) =>
+        inv.id === id
+          ? {
+              ...inv,
+              [field]: field === 'amount' ? Number(value) : value,
+            }
+          : inv
+      );
     });
 
     if (field === 'invoiceId' && value) {
-      fetchInvoice(value as string, index);
+      fetchInvoice(value as string, id);
     }
   };
 
@@ -349,25 +359,13 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="amount">Total Amount *</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                value={formData.amount}
-                onChange={(event) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    amount: Number(event.target.value),
-                  }))
-                }
-                min={0.01}
-                readOnly
-                className="bg-muted"
-              />
-              <p className="text-xs text-muted-foreground">
+              <Label>Total Amount</Label>
+              <div className="flex items-center h-10 px-3 py-2 text-lg font-medium">
+                {formatCurrency(formData.amount)}
+              </div>
+              {/* <p className="text-xs text-muted-foreground">
                 Automatically calculated from invoice amounts
-              </p>
+              </p> */}
             </div>
           </div>
 
@@ -387,10 +385,13 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
 
             {invoicePayments.map((invPayment, index) => {
               const invoice = invoices.find((inv) => inv.id === invPayment.invoiceId);
-              const balance = getInvoiceBalance(invPayment.invoiceId);
+              const originalBalance = getInvoiceBalance(invPayment.invoiceId);
+              const updatedOutstanding = originalBalance !== null 
+                ? Math.max(0, Number((originalBalance - (invPayment.amount || 0)).toFixed(2)))
+                : null;
 
               return (
-                <Card key={index}>
+                <Card key={invPayment.id}>
                   <CardContent className="pt-6">
                     <div className="flex items-start gap-4">
                       <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -399,7 +400,7 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
                           <Select
                             value={invPayment.invoiceId || undefined}
                             onValueChange={(value) =>
-                              updateInvoicePayment(index, 'invoiceId', value)
+                              updateInvoicePayment(invPayment.id, 'invoiceId', value)
                             }
                             disabled={isEditing && invoicePayments.length > 0}
                           >
@@ -425,7 +426,7 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
                               ))}
                             </SelectContent>
                           </Select>
-                          {invoiceLoading[index] && (
+                          {invoiceLoading[invPayment.id] && (
                             <p className="text-xs text-muted-foreground">
                               Loading invoice details...
                             </p>
@@ -440,7 +441,7 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
                             value={invPayment.amount || ''}
                             onChange={(event) =>
                               updateInvoicePayment(
-                                index,
+                                invPayment.id,
                                 'amount',
                                 event.target.value
                               )
@@ -448,9 +449,14 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
                             min={0.01}
                             placeholder="0.00"
                           />
-                          {balance !== null && (
+                          {originalBalance !== null && (
                             <p className="text-xs text-muted-foreground">
-                              Outstanding: {formatCurrency(balance)}
+                              Outstanding: {formatCurrency(updatedOutstanding ?? originalBalance)}
+                              {invPayment.amount > 0 && (
+                                <span className="ml-2">
+                                  (was {formatCurrency(originalBalance)})
+                                </span>
+                              )}
                             </p>
                           )}
                         </div>
@@ -461,7 +467,7 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          onClick={() => removeInvoicePayment(index)}
+                          onClick={() => removeInvoicePayment(invPayment.id)}
                           className="mt-8"
                         >
                           <X className="h-4 w-4" />
@@ -494,12 +500,17 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
                             <span className="text-muted-foreground">Outstanding:</span>
                             <p
                               className={`font-medium ${
-                                balance && balance > 0
+                                updatedOutstanding && updatedOutstanding > 0
                                   ? 'text-red-600'
                                   : 'text-green-600'
                               }`}
                             >
-                              {formatCurrency(balance ?? 0)}
+                              {formatCurrency(updatedOutstanding ?? originalBalance ?? 0)}
+                              {invPayment.amount > 0 && originalBalance !== null && (
+                                <span className="ml-2 text-xs text-muted-foreground">
+                                  (was {formatCurrency(originalBalance)})
+                                </span>
+                              )}
                             </p>
                           </div>
                         </div>

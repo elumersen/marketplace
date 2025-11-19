@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { InvoiceList } from '@/components/income/InvoiceList';
 import { InvoiceForm } from '@/components/income/InvoiceForm';
 import { InvoiceDetail } from '@/components/income/InvoiceDetail';
@@ -6,10 +6,9 @@ import { Invoice } from '@/types/api.types';
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
-  SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 
 type SheetMode = 'create' | 'edit' | 'view' | null;
 
@@ -44,32 +43,6 @@ export const Invoices = () => {
     openSheet('view', invoice);
   };
 
-  const sheetTitle = useMemo(() => {
-    switch (sheetMode) {
-      case 'create':
-        return 'Create Invoice';
-      case 'edit':
-        return 'Update Invoice';
-      case 'view':
-        return 'Invoice Details';
-      default:
-        return '';
-    }
-  }, [sheetMode]);
-
-  const sheetDescription = useMemo(() => {
-    switch (sheetMode) {
-      case 'create':
-        return 'Build a new invoice with line items, tax, and notes.';
-      case 'edit':
-        return 'Adjust invoice content or status before sending.';
-      case 'view':
-        return 'Review the invoice, customer, and payment history.';
-      default:
-        return '';
-    }
-  }, [sheetMode]);
-
   return (
     <div className="container mx-auto py-6">
       <InvoiceList
@@ -80,14 +53,10 @@ export const Invoices = () => {
       />
 
       <Sheet open={sheetOpen} onOpenChange={(open) => (open ? null : closeSheet())}>
-        <SheetContent side="right" className="sm:max-w-4xl w-full overflow-y-auto">
-          <SheetHeader className="mb-4">
-            <SheetTitle>{sheetTitle}</SheetTitle>
-            {sheetDescription && (
-              <SheetDescription>{sheetDescription}</SheetDescription>
-            )}
-          </SheetHeader>
-
+        <SheetContent side="right" className="sm:max-w-4xl w-full overflow-y-auto [&>button]:hidden">
+          <VisuallyHidden>
+            <SheetTitle>Invoice</SheetTitle>
+          </VisuallyHidden>
           {sheetMode === 'create' && (
             <InvoiceForm onSuccess={handleFormSuccess} onCancel={closeSheet} />
           )}
@@ -104,7 +73,7 @@ export const Invoices = () => {
                 notes: selectedInvoice.notes || undefined,
                 lines:
                   selectedInvoice.lines?.map((line) => ({
-                    itemId: line.itemId,
+                    itemId: line.itemId ?? '',
                     accountId: line.accountId,
                     description: line.description || '',
                     quantity: line.quantity,

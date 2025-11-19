@@ -29,7 +29,7 @@ const navigation = [
   { name: 'Invoices', href: '/invoices', icon: FileText },
   { name: 'Receive Payments', href: '/receive-payments', icon: DollarSign },
   { name: 'Proposals', href: '/proposals', icon: FileText },
-  { name: 'Items & Services', href: '/items-services', icon: Package },
+  { name: 'Products & Services', href: '/products-services', icon: Package },
   { section: 'Expenses' },
   { name: 'Vendors', href: '/vendors', icon: Building2 },
   { name: 'Bills', href: '/bills', icon: FileText },

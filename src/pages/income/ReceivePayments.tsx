@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ReceivePaymentList } from '@/components/income/ReceivePaymentList';
 import { ReceivePaymentForm } from '@/components/income/ReceivePaymentForm';
 import { ReceivePaymentDetail } from '@/components/income/ReceivePaymentDetail';
@@ -6,10 +6,9 @@ import { ReceivePayment } from '@/types/api.types';
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
-  SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 
 type SheetMode = 'create' | 'edit' | 'view' | null;
 
@@ -45,32 +44,6 @@ export const ReceivePayments = () => {
     openSheet('view', payment);
   };
 
-  const sheetTitle = useMemo(() => {
-    switch (sheetMode) {
-      case 'create':
-        return 'Record Payment';
-      case 'edit':
-        return 'Update Payment';
-      case 'view':
-        return 'Payment Details';
-      default:
-        return '';
-    }
-  }, [sheetMode]);
-
-  const sheetDescription = useMemo(() => {
-    switch (sheetMode) {
-      case 'create':
-        return 'Apply a customer payment to one or more invoices.';
-      case 'edit':
-        return 'Adjust payment details or mark it inactive.';
-      case 'view':
-        return 'Review the payment trail, linked invoice, and journal entry.';
-      default:
-        return '';
-    }
-  }, [sheetMode]);
-
   return (
     <div className="container mx-auto py-6">
       <ReceivePaymentList
@@ -81,14 +54,10 @@ export const ReceivePayments = () => {
       />
 
       <Sheet open={sheetOpen} onOpenChange={(open) => (open ? null : closeSheet())}>
-        <SheetContent side="right" className="sm:max-w-3xl w-full overflow-y-auto">
-          <SheetHeader className="mb-4">
-            <SheetTitle>{sheetTitle}</SheetTitle>
-            {sheetDescription && (
-              <SheetDescription>{sheetDescription}</SheetDescription>
-            )}
-          </SheetHeader>
-
+        <SheetContent side="right" className="sm:max-w-3xl w-full overflow-y-auto [&>button]:hidden">
+          <VisuallyHidden>
+            <SheetTitle>Receive Payment</SheetTitle>
+          </VisuallyHidden>
           {sheetMode === 'create' && (
             <ReceivePaymentForm
               onSuccess={handleFormSuccess}

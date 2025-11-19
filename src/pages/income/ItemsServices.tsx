@@ -1,17 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ItemList } from '@/components/income/ItemList';
 import { ItemForm } from '@/components/income/ItemForm';
-import { ItemDetail } from '@/components/income/ItemDetail';
 import { Item } from '@/types/api.types';
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
-  SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 
-type SheetMode = 'create' | 'edit' | 'view' | null;
+type SheetMode = 'create' | 'edit' | null;
 
 export const ItemsServices = () => {
   const [sheetMode, setSheetMode] = useState<SheetMode>(null);
@@ -34,58 +32,26 @@ export const ItemsServices = () => {
   };
 
   const handleCreateNew = () => openSheet('create');
-  const handleView = (item: Item) => openSheet('view', item);
   const handleEdit = (item: Item) => openSheet('edit', item);
 
-  const handleFormSuccess = (item: Item) => {
+  const handleFormSuccess = (_item: Item) => {
     setRefreshSignal((prev) => prev + 1);
-    openSheet('view', item);
+    closeSheet();
   };
-
-  const sheetTitle = useMemo(() => {
-    switch (sheetMode) {
-      case 'create':
-        return 'New Item';
-      case 'edit':
-        return 'Update Item';
-      case 'view':
-        return 'Item Details';
-      default:
-        return '';
-    }
-  }, [sheetMode]);
-
-  const sheetDescription = useMemo(() => {
-    switch (sheetMode) {
-      case 'create':
-        return 'List a new product or service for your customers.';
-      case 'edit':
-        return 'Adjust the pricing or accounts associated with this item.';
-      case 'view':
-        return 'Review the details and revenue mapping for this item.';
-      default:
-        return '';
-    }
-  }, [sheetMode]);
 
   return (
     <div className="container mx-auto py-6">
       <ItemList
-        onView={handleView}
         onEdit={handleEdit}
         onCreateNew={handleCreateNew}
         refreshSignal={refreshSignal}
       />
 
       <Sheet open={sheetOpen} onOpenChange={(open) => (open ? null : closeSheet())}>
-        <SheetContent side="right" className="sm:max-w-3xl w-full overflow-y-auto">
-          <SheetHeader className="mb-4">
-            <SheetTitle>{sheetTitle}</SheetTitle>
-            {sheetDescription && (
-              <SheetDescription>{sheetDescription}</SheetDescription>
-            )}
-          </SheetHeader>
-
+        <SheetContent side="right" className="sm:max-w-3xl w-full overflow-y-auto [&>button]:hidden">
+          <VisuallyHidden>
+            <SheetTitle>Products & Services</SheetTitle>
+          </VisuallyHidden>
           {sheetMode === 'create' && (
             <ItemForm onSuccess={handleFormSuccess} onCancel={closeSheet} />
           )}
@@ -99,20 +65,11 @@ export const ItemsServices = () => {
                 amount: selectedItem.amount,
                 incomeAccountId: selectedItem.incomeAccountId ?? undefined,
                 expenseAccountId: selectedItem.expenseAccountId ?? undefined,
-                isActive: selectedItem.isActive,
               }}
               onSuccess={handleFormSuccess}
               onCancel={closeSheet}
               isEditing
               itemId={selectedItem.id}
-            />
-          )}
-
-          {sheetMode === 'view' && selectedItem && (
-            <ItemDetail
-              itemId={selectedItem.id}
-              onBack={closeSheet}
-              onEdit={handleEdit}
             />
           )}
         </SheetContent>

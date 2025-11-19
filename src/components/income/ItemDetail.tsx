@@ -7,7 +7,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import {
   AlertCircle,
   ArrowLeft,
@@ -101,9 +100,6 @@ export const ItemDetail: React.FC<ItemDetailProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <Badge variant={item.isActive ? 'default' : 'secondary'}>
-            {item.isActive ? 'Active' : 'Inactive'}
-          </Badge>
           <Button onClick={() => onEdit?.(item)}>
             <Edit className="h-4 w-4 mr-2" />
             Edit
