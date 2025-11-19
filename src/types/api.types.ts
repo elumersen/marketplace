@@ -117,9 +117,24 @@ export interface Customer {
   email: string | null;
   phone: string | null;
   address: string | null;
+  city: string | null;
+  state: string | null;
+  zipCode: string | null;
+  country: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  createdByUser?: {
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+  updatedByUser?: {
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+  invoices?: Invoice[];
 }
 
 export interface CreateCustomerData {
@@ -127,6 +142,10 @@ export interface CreateCustomerData {
   email?: string;
   phone?: string;
   address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
 }
 
 // Vendor types
