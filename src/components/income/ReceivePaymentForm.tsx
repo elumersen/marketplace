@@ -198,6 +198,18 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
   };
 
   const updateInvoicePayment = (id: string, field: 'invoiceId' | 'amount', value: string | number) => {
+    // Check for duplicate invoice when setting invoiceId
+    if (field === 'invoiceId' && value) {
+      const isDuplicate = invoicePayments.some(
+        (inv) => inv.id !== id && inv.invoiceId === value && inv.invoiceId !== ''
+      );
+      
+      if (isDuplicate) {
+        setError(`This invoice is already selected in another line. Please select a different invoice.`);
+        return;
+      }
+    }
+
     setInvoicePayments((prev) => {
       return prev.map((inv) =>
         inv.id === id
@@ -210,6 +222,7 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
     });
 
     if (field === 'invoiceId' && value) {
+      setError(null); // Clear error when successfully selecting an invoice
       fetchInvoice(value as string, id);
     }
   };
@@ -238,6 +251,16 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
 
     if (invoicePayments.length === 0) {
       setError('At least one invoice is required');
+      return;
+    }
+
+    // Check for duplicate invoices
+    const invoiceIds = invoicePayments
+      .map((inv) => inv.invoiceId)
+      .filter((id) => id !== '');
+    const uniqueInvoiceIds = new Set(invoiceIds);
+    if (invoiceIds.length !== uniqueInvoiceIds.size) {
+      setError('Each invoice can only be added once. Please remove duplicate invoices.');
       return;
     }
 
@@ -390,6 +413,16 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
                 ? Math.max(0, Number((originalBalance - (invPayment.amount || 0)).toFixed(2)))
                 : null;
 
+              // Filter out invoices that are already selected in other lines
+              const availableInvoices = invoices.filter((inv) => {
+                // Always include the currently selected invoice for this line
+                if (inv.id === invPayment.invoiceId) return true;
+                // Exclude invoices that are selected in other lines
+                return !invoicePayments.some(
+                  (otherInv) => otherInv.id !== invPayment.id && otherInv.invoiceId === inv.id && otherInv.invoiceId !== ''
+                );
+              });
+
               return (
                 <Card key={invPayment.id}>
                   <CardContent className="pt-6">
@@ -408,12 +441,12 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
                               <SelectValue placeholder="Select invoice" />
                             </SelectTrigger>
                             <SelectContent>
-                              {invoices.length === 0 && (
+                              {availableInvoices.length === 0 && (
                                 <SelectItem value="none" disabled>
                                   No invoices available
                                 </SelectItem>
                               )}
-                              {invoices.map((inv) => (
+                              {availableInvoices.map((inv) => (
                                 <SelectItem key={inv.id} value={inv.id}>
                                   {inv.invoiceNumber}
                                   {inv.customer?.name
