@@ -17,6 +17,10 @@ module.exports = {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Nunito', 'sans-serif'],
+        secondary: ['Inter', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -57,6 +61,18 @@ module.exports = {
           border: "hsl(var(--sidebar-border))",
           accent: "hsl(var(--sidebar-accent))",
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
+        },
+        // Brand colors from design system
+        brand: {
+          DEFAULT: "#1B3F7A",
+          light: "#5A7BEF",
+        },
+        neutral: {
+          white: "#ffffff",
+          offwhite: "#fafafa",
+          gray: "#DBDBDB",
+          "dark-gray": "#9EA2AD",
+          black: "#1A1A1A",
         },
       },
       borderRadius: {

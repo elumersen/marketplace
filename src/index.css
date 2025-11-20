@@ -4,71 +4,90 @@
 
 @layer base {
   :root {
+    /* Primary Colors - Brand: #1B3F7A, Accent: #5A7BEF */
+    --primary: 215 64% 30%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 230 81% 67%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Neutral Colors */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 0 0% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 0 0% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --popover-foreground: 0 0% 10%;
+    
+    /* Secondary Colors - Cyan 30%: #ECF0F3, Accent 40%: #D9E1FF */
+    --secondary: 200 20% 94%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 200 20% 94%;
+    --muted-foreground: 220 8% 65%;
+    
+    /* Borders and Inputs - Gray: #DBDBDB */
+    --border: 0 0% 86%;
+    --input: 0 0% 86%;
+    --ring: 230 81% 67%;
+    
+    /* Destructive (keeping red for errors) */
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --destructive-foreground: 0 0% 100%;
+    
     --radius: 0.5rem;
     
-    /* Sidebar colors */
-    --sidebar: 0 0% 98%;
-    --sidebar-foreground: 222.2 84% 4.9%;
-    --sidebar-border: 214.3 31.8% 91.4%;
-    --sidebar-accent: 221.2 83.2% 53.3%;
-    --sidebar-accent-foreground: 210 40% 98%;
+    /* Sidebar colors - Dark blue background with white text, light blue accent for active */
+    --sidebar: 215 64% 30%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-border: 215 64% 40%;
+    --sidebar-accent: 230 81% 67%;
+    --sidebar-accent-foreground: 0 0% 100%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    /* Primary Colors - Adjusted for dark mode */
+    --primary: 230 81% 67%;
+    --primary-foreground: 0 0% 10%;
+    --accent: 230 81% 67%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Neutral Colors - Dark mode */
+    --background: 0 0% 10%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 98%;
+    
+    /* Secondary Colors - Dark mode */
+    --secondary: 220 8% 20%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 220 8% 20%;
+    --muted-foreground: 220 8% 65%;
+    
+    /* Borders and Inputs - Dark mode */
+    --border: 220 8% 30%;
+    --input: 220 8% 30%;
+    --ring: 230 81% 67%;
+    
+    /* Destructive - Dark mode */
+    --destructive: 0 62.8% 50%;
+    --destructive-foreground: 0 0% 98%;
     
     /* Sidebar colors - dark mode */
-    --sidebar: 222.2 84% 4.9%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-border: 217.2 32.6% 17.5%;
-    --sidebar-accent: 217.2 91.2% 59.8%;
-    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
+    --sidebar: 0 0% 10%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-border: 220 8% 30%;
+    --sidebar-accent: 230 81% 67%;
+    --sidebar-accent-foreground: 0 0% 100%;
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
 }
 
