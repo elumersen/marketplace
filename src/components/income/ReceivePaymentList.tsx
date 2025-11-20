@@ -274,12 +274,12 @@ export const ReceivePaymentList: React.FC<ReceivePaymentListProps> = ({
 
             <div className="space-y-2">
               <Label>Start Date</Label>
-              <DatePicker date={startDate} setDate={setStartDate} />
+              <DatePicker date={startDate} setDate={setStartDate} className="w-full" />
             </div>
 
             <div className="space-y-2">
               <Label>End Date</Label>
-              <DatePicker date={endDate} setDate={setEndDate} />
+              <DatePicker date={endDate} setDate={setEndDate} className="w-full" />
               {(startDate || endDate) && (
                 <Button
                   type="button"

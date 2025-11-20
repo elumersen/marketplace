@@ -15,6 +15,7 @@ import { Proposals } from '@/pages/income/Proposals';
 import { Vendors } from '@/pages/expenses/Vendors';
 import { Bills } from '@/pages/expenses/Bills';
 import { BillPayments } from '@/pages/expenses/BillPayments';
+import { _1099s } from '@/pages/expenses/1099s';
 // Banking pages
 import { Transactions } from '@/pages/banking/Transactions';
 import { Registers } from '@/pages/banking/Registers';
@@ -59,7 +60,7 @@ function App() {
               <Route path="/vendors" element={<Vendors />} />
               <Route path="/bills" element={<Bills />} />
               <Route path="/bill-payments" element={<BillPayments />} />
-              
+              <Route path="/1099s" element={<_1099s />} />
               {/* Banking */}
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/registers" element={<Registers />} />
