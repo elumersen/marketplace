@@ -243,13 +243,14 @@ export const Sidebar = () => {
                 <ChevronRight className="h-3.5 w-3.5" />
               )}
             </Link>
-            <button
+            <Link
+              to="/"
               onClick={handleLogout}
-              className="w-full group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-white hover:bg-[#5A7BEF]/20 transition-colors mx-3 my-1"
+              className="group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-white hover:bg-[#5A7BEF]/20 transition-colors mx-3 my-1"
             >
               <LogOut className="h-4 w-4" />
               <span className="flex-1 text-left mt-0.5 text-xs font-semibold uppercase tracking-wider">Logout</span>
-            </button>
+            </Link>
           </div>
         )}
 
