@@ -155,9 +155,14 @@ export interface Vendor {
   email: string | null;
   phone: string | null;
   address: string | null;
+  city: string | null;
+  state: string | null;
+  zipCode: string | null;
+  country: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  bills?: Bill[];
 }
 
 export interface CreateVendorData {
@@ -165,6 +170,10 @@ export interface CreateVendorData {
   email?: string;
   phone?: string;
   address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
 }
 
 // Item types
