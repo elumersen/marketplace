@@ -23,8 +23,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Bill, CreateBillData, Vendor, Item, Account } from '@/types/api.types';
-import { billAPI, vendorAPI, itemAPI, accountAPI, getErrorMessage } from '@/lib/api';
+import { Bill, CreateBillData, Vendor, Item } from '@/types/api.types';
+import { billAPI, vendorAPI, itemAPI, getErrorMessage } from '@/lib/api';
 
 interface BillFormProps {
   initialData?: Partial<CreateBillData & { id?: string }>;
@@ -51,7 +51,6 @@ export const BillForm: React.FC<BillFormProps> = ({
 }) => {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [items, setItems] = useState<Item[]>([]);
-  const [expenseAccounts, setExpenseAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
@@ -93,15 +92,13 @@ export const BillForm: React.FC<BillFormProps> = ({
   const loadData = async () => {
     try {
       setLoading(true);
-      const [vendorsRes, itemsRes, accountsRes] = await Promise.all([
+      const [vendorsRes, itemsRes] = await Promise.all([
         vendorAPI.getAll(),
         itemAPI.getAll(),
-        accountAPI.getAll({ type: 'Expense', all: 'true' }),
       ]);
 
       setVendors(vendorsRes.data || []);
       setItems((itemsRes as any).items || itemsRes || []);
-      setExpenseAccounts(accountsRes.data || []);
     } catch (error) {
       setError(getErrorMessage(error));
     } finally {
