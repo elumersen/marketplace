@@ -320,11 +320,16 @@ export const receivePaymentAPI = {
 };
 
 export const billAPI = {
-  getAll: (params?: BillQueryParams): Promise<Bill[]> => api.get<Bill[]>('/bills', { params }),
-  getById: (id: string): Promise<Bill> => api.get<Bill>(`/bills/${id}`),
-  create: (data: CreateBillData): Promise<Bill> => api.post<Bill>('/bills', data),
-  update: (id: string, data: Partial<CreateBillData>): Promise<Bill> => api.put<Bill>(`/bills/${id}`, data),
-  delete: (id: string): Promise<void> => api.delete(`/bills/${id}`),
+  getAll: (params?: BillQueryParams): Promise<{ bills: Bill[] }> => 
+    api.get<{ bills: Bill[] }>('/bills', { params }),
+  getById: (id: string): Promise<{ bill: Bill }> => 
+    api.get<{ bill: Bill }>(`/bills/${id}`),
+  create: (data: CreateBillData): Promise<{ message: string; bill: Bill }> => 
+    api.post<{ message: string; bill: Bill }>('/bills', data),
+  update: (id: string, data: Partial<CreateBillData>): Promise<{ message: string; bill: Bill }> => 
+    api.put<{ message: string; bill: Bill }>(`/bills/${id}`, data),
+  delete: (id: string): Promise<{ message: string }> => 
+    api.delete<{ message: string }>(`/bills/${id}`),
 };
 
 export const itemAPI = {

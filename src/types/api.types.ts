@@ -335,15 +335,15 @@ export interface Bill {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
-  items?: BillItem[];
+  lines?: BillLine[];
 }
 
-export interface BillItem {
+export interface BillLine {
   id: string;
   billId: string;
   itemId: string | null; // Optional - item may be deleted
   item?: Item | null;
-  description: string;
+  description: string | null;
   quantity: number;
   unitPrice: number;
   amount: number;
@@ -355,21 +355,24 @@ export interface BillItem {
 
 export enum BillStatus {
   DRAFT = 'DRAFT',
-  PENDING = 'PENDING',
+  OPEN = 'OPEN',
   PAID = 'PAID',
   PARTIALLY_PAID = 'PARTIALLY_PAID',
   OVERDUE = 'OVERDUE',
-  CANCELLED = 'CANCELLED',
+  VOID = 'VOID',
 }
 
 export interface CreateBillData {
+  billNumber?: string;
   vendorId: string;
   billDate: string;
   dueDate: string;
+  status?: BillStatus;
+  taxAmount?: number;
   notes?: string;
-  items: Array<{
-    itemId?: string;
-    description: string;
+  lines: Array<{
+    itemId: string;
+    description?: string;
     quantity: number;
     unitPrice: number;
   }>;
