@@ -23,8 +23,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Bill, CreateBillData, Vendor, Item } from '@/types/api.types';
-import { billAPI, vendorAPI, itemAPI, getErrorMessage } from '@/lib/api';
+import { Bill, CreateBillData, Vendor, Item, Account } from '@/types/api.types';
+import { billAPI, vendorAPI, itemAPI, accountAPI, getErrorMessage } from '@/lib/api';
 
 interface BillFormProps {
   initialData?: Partial<CreateBillData & { id?: string }>;
@@ -36,6 +36,7 @@ interface BillFormProps {
 
 interface BillLineForm {
   itemId: string;
+  accountId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -51,6 +52,7 @@ export const BillForm: React.FC<BillFormProps> = ({
 }) => {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [items, setItems] = useState<Item[]>([]);
+  const [expenseAccounts, setExpenseAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
@@ -61,7 +63,6 @@ export const BillForm: React.FC<BillFormProps> = ({
     billDate: initialData?.billDate ? new Date(initialData.billDate) : new Date(),
     dueDate: initialData?.dueDate ? new Date(initialData.dueDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     status: initialData?.status || 'DRAFT',
-    taxAmount: initialData?.taxAmount || 0,
     notes: initialData?.notes || '',
   });
 
@@ -69,6 +70,7 @@ export const BillForm: React.FC<BillFormProps> = ({
     if (initialData?.lines && initialData.lines.length > 0) {
       return initialData.lines.map(line => ({
         itemId: line.itemId,
+        accountId: (line as any).accountId,
         description: line.description || '',
         quantity: line.quantity,
         unitPrice: line.unitPrice,
@@ -80,6 +82,7 @@ export const BillForm: React.FC<BillFormProps> = ({
 
   const [newLine, setNewLine] = useState<Partial<BillLineForm>>({
     itemId: '',
+    accountId: '',
     description: '',
     quantity: 1,
     unitPrice: 0,
@@ -92,13 +95,15 @@ export const BillForm: React.FC<BillFormProps> = ({
   const loadData = async () => {
     try {
       setLoading(true);
-      const [vendorsRes, itemsRes] = await Promise.all([
+      const [vendorsRes, itemsRes, accountsRes] = await Promise.all([
         vendorAPI.getAll(),
         itemAPI.getAll(),
+        accountAPI.getAll({ type: 'Expense', all: 'true' }),
       ]);
 
       setVendors(vendorsRes.data || []);
       setItems((itemsRes as any).items || itemsRes || []);
+      setExpenseAccounts(accountsRes.data || []);
     } catch (error) {
       setError(getErrorMessage(error));
     } finally {
@@ -114,6 +119,7 @@ export const BillForm: React.FC<BillFormProps> = ({
         itemId: item.id,
         unitPrice: item.amount,
         description: item.description || item.name,
+        accountId: (item as any).expenseAccountId || '',
       });
     }
   };
@@ -127,6 +133,7 @@ export const BillForm: React.FC<BillFormProps> = ({
     const amount = Number((newLine.quantity! * newLine.unitPrice!).toFixed(2));
     setLines([...lines, {
       itemId: newLine.itemId!,
+      accountId: newLine.accountId,
       description: newLine.description || '',
       quantity: newLine.quantity!,
       unitPrice: newLine.unitPrice!,
@@ -135,6 +142,7 @@ export const BillForm: React.FC<BillFormProps> = ({
 
     setNewLine({
       itemId: '',
+      accountId: '',
       description: '',
       quantity: 1,
       unitPrice: 0,
@@ -159,9 +167,8 @@ export const BillForm: React.FC<BillFormProps> = ({
 
   const calculateTotals = () => {
     const subtotal = lines.reduce((sum, line) => sum + line.amount, 0);
-    const tax = formData.taxAmount || 0;
-    const total = subtotal + tax;
-    return { subtotal, tax, total };
+    const total = subtotal;
+    return { subtotal, total };
   };
 
   const generateBillNumber = () => {
@@ -199,10 +206,10 @@ export const BillForm: React.FC<BillFormProps> = ({
         billDate: formData.billDate.toISOString(),
         dueDate: formData.dueDate.toISOString(),
         status: formData.status as any,
-        taxAmount: formData.taxAmount,
         notes: formData.notes || undefined,
         lines: lines.map(line => ({
           itemId: line.itemId,
+          accountId: line.accountId,
           description: line.description,
           quantity: line.quantity,
           unitPrice: line.unitPrice,
@@ -226,7 +233,7 @@ export const BillForm: React.FC<BillFormProps> = ({
     }
   };
 
-  const { subtotal, total } = calculateTotals();
+  const { total } = calculateTotals();
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -347,6 +354,7 @@ export const BillForm: React.FC<BillFormProps> = ({
                     <TableRow>
                       <TableHead>Item</TableHead>
                       <TableHead>Description</TableHead>
+                      <TableHead>Expense Account</TableHead>
                       <TableHead className="w-24">Qty</TableHead>
                       <TableHead className="w-32">Price</TableHead>
                       <TableHead className="w-32">Amount</TableHead>
@@ -368,6 +376,23 @@ export const BillForm: React.FC<BillFormProps> = ({
                               onChange={(e) => updateLine(index, 'description', e.target.value)}
                               className="max-w-xs"
                             />
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={line.accountId || ''}
+                              onValueChange={(value) => updateLine(index, 'accountId', value)}
+                            >
+                              <SelectTrigger className="w-[200px]">
+                                <SelectValue placeholder="Select account" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {expenseAccounts.map((account) => (
+                                  <SelectItem key={account.id} value={account.id}>
+                                    {account.code} - {account.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </TableCell>
                           <TableCell>
                             <Input
@@ -412,21 +437,6 @@ export const BillForm: React.FC<BillFormProps> = ({
           {/* Totals */}
           <div className="flex justify-end">
             <div className="w-64 space-y-2">
-              <div className="flex justify-between">
-                <span>Subtotal:</span>
-                <span className="font-mono">${subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <Label htmlFor="taxAmount">Tax Amount:</Label>
-                <Input
-                  id="taxAmount"
-                  type="number"
-                  step="0.01"
-                  value={formData.taxAmount}
-                  onChange={(e) => setFormData({ ...formData, taxAmount: parseFloat(e.target.value) || 0 })}
-                  className="w-24 h-8"
-                />
-              </div>
               <div className="flex justify-between text-lg font-bold border-t pt-2">
                 <span>Total:</span>
                 <span className="font-mono">${total.toFixed(2)}</span>
@@ -488,6 +498,25 @@ export const BillForm: React.FC<BillFormProps> = ({
 
             {newLine.itemId && (
               <>
+                <div className="space-y-2">
+                  <Label htmlFor="newAccountId">Expense Account</Label>
+                  <Select
+                    value={newLine.accountId || ''}
+                    onValueChange={(value) => setNewLine({ ...newLine, accountId: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select expense account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {expenseAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.code} - {account.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="newQuantity">Quantity *</Label>
                   <Input

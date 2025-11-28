@@ -63,7 +63,6 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
     invoiceDate: initialData?.invoiceDate ? new Date(initialData.invoiceDate) : new Date(),
     dueDate: initialData?.dueDate ? new Date(initialData.dueDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     status: initialData?.status || 'SENT',
-    taxAmount: initialData?.taxAmount || 0,
     notes: initialData?.notes || '',
   });
 
@@ -168,9 +167,8 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
   const calculateTotals = () => {
     const subtotal = lines.reduce((sum, line) => sum + line.amount, 0);
-    const tax = formData.taxAmount || 0;
-    const total = subtotal + tax;
-    return { subtotal, tax, total };
+    const total = subtotal;
+    return { subtotal, total };
   };
 
   const generateInvoiceNumber = () => {
@@ -207,7 +205,6 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
         invoiceDate: formData.invoiceDate.toISOString(),
         dueDate: formData.dueDate.toISOString(),
         status: formData.status as any,
-        taxAmount: formData.taxAmount,
         notes: formData.notes || undefined,
         lines: lines.map(line => ({
           itemId: line.itemId,
@@ -235,7 +232,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
     }
   };
 
-  const { subtotal, total } = calculateTotals();
+  const { total } = calculateTotals();
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -421,21 +418,6 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
           {/* Totals */}
           <div className="flex justify-end">
             <div className="w-64 space-y-2">
-              <div className="flex justify-between">
-                <span>Subtotal:</span>
-                <span className="font-mono">${subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <Label htmlFor="taxAmount">Tax Amount:</Label>
-                <Input
-                  id="taxAmount"
-                  type="number"
-                  step="0.01"
-                  value={formData.taxAmount}
-                  onChange={(e) => setFormData({ ...formData, taxAmount: parseFloat(e.target.value) || 0 })}
-                  className="w-24 h-8"
-                />
-              </div>
               <div className="flex justify-between text-lg font-bold border-t pt-2">
                 <span>Total:</span>
                 <span className="font-mono">${total.toFixed(2)}</span>

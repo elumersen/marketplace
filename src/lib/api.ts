@@ -24,6 +24,9 @@ import type {
   Bill,
   CreateBillData,
   BillQueryParams,
+  BillPayment,
+  CreateBillPaymentData,
+  UpdateBillPaymentData,
   Transaction,
   CreateTransactionData,
   TransactionQueryParams,
@@ -330,6 +333,19 @@ export const billAPI = {
     api.put<{ message: string; bill: Bill }>(`/bills/${id}`, data),
   delete: (id: string): Promise<{ message: string }> => 
     api.delete<{ message: string }>(`/bills/${id}`),
+};
+
+export const billPaymentAPI = {
+  getAll: (params?: { billId?: string; bankAccountId?: string; startDate?: string; endDate?: string }): Promise<{ billPayments: BillPayment[] }> => 
+    api.get<{ billPayments: BillPayment[] }>('/bill-payments', { params }),
+  getById: (id: string): Promise<{ billPayment: BillPayment }> => 
+    api.get<{ billPayment: BillPayment }>(`/bill-payments/${id}`),
+  create: (data: CreateBillPaymentData): Promise<{ message: string; billPayment: BillPayment }> => 
+    api.post<{ message: string; billPayment: BillPayment }>('/bill-payments', data),
+  update: (id: string, data: UpdateBillPaymentData): Promise<{ message: string; billPayment: BillPayment }> => 
+    api.put<{ message: string; billPayment: BillPayment }>(`/bill-payments/${id}`, data),
+  delete: (id: string): Promise<{ message: string }> => 
+    api.delete<{ message: string }>(`/bill-payments/${id}`),
 };
 
 export const itemAPI = {
