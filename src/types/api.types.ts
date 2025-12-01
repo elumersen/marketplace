@@ -378,6 +378,62 @@ export interface CreateBillData {
   }>;
 }
 
+// Bill Payment types
+export interface BillPaymentBill {
+  id: string;
+  billPaymentId: string;
+  billId: string;
+  amount: number;
+  bill?: Bill;
+}
+
+export interface BillPayment {
+  id: string;
+  billId?: string | null; // Deprecated, kept for backward compatibility
+  bill?: Bill;
+  billPaymentBills?: BillPaymentBill[];
+  bankAccountId: string;
+  bankAccount?: BankAccount;
+  paymentDate: string;
+  amount: number;
+  checkNumber: string | null;
+  referenceNumber: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  journalEntry?: JournalEntry;
+  createdByUser?: {
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+  updatedByUser?: {
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+}
+
+export interface CreateBillPaymentData {
+  bills: Array<{ billId: string; amount: number }>;
+  bankAccountId: string;
+  paymentDate: string;
+  amount: number;
+  checkNumber?: string;
+  referenceNumber?: string;
+  notes?: string;
+}
+
+export interface UpdateBillPaymentData {
+  bills?: Array<{ billId: string; amount: number }>;
+  bankAccountId?: string;
+  paymentDate?: string;
+  amount?: number;
+  checkNumber?: string;
+  referenceNumber?: string;
+  notes?: string;
+}
+
 // Transaction types
 export interface Transaction {
   id: string;
