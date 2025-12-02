@@ -319,6 +319,51 @@ export interface UpdateReceivePaymentData {
   notes?: string;
 }
 
+// Deposit types
+export interface Deposit {
+  id: string;
+  bankAccountId: string;
+  depositDate: string;
+  amount: number;
+  referenceNumber: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  bankAccount?: {
+    id: string;
+    name: string;
+    accountNumber: string;
+    accountType: string;
+  };
+  journalEntry?: JournalEntry;
+  createdByUser?: {
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+  updatedByUser?: {
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+}
+
+export interface CreateDepositData {
+  bankAccountId: string;
+  depositDate: string;
+  amount: number;
+  referenceNumber?: string;
+  notes?: string;
+}
+
+export interface UpdateDepositData {
+  bankAccountId?: string;
+  depositDate?: string;
+  amount?: number;
+  referenceNumber?: string;
+  notes?: string;
+}
+
 // Bill types
 export interface Bill {
   id: string;
