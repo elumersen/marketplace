@@ -21,6 +21,9 @@ import type {
   ReceivePayment,
   CreateReceivePaymentData,
   UpdateReceivePaymentData,
+  Deposit,
+  CreateDepositData,
+  UpdateDepositData,
   Bill,
   CreateBillData,
   BillQueryParams,
@@ -320,6 +323,19 @@ export const receivePaymentAPI = {
     api.put<{ message: string; receivePayment: ReceivePayment }>(`/receive-payments/${id}`, data),
   delete: (id: string): Promise<{ message: string }> => 
     api.delete<{ message: string }>(`/receive-payments/${id}`),
+};
+
+export const depositAPI = {
+  getAll: (params?: { bankAccountId?: string; startDate?: string; endDate?: string }): Promise<{ deposits: Deposit[] }> => 
+    api.get<{ deposits: Deposit[] }>('/deposits', { params }),
+  getById: (id: string): Promise<{ deposit: Deposit }> => 
+    api.get<{ deposit: Deposit }>(`/deposits/${id}`),
+  create: (data: CreateDepositData): Promise<{ message: string; deposit: Deposit }> => 
+    api.post<{ message: string; deposit: Deposit }>('/deposits', data),
+  update: (id: string, data: UpdateDepositData): Promise<{ message: string; deposit: Deposit }> => 
+    api.put<{ message: string; deposit: Deposit }>(`/deposits/${id}`, data),
+  delete: (id: string): Promise<{ message: string }> => 
+    api.delete<{ message: string }>(`/deposits/${id}`),
 };
 
 export const billAPI = {

@@ -11,6 +11,7 @@ import { Invoices } from '@/pages/income/Invoices';
 import { ReceivePayments } from '@/pages/income/ReceivePayments';
 import { ItemsServices } from '@/pages/income/ItemsServices';
 import { Proposals } from '@/pages/income/Proposals';
+import { Deposits } from "@/pages/income/Deposits";
 // Expenses pages
 import { Vendors } from '@/pages/expenses/Vendors';
 import { Bills } from '@/pages/expenses/Bills';
@@ -51,9 +52,10 @@ function App() {
               
               {/* Income */}
               <Route path="/customers" element={<Customers />} />
+              <Route path="/proposals" element={<Proposals />} />
               <Route path="/invoices" element={<Invoices />} />
               <Route path="/receive-payments" element={<ReceivePayments />} />
-              <Route path="/proposals" element={<Proposals />} />
+              <Route path="/deposits" element={<Deposits />} />
               <Route path="/products-services" element={<ItemsServices />} />
               
               {/* Expenses */}

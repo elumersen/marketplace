@@ -45,9 +45,10 @@ const navigation: (NavSection | NavItem)[] = [
     icon: TrendingUp,
     items: [
       { name: 'Customers', href: '/customers', icon: Users },
+      { name: 'Proposals', href: '/proposals', icon: FileText },
       { name: 'Invoices', href: '/invoices', icon: FileText },
       { name: 'Receive Payments', href: '/receive-payments', icon: DollarSign },
-      { name: 'Proposals', href: '/proposals', icon: FileText },
+      { name: 'Deposits', href: '/deposits', icon: DollarSign },
       { name: 'Products & Services', href: '/products-services', icon: Package },
     ],
   },
