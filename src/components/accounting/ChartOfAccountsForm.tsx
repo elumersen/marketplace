@@ -106,37 +106,24 @@ export const ChartOfAccountsForm = ({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={onCancel}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold">
-            {isEditing ? 'Edit Account' : 'Create New Account'}
-          </h1>
-          <p className="text-muted-foreground">
-            {isEditing ? 'Update account information' : 'Add a new account to your chart of accounts'}
-          </p>
-        </div>
-      </div>
-
-      {/* Form */}
+    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Account Information</CardTitle>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>
+                {isEditing ? 'Update Account' : 'Create Account'}
+              </CardTitle>
+            </div>
+            <Button type="button" variant="outline" onClick={onCancel}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Account Code */}
                 <FormField
                   control={form.control}
@@ -243,26 +230,23 @@ export const ChartOfAccountsForm = ({
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t">
+              <div className="flex justify-end gap-2">
                 <Button 
                   type="button" 
                   variant="outline" 
                   onClick={onCancel}
-                  className="w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
                 <Button 
-                  type="submit" 
-                  className="w-full sm:w-auto bg-primary hover:bg-primary/90"
+                  type="submit"
                 >
                   {isEditing ? 'Update Account' : 'Create Account'}
                 </Button>
               </div>
-            </form>
           </Form>
         </CardContent>
       </Card>
-    </div>
+    </form>
   );
 };

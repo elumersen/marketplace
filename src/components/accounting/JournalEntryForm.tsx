@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Trash2, Plus, Calculator } from 'lucide-react';
+import { Trash2, Plus, Calculator, ArrowLeft } from 'lucide-react';
 import { Account, CreateJournalEntryData, JournalEntryStatus } from '@/types/api.types';
 import { accountAPI, journalEntryAPI, getErrorMessage } from '@/lib/api';
 
@@ -199,7 +199,19 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
     <form onSubmit={handleSubmit} className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Journal Entry Details</CardTitle>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>
+                {isEditing ? 'Update Journal Entry' : 'Create Journal Entry'}
+              </CardTitle>
+            </div>
+            {onCancel && (
+              <Button type="button" variant="outline" onClick={onCancel}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
