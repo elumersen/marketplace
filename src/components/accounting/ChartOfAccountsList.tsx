@@ -40,9 +40,10 @@ interface ChartOfAccountsListProps {
   onView: (account: Account) => void;
   onEdit: (account: Account) => void;
   onCreateNew: () => void;
+  refreshSignal?: number;
 }
 
-export const ChartOfAccountsList = ({ onView, onEdit, onCreateNew }: ChartOfAccountsListProps) => {
+export const ChartOfAccountsList = ({ onView, onEdit, onCreateNew, refreshSignal = 0 }: ChartOfAccountsListProps) => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -102,7 +103,7 @@ export const ChartOfAccountsList = ({ onView, onEdit, onCreateNew }: ChartOfAcco
     if (!searchTerm) {
       fetchAccounts(1, itemsPerPage);
     }
-  }, [typeFilter, activeFilter]);
+  }, [typeFilter, activeFilter, refreshSignal]);
 
   // Handle pagination changes
   const handlePageChange = (page: number) => {

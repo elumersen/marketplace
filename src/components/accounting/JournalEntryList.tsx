@@ -43,6 +43,7 @@ interface JournalEntryListProps {
   onView?: (journalEntry: JournalEntry) => void;
   onEdit?: (journalEntry: JournalEntry) => void;
   onCreateNew?: () => void;
+  refreshSignal?: number;
 }
 
 const statusConfig = {
@@ -67,6 +68,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   onView,
   onEdit,
   onCreateNew,
+  refreshSignal = 0,
 }) => {
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,7 +95,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
 
   useEffect(() => {
     loadJournalEntries();
-  }, [filters]);
+  }, [filters, refreshSignal]);
 
   const loadJournalEntries = async () => {
     try {

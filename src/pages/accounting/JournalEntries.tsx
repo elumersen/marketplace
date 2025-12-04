@@ -3,104 +3,94 @@ import { JournalEntryList } from '@/components/accounting/JournalEntryList';
 import { JournalEntryForm } from '@/components/accounting/JournalEntryForm';
 import { JournalEntryDetail } from '@/components/accounting/JournalEntryDetail';
 import { JournalEntry } from '@/types/api.types';
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 
-type ViewMode = 'list' | 'create' | 'edit' | 'view';
+type SheetMode = 'create' | 'edit' | 'view' | null;
 
 export const JournalEntries = () => {
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [sheetMode, setSheetMode] = useState<SheetMode>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
+  const [refreshSignal, setRefreshSignal] = useState(0);
 
-  const handleCreateNew = () => {
-    setSelectedEntry(null);
-    setViewMode('create');
+  const openSheet = (mode: SheetMode, entry?: JournalEntry | null) => {
+    setSheetMode(mode);
+    setSelectedEntry(entry ?? null);
+    setSheetOpen(true);
   };
 
-  const handleView = (journalEntry: JournalEntry) => {
-    setSelectedEntry(journalEntry);
-    setViewMode('view');
+  const closeSheet = () => {
+    setSheetOpen(false);
+    setTimeout(() => {
+      setSheetMode(null);
+      setSelectedEntry(null);
+    }, 200);
   };
 
-  const handleEdit = (journalEntry: JournalEntry) => {
-    setSelectedEntry(journalEntry);
-    setViewMode('edit');
-  };
+  const handleCreateNew = () => openSheet('create');
+
+  const handleView = (journalEntry: JournalEntry) => openSheet('view', journalEntry);
+
+  const handleEdit = (journalEntry: JournalEntry) => openSheet('edit', journalEntry);
 
   const handleFormSuccess = (journalEntry: JournalEntry) => {
-    setSelectedEntry(journalEntry);
-    setViewMode('view');
-  };
-
-  const handleBackToList = () => {
-    setSelectedEntry(null);
-    setViewMode('list');
-  };
-
-  const handleCancel = () => {
-    if (selectedEntry) {
-      setViewMode('view');
-    } else {
-      setViewMode('list');
-    }
-  };
-
-  const renderContent = () => {
-    switch (viewMode) {
-      case 'create':
-        return (
-          <JournalEntryForm
-            onSuccess={handleFormSuccess}
-            onCancel={handleCancel}
-          />
-        );
-
-      case 'edit':
-        if (!selectedEntry) return null;
-        return (
-          <JournalEntryForm
-            initialData={{
-              entryNumber: selectedEntry.entryNumber,
-              entryDate: selectedEntry.entryDate,
-              description: selectedEntry.description || '',
-              status: selectedEntry.status,
-              lines: selectedEntry.lines?.map(line => ({
-                accountId: line.accountId,
-                description: line.description || '',
-                debit: line.debit,
-                credit: line.credit,
-              })) || [],
-            }}
-            onSuccess={handleFormSuccess}
-            onCancel={handleCancel}
-            isEditing={true}
-            journalEntryId={selectedEntry.id}
-          />
-        );
-
-      case 'view':
-        if (!selectedEntry) return null;
-        return (
-          <JournalEntryDetail
-            journalEntryId={selectedEntry.id}
-            onBack={handleBackToList}
-            onEdit={handleEdit}
-          />
-        );
-
-      case 'list':
-      default:
-        return (
-          <JournalEntryList
-            onView={handleView}
-            onEdit={handleEdit}
-            onCreateNew={handleCreateNew}
-          />
-        );
-    }
+    setRefreshSignal((prev) => prev + 1);
+    openSheet('view', journalEntry);
   };
 
   return (
     <div className="container mx-auto py-6">
-      {renderContent()}
+      <JournalEntryList
+        onView={handleView}
+        onEdit={handleEdit}
+        onCreateNew={handleCreateNew}
+        refreshSignal={refreshSignal}
+      />
+
+      <Sheet open={sheetOpen} onOpenChange={(open) => (open ? null : closeSheet())}>
+        <SheetContent side="right" className="sm:max-w-4xl w-full overflow-y-auto [&>button]:hidden">
+          <VisuallyHidden>
+            <SheetTitle>Journal Entry</SheetTitle>
+          </VisuallyHidden>
+          {sheetMode === 'create' && (
+            <JournalEntryForm onSuccess={handleFormSuccess} onCancel={closeSheet} />
+          )}
+
+          {sheetMode === 'edit' && selectedEntry && (
+            <JournalEntryForm
+              initialData={{
+                entryNumber: selectedEntry.entryNumber,
+                entryDate: selectedEntry.entryDate,
+                description: selectedEntry.description || '',
+                status: selectedEntry.status,
+                lines: selectedEntry.lines?.map(line => ({
+                  accountId: line.accountId,
+                  description: line.description || '',
+                  debit: line.debit,
+                  credit: line.credit,
+                })) || [],
+              }}
+              onSuccess={handleFormSuccess}
+              onCancel={closeSheet}
+              isEditing={true}
+              journalEntryId={selectedEntry.id}
+            />
+          )}
+
+          {sheetMode === 'view' && selectedEntry && (
+            <JournalEntryDetail
+              journalEntryId={selectedEntry.id}
+              onBack={closeSheet}
+              onEdit={handleEdit}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
