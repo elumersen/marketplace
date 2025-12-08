@@ -724,3 +724,76 @@ export interface AccountQueryParams {
   sortOrder?: 'asc' | 'desc';
   all?: string; // 'true' to fetch all accounts without pagination
 }
+
+// Plaid types
+export interface PlaidAccount {
+  id: string;
+  plaidItemId: string;
+  accountId: string;
+  name: string;
+  mask: string | null;
+  type: string;
+  subtype: string | null;
+  officialName: string | null;
+  balanceAvailable: number | null;
+  balanceCurrent: number | null;
+  balanceLimit: number | null;
+  currencyCode: string;
+  bankAccountId: string | null;
+  bankAccount?: BankAccount;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlaidItem {
+  id: string;
+  itemId: string;
+  institutionId: string | null;
+  institutionName: string | null;
+  webhook: string | null;
+  error: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  plaidAccounts: PlaidAccount[];
+  createdByUser?: {
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+  updatedByUser?: {
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+}
+
+export interface CreateLinkTokenResponse {
+  link_token: string;
+  expiration: string;
+}
+
+export interface ExchangePublicTokenData {
+  public_token: string;
+}
+
+export interface LinkPlaidAccountData {
+  plaidAccountId: string;
+  bankAccountId: string;
+}
+
+export interface SyncTransactionsData {
+  itemId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface SyncTransactionsResponse {
+  message: string;
+  syncedCount: number;
+  errors?: Array<{
+    accountId?: string;
+    itemId?: string;
+    error: string;
+  }>;
+}

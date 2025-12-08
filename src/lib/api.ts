@@ -46,6 +46,12 @@ import type {
   AccountQueryParams,
   PaginatedResponse,
   JournalEntryStatus,
+  PlaidItem,
+  CreateLinkTokenResponse,
+  ExchangePublicTokenData,
+  LinkPlaidAccountData,
+  SyncTransactionsData,
+  SyncTransactionsResponse,
 } from '@/types/api.types';
 
 // API Configuration
@@ -404,6 +410,23 @@ export const reconciliationAPI = {
   create: (data: CreateReconciliationData): Promise<Reconciliation> => api.post<Reconciliation>('/reconciliations', data),
   update: (id: string, data: Partial<CreateReconciliationData>): Promise<Reconciliation> => api.put<Reconciliation>(`/reconciliations/${id}`, data),
   delete: (id: string): Promise<void> => api.delete(`/reconciliations/${id}`),
+};
+
+export const plaidAPI = {
+  createLinkToken: (): Promise<CreateLinkTokenResponse> =>
+    api.post<CreateLinkTokenResponse>('/plaid/create-link-token'),
+  exchangePublicToken: (data: ExchangePublicTokenData): Promise<{ message: string; itemId: string }> =>
+    api.post<{ message: string; itemId: string }>('/plaid/exchange-public-token', data),
+  syncAccounts: (itemId?: string): Promise<{ message: string; syncedAccounts: number }> =>
+    api.post<{ message: string; syncedAccounts: number }>('/plaid/sync-accounts', { itemId }),
+  getItems: (): Promise<{ items: PlaidItem[] }> =>
+    api.get<{ items: PlaidItem[] }>('/plaid/items'),
+  linkAccount: (data: LinkPlaidAccountData): Promise<{ message: string }> =>
+    api.post<{ message: string }>('/plaid/link-account', data),
+  syncTransactions: (data?: SyncTransactionsData): Promise<SyncTransactionsResponse> =>
+    api.post<SyncTransactionsResponse>('/plaid/sync-transactions', data),
+  removeItem: (id: string): Promise<{ message: string }> =>
+    api.delete<{ message: string }>(`/plaid/items/${id}`),
 };
 
 // Export the main axios instance for advanced use cases
