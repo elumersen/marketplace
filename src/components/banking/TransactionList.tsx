@@ -64,7 +64,7 @@ export const TransactionList = () => {
 
       const response = await transactionAPI.getAll(params);
       // Backend returns { transactions: Transaction[] }
-      setTransactions((response as any).transactions || (Array.isArray(response) ? response : []));
+      setTransactions(response.transactions);
     } catch (error) {
       const message = getErrorMessage(error);
       toast({
