@@ -272,7 +272,7 @@ export const accountAPI = {
 };
 
 export const transactionAPI = {
-  getAll: (params?: TransactionQueryParams): Promise<Transaction[]> => api.get<Transaction[]>('/transactions', { params }),
+  getAll: (params?: TransactionQueryParams): Promise<{ transactions: Transaction[] }> => api.get<{ transactions: Transaction[] }>('/transactions', { params }),
   getById: (id: string): Promise<Transaction> => api.get<Transaction>(`/transactions/${id}`),
   create: (data: CreateTransactionData): Promise<Transaction> => api.post<Transaction>('/transactions', data),
   update: (id: string, data: Partial<CreateTransactionData>): Promise<Transaction> => api.put<Transaction>(`/transactions/${id}`, data),
