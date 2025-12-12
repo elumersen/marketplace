@@ -490,6 +490,10 @@ export interface Transaction {
   amount: number;
   payee?: string;
   referenceNumber?: string;
+  expenseAccountId?: string | null;
+  expenseAccount?: Account | null;
+  incomeAccountId?: string | null;
+  incomeAccount?: Account | null;
   isReconciled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -557,6 +561,7 @@ export interface CreateTransactionData {
   referenceNumber?: string;
   checkNumber?: string;
   expenseAccountId?: string;
+  incomeAccountId?: string;
   toBankAccountId?: string;
   fromBankAccountId?: string;
   invoiceId?: string;
