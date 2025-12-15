@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePlaidLink } from 'react-plaid-link';
-import { plaidAPI, bankAccountAPI, transactionAPI, getErrorMessage } from '@/lib/api';
+import { plaidAPI, bankAccountAPI, transactionAPI, accountAPI, journalEntryAPI, getErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Link2, RefreshCw, CheckCircle2, XCircle, SearchIcon } from 'lucide-react';
-import type { PlaidItem, BankAccount, Transaction, TransactionType } from '@/types/api.types';
-import { TransactionType as TransactionTypeEnum } from '@/types/api.types';
+import type { PlaidItem, BankAccount, Transaction, TransactionType, Account } from '@/types/api.types';
+import { TransactionType as TransactionTypeEnum, JournalEntryStatus } from '@/types/api.types';
 import {
   Select,
   SelectContent,
@@ -34,6 +34,7 @@ export const SmartBankFeed = () => {
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [items, setItems] = useState<PlaidItem[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]); // Chart of Accounts
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState<string | null>(null);
@@ -43,6 +44,7 @@ export const SmartBankFeed = () => {
   const [filterAccount, setFilterAccount] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('uncategorized');
   const [datePreset, setDatePreset] = useState<string>('last30');
   const { toast } = useToast();
 
@@ -50,15 +52,18 @@ export const SmartBankFeed = () => {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [itemsResponse, bankAccountsResponse, transactionsResponse] = await Promise.all([
+      const [itemsResponse, bankAccountsResponse, transactionsResponse, accountsResponse] = await Promise.all([
         plaidAPI.getItems(),
         bankAccountAPI.getAll(),
         transactionAPI.getAll({}),
+        accountAPI.getAll({ isActive: true, all: 'true' }),
       ]);
       setItems(itemsResponse.items);
       setBankAccounts(bankAccountsResponse);
       // Backend returns { transactions: Transaction[] }
       setTransactions(transactionsResponse.transactions);
+      // Backend returns { data: Account[] }
+      setAccounts(accountsResponse.data || []);
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -193,7 +198,15 @@ export const SmartBankFeed = () => {
   // Transaction update handler
   const handleUpdateTransaction = async (id: string, updates: Partial<Transaction>) => {
     try {
-      await transactionAPI.update(id, updates);
+      // Convert null to undefined for account IDs
+      const updateData: any = { ...updates };
+      if (updateData.expenseAccountId === null) {
+        updateData.expenseAccountId = undefined;
+      }
+      if (updateData.incomeAccountId === null) {
+        updateData.incomeAccountId = undefined;
+      }
+      await transactionAPI.update(id, updateData);
       toast({
         title: 'Success',
         description: 'Transaction updated successfully',
@@ -208,15 +221,147 @@ export const SmartBankFeed = () => {
     }
   };
 
-  // Categorize handler
+  // Categorize handler - creates journal entry with debit/credit
   const handleCategorize = async (id: string, type: TransactionType, accountId?: string) => {
     try {
-      const updates: Partial<Transaction> = { type };
-      if (accountId && (type === TransactionTypeEnum.EXPENSE || type === TransactionTypeEnum.TRANSFER)) {
-        // For expense transactions, we might need to set expenseAccountId
-        // This depends on your backend structure
+      const transaction = transactions.find(t => t.id === id);
+      if (!transaction) {
+        toast({
+          title: 'Error',
+          description: 'Transaction not found',
+          variant: 'destructive',
+        });
+        return;
       }
-      await transactionAPI.update(id, updates);
+
+      // For expense transactions, require an expense account
+      if (type === TransactionTypeEnum.EXPENSE && !accountId) {
+        toast({
+          title: 'Error',
+          description: 'Please select an expense account',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // For deposit/receive payment transactions, require an income account
+      if ((type === TransactionTypeEnum.DEPOSIT || type === TransactionTypeEnum.RECEIVE_PAYMENT) && !accountId) {
+        toast({
+          title: 'Error',
+          description: 'Please select an income account',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Find the selected account and bank account
+      const selectedAccount = accounts.find(a => a.id === accountId);
+      const bankAccount = bankAccounts.find(ba => ba.id === transaction.bankAccountId);
+
+      if (!bankAccount) {
+        toast({
+          title: 'Error',
+          description: 'Bank account not found',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Find the Chart of Accounts account that corresponds to the bank account
+      // Try to find by name match first, then by account type
+      let bankAccountChartAccount = accounts.find(a => 
+        a.name.toLowerCase() === bankAccount.name.toLowerCase() ||
+        (a.subType === 'Credit_Card' && bankAccount.accountType?.toLowerCase().includes('credit'))
+      );
+
+      // If not found, try to find a Cash or Credit Card account
+      if (!bankAccountChartAccount) {
+        bankAccountChartAccount = accounts.find(a => 
+          a.subType === 'Credit_Card' || a.subType === 'Cash_Cash_Equivalents'
+        );
+      }
+
+      if (!bankAccountChartAccount) {
+        toast({
+          title: 'Error',
+          description: 'Could not find corresponding Chart of Accounts account for the bank account',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Determine debit and credit based on transaction type
+      let debitAccountId: string;
+      let creditAccountId: string;
+
+      if (type === TransactionTypeEnum.EXPENSE) {
+        // Expense: Debit expense account, Credit bank account (Chart of Accounts)
+        if (!selectedAccount) {
+          toast({
+            title: 'Error',
+            description: 'Please select an expense account',
+            variant: 'destructive',
+          });
+          return;
+        }
+        debitAccountId = selectedAccount.id;
+        creditAccountId = bankAccountChartAccount.id;
+      } else if (type === TransactionTypeEnum.DEPOSIT || type === TransactionTypeEnum.RECEIVE_PAYMENT) {
+        // Deposit/Receive Payment: Debit bank account (Chart of Accounts), Credit income account
+        if (!selectedAccount) {
+          toast({
+            title: 'Error',
+            description: 'Please select an income account',
+            variant: 'destructive',
+          });
+          return;
+        }
+        debitAccountId = bankAccountChartAccount.id;
+        creditAccountId = selectedAccount.id;
+      } else {
+        // For other types, just update the transaction type without creating journal entry
+        await transactionAPI.update(id, { type });
+        toast({
+          title: 'Success',
+          description: 'Transaction categorized successfully',
+        });
+        await fetchData();
+        return;
+      }
+
+      // Create journal entry with two lines
+      const journalEntryData = {
+        entryDate: transaction.transactionDate,
+        description: transaction.description || 'Transaction categorization',
+        status: JournalEntryStatus.POSTED,
+        lines: [
+          {
+            accountId: debitAccountId,
+            description: transaction.description || '',
+            debit: transaction.amount,
+            credit: 0,
+          },
+          {
+            accountId: creditAccountId,
+            description: transaction.description || '',
+            debit: 0,
+            credit: transaction.amount,
+          },
+        ],
+      };
+
+      // Create the journal entry
+      await journalEntryAPI.create(journalEntryData);
+
+      // Update the transaction to link it to the journal entry and set the type
+      const updateData: any = { type };
+      if (type === TransactionTypeEnum.EXPENSE) {
+        updateData.expenseAccountId = accountId;
+      } else if (type === TransactionTypeEnum.DEPOSIT || type === TransactionTypeEnum.RECEIVE_PAYMENT) {
+        updateData.incomeAccountId = accountId;
+      }
+      await transactionAPI.update(id, updateData);
+
       toast({
         title: 'Success',
         description: 'Transaction categorized successfully',
@@ -308,6 +453,35 @@ export const SmartBankFeed = () => {
       );
     }
 
+    // Category filter (Uncategorized vs Categorized)
+    if (filterCategory !== 'all') {
+      if (filterCategory === 'uncategorized') {
+        // Show transactions that don't have an account assigned
+        filtered = filtered.filter((t) => {
+          if (t.type === TransactionTypeEnum.EXPENSE) {
+            return !t.expenseAccountId;
+          }
+          if (t.type === TransactionTypeEnum.DEPOSIT || t.type === TransactionTypeEnum.RECEIVE_PAYMENT) {
+            return !t.incomeAccountId;
+          }
+          // For other types, consider them uncategorized if they don't have a type set
+          return !t.type || t.type === TransactionTypeEnum.JOURNAL_ENTRY;
+        });
+      } else if (filterCategory === 'categorized') {
+        // Show transactions that have an account assigned
+        filtered = filtered.filter((t) => {
+          if (t.type === TransactionTypeEnum.EXPENSE) {
+            return !!t.expenseAccountId;
+          }
+          if (t.type === TransactionTypeEnum.DEPOSIT || t.type === TransactionTypeEnum.RECEIVE_PAYMENT) {
+            return !!t.incomeAccountId;
+          }
+          // For other types, consider them categorized if they have a proper type set
+          return t.type && t.type !== TransactionTypeEnum.JOURNAL_ENTRY;
+        });
+      }
+    }
+
     // Date preset filter
     if (datePreset !== 'all') {
       const now = new Date();
@@ -334,11 +508,19 @@ export const SmartBankFeed = () => {
     return filtered.sort((a, b) => 
       new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime()
     );
-  }, [transactions, searchTerm, filterAccount, filterType, filterStatus, datePreset, selectedBankAccountIds, selectedBankItem]);
+  }, [transactions, searchTerm, filterAccount, filterType, filterStatus, filterCategory, datePreset, selectedBankAccountIds, selectedBankItem]);
 
   const uncategorizedCount = useMemo(() => 
-    filteredTransactions.filter((t) => !t.type || t.type === TransactionTypeEnum.JOURNAL_ENTRY).length,
-    [filteredTransactions]
+    transactions.filter((t) => {
+      if (t.type === TransactionTypeEnum.EXPENSE) {
+        return !t.expenseAccountId;
+      }
+      if (t.type === TransactionTypeEnum.DEPOSIT || t.type === TransactionTypeEnum.RECEIVE_PAYMENT) {
+        return !t.incomeAccountId;
+      }
+      return !t.type || t.type === TransactionTypeEnum.JOURNAL_ENTRY;
+    }).length,
+    [transactions]
   );
 
   const allSelected = selectedTransactions.size > 0 && selectedTransactions.size === filteredTransactions.length;
@@ -566,6 +748,16 @@ export const SmartBankFeed = () => {
                   <SelectItem value="unreconciled">Unreconciled</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="uncategorized">Uncategorized</SelectItem>
+                  <SelectItem value="categorized">Categorized</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Bulk Actions Bar */}
@@ -635,9 +827,10 @@ export const SmartBankFeed = () => {
                       </TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Type</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Payee</TableHead>
-                      <TableHead>Account</TableHead>
+                      <TableHead className="w-32">Description</TableHead>
+                      <TableHead className="w-32">Payee</TableHead>
+                      <TableHead>Bank Account</TableHead>
+                      <TableHead>Chart Account</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
                       <TableHead className="w-32">Reference</TableHead>
                       <TableHead>Status</TableHead>
@@ -649,7 +842,7 @@ export const SmartBankFeed = () => {
                       <SmartTransactionRow
                         key={transaction.id}
                         transaction={transaction}
-                        bankAccounts={bankAccounts}
+                        accounts={accounts}
                         isSelected={selectedTransactions.has(transaction.id)}
                         onSelect={handleSelectTransaction}
                         onUpdate={handleUpdateTransaction}
