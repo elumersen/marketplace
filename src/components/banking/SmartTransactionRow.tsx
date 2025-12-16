@@ -24,7 +24,15 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MoreVertical, Tag, AlertCircle } from 'lucide-react';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { MoreVertical, Tag, AlertCircle, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Transaction, TransactionType, Account } from '@/types/api.types';
 import { TransactionType as TransactionTypeEnum, AccountType } from '@/types/api.types';
@@ -53,6 +61,7 @@ export const SmartTransactionRow = ({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [categorizePayee, setCategorizePayee] = useState(transaction.payee || '');
+  const [accountSelectOpen, setAccountSelectOpen] = useState(false);
   
   // Determine transaction type based on amount if not set
   // Negative amounts are expenses, positive are deposits
@@ -111,6 +120,39 @@ export const SmartTransactionRow = ({
     ((transaction.type === TransactionTypeEnum.DEPOSIT || transaction.type === TransactionTypeEnum.RECEIVE_PAYMENT) && !transaction.incomeAccountId) ||
     (!transaction.type || transaction.type === TransactionTypeEnum.JOURNAL_ENTRY);
   const needsAttention = isUncategorized || !transaction.isReconciled;
+
+  // Get available accounts based on transaction type
+  const availableAccounts = accounts.filter((acc) => {
+    if (!acc.isActive) return false;
+    // For expenses, show expense accounts
+    if (inferredType === TransactionTypeEnum.EXPENSE) {
+      return acc.type === AccountType.Expense || 
+             acc.type === AccountType.Other_Expense ||
+             acc.type === AccountType.Cost_of_Goods_Sold;
+    }
+    // For deposits/receive payments, show income accounts
+    if (inferredType === TransactionTypeEnum.DEPOSIT || inferredType === TransactionTypeEnum.RECEIVE_PAYMENT) {
+      return acc.type === AccountType.Income || 
+             acc.type === AccountType.Other_Income;
+    }
+    return false;
+  });
+
+  // Get current account ID
+  const currentAccountId = transaction.type === TransactionTypeEnum.EXPENSE 
+    ? transaction.expenseAccountId 
+    : (transaction.type === TransactionTypeEnum.DEPOSIT || transaction.type === TransactionTypeEnum.RECEIVE_PAYMENT)
+      ? transaction.incomeAccountId
+      : null;
+
+  // Handle account selection
+  const handleAccountSelect = async (accountId: string) => {
+    if (onCategorize) {
+      const typeToUse = transaction.type || inferredType;
+      await onCategorize(transaction.id, typeToUse, accountId);
+    }
+    setAccountSelectOpen(false);
+  };
 
   return (
     <TableRow
@@ -175,18 +217,63 @@ export const SmartTransactionRow = ({
       </TableCell>
       <TableCell>{transaction.bankAccount?.name || '-'}</TableCell>
       <TableCell>
-        {transaction.type === TransactionTypeEnum.EXPENSE ? (
-          transaction.expenseAccount ? (
-            <span className="text-sm">{transaction.expenseAccount.code} - {transaction.expenseAccount.name}</span>
-          ) : (
-            <span className="text-sm text-muted-foreground italic">Uncategorized</span>
-          )
-        ) : (transaction.type === TransactionTypeEnum.DEPOSIT || transaction.type === TransactionTypeEnum.RECEIVE_PAYMENT) ? (
-          transaction.incomeAccount ? (
-            <span className="text-sm">{transaction.incomeAccount.code} - {transaction.incomeAccount.name}</span>
-          ) : (
-            <span className="text-sm text-muted-foreground italic">Uncategorized</span>
-          )
+        {(inferredType === TransactionTypeEnum.EXPENSE || 
+          inferredType === TransactionTypeEnum.DEPOSIT || 
+          inferredType === TransactionTypeEnum.RECEIVE_PAYMENT) ? (
+          <Popover open={accountSelectOpen} onOpenChange={setAccountSelectOpen}>
+            <PopoverTrigger asChild>
+              <button
+                className={cn(
+                  "text-sm text-left w-full hover:bg-muted/50 rounded px-2 py-1 transition-colors cursor-pointer",
+                  isUncategorized && "text-muted-foreground italic",
+                  !isUncategorized && "font-medium"
+                )}
+              >
+                {transaction.type === TransactionTypeEnum.EXPENSE ? (
+                  transaction.expenseAccount ? (
+                    <span>{transaction.expenseAccount.code} - {transaction.expenseAccount.name}</span>
+                  ) : (
+                    <span>Uncategorized</span>
+                  )
+                ) : (transaction.type === TransactionTypeEnum.DEPOSIT || transaction.type === TransactionTypeEnum.RECEIVE_PAYMENT) ? (
+                  transaction.incomeAccount ? (
+                    <span>{transaction.incomeAccount.code} - {transaction.incomeAccount.name}</span>
+                  ) : (
+                    <span>Uncategorized</span>
+                  )
+                ) : (
+                  <span>-</span>
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[400px] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search accounts..." />
+                <CommandList>
+                  <CommandEmpty>No accounts found.</CommandEmpty>
+                  <CommandGroup>
+                    {availableAccounts.map((account) => (
+                      <CommandItem
+                        key={account.id}
+                        value={`${account.code} ${account.name}`}
+                        onSelect={() => handleAccountSelect(account.id)}
+                        className="cursor-pointer"
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            currentAccountId === account.id ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <span className="font-medium">{account.code}</span>
+                        <span className="ml-2">{account.name}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         ) : (
           <span>-</span>
         )}
