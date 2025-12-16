@@ -45,7 +45,7 @@ export const SmartBankFeed = () => {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('uncategorized');
-  const [datePreset, setDatePreset] = useState<string>('last30');
+  const [datePreset, setDatePreset] = useState<string>('all');
   const { toast } = useToast();
 
   // Fetch all data
@@ -511,7 +511,7 @@ export const SmartBankFeed = () => {
   }, [transactions, searchTerm, filterAccount, filterType, filterStatus, filterCategory, datePreset, selectedBankAccountIds, selectedBankItem]);
 
   const uncategorizedCount = useMemo(() => 
-    transactions.filter((t) => {
+    filteredTransactions.filter((t) => {
       if (t.type === TransactionTypeEnum.EXPENSE) {
         return !t.expenseAccountId;
       }
@@ -520,7 +520,7 @@ export const SmartBankFeed = () => {
       }
       return !t.type || t.type === TransactionTypeEnum.JOURNAL_ENTRY;
     }).length,
-    [transactions]
+    [filteredTransactions]
   );
 
   const allSelected = selectedTransactions.size > 0 && selectedTransactions.size === filteredTransactions.length;
