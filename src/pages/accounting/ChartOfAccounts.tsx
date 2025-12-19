@@ -34,8 +34,6 @@ export const ChartOfAccounts = () => {
 
   const handleCreateNew = () => openSheet('create');
 
-  const handleView = (account: Account) => openSheet('view', account);
-
   const handleEdit = (account: Account) => openSheet('edit', account);
 
   const handleFormSuccess = (account: Account) => {
@@ -44,9 +42,8 @@ export const ChartOfAccounts = () => {
   };
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="h-screen flex flex-col overflow-hidden">
       <ChartOfAccountsList
-        onView={handleView}
         onEdit={handleEdit}
         onCreateNew={handleCreateNew}
         refreshSignal={refreshSignal}
