@@ -42,7 +42,7 @@ export const ChartOfAccounts = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 1.7cm)' }}>
       <ChartOfAccountsList
         onEdit={handleEdit}
         onCreateNew={handleCreateNew}
