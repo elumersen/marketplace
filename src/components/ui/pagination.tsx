@@ -8,7 +8,8 @@ interface PaginationProps {
   totalItems: number;
   itemsPerPage: number;
   onPageChange: (page: number) => void;
-  onItemsPerPageChange: (itemsPerPage: number) => void;
+  onItemsPerPageChange?: (itemsPerPage: number) => void;
+  showResultsInfo?: boolean;
   className?: string;
 }
 
@@ -19,6 +20,7 @@ export const Pagination: React.FC<PaginationProps> = ({
   itemsPerPage,
   onPageChange,
   onItemsPerPageChange,
+  showResultsInfo = true,
   className = '',
 }) => {
   const startItem = (currentPage - 1) * itemsPerPage + 1;
@@ -60,22 +62,26 @@ export const Pagination: React.FC<PaginationProps> = ({
   };
 
   return (
-    <div className={`flex items-center justify-between ${className}`}>
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span>
-          Showing {startItem} to {endItem} of {totalItems} results
-        </span>
-        <select
-          value={itemsPerPage}
-          onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
-          className="ml-2 h-8 rounded border border-input bg-background px-2 text-sm"
-        >
-          <option value={5}>5 per page</option>
-          <option value={10}>10 per page</option>
-          <option value={20}>20 per page</option>
-          <option value={50}>50 per page</option>
-        </select>
-      </div>
+    <div className={`flex items-center ${showResultsInfo ? 'justify-between' : 'justify-end'} ${className}`}>
+      {showResultsInfo && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>
+            Showing {startItem} to {endItem} of {totalItems} results
+          </span>
+          {onItemsPerPageChange && (
+            <select
+              value={itemsPerPage}
+              onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
+              className="ml-2 h-8 rounded border border-input bg-background px-2 text-sm"
+            >
+              <option value={5}>5 per page</option>
+              <option value={10}>10 per page</option>
+              <option value={20}>20 per page</option>
+              <option value={50}>50 per page</option>
+            </select>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-1">
         <Button
