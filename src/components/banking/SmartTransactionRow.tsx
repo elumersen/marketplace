@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
   Popover,
@@ -21,6 +22,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,10 +40,12 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { MoreVertical, Tag, AlertCircle, Check } from 'lucide-react';
+import { MoreVertical, Tag, AlertCircle, Check, Link2, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Transaction, TransactionType, Account } from '@/types/api.types';
 import { TransactionType as TransactionTypeEnum, AccountType } from '@/types/api.types';
+import { transactionAPI, getErrorMessage } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 interface SmartTransactionRowProps {
@@ -45,6 +55,7 @@ interface SmartTransactionRowProps {
   onSelect: (id: string, selected: boolean) => void;
   onUpdate?: (id: string, updates: Partial<Transaction>) => void;
   onCategorize?: (id: string, type: TransactionType, accountId?: string) => void;
+  onMatch?: () => void; // Callback when a match is accepted
   showCheckbox?: boolean;
 }
 
@@ -55,13 +66,18 @@ export const SmartTransactionRow = ({
   onSelect,
   onUpdate,
   onCategorize,
+  onMatch,
   showCheckbox = true,
 }: SmartTransactionRowProps) => {
+  const { toast } = useToast();
   const [categorizeOpen, setCategorizeOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [categorizePayee, setCategorizePayee] = useState(transaction.payee || '');
   const [accountSelectOpen, setAccountSelectOpen] = useState(false);
+  const [matchesOpen, setMatchesOpen] = useState(false);
+  const [potentialMatches, setPotentialMatches] = useState<Transaction[]>([]);
+  const [loadingMatches, setLoadingMatches] = useState(false);
   
   // Determine transaction type based on amount if not set
   // Negative amounts are expenses, positive are deposits
@@ -154,6 +170,50 @@ export const SmartTransactionRow = ({
     setAccountSelectOpen(false);
   };
 
+  // Check if transaction is from bank feed (has Plaid referenceNumber)
+  // Plaid transaction IDs are typically 20+ character alphanumeric strings
+  const isFromBankFeed = transaction.referenceNumber && 
+    transaction.referenceNumber.length >= 20 && 
+    /^[a-zA-Z0-9_-]+$/.test(transaction.referenceNumber);
+
+  // Load potential matches
+  const loadMatches = async () => {
+    setLoadingMatches(true);
+    try {
+      const response = await transactionAPI.findMatches(transaction.id);
+      setPotentialMatches(response.matches);
+      setMatchesOpen(true);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingMatches(false);
+    }
+  };
+
+  // Accept a match
+  const handleAcceptMatch = async (manualTransactionId: string) => {
+    try {
+      await transactionAPI.acceptMatch(transaction.id, manualTransactionId);
+      toast({
+        title: 'Success',
+        description: 'Transactions matched successfully',
+      });
+      setMatchesOpen(false);
+      setPotentialMatches([]);
+      onMatch?.(); // Notify parent to refresh
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <TableRow
       className={cn(
@@ -196,6 +256,18 @@ export const SmartTransactionRow = ({
           )}
           {isUncategorized && (
             <AlertCircle className="h-3 w-3 text-orange-500 flex-shrink-0" />
+          )}
+          {potentialMatches.length > 0 && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link2 className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{potentialMatches.length} potential match{potentialMatches.length !== 1 ? 'es' : ''} found</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
       </TableCell>
@@ -330,6 +402,25 @@ export const SmartTransactionRow = ({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              {(isFromBankFeed || potentialMatches.length > 0) && (
+                <>
+                  <DropdownMenuItem 
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      loadMatches();
+                    }}
+                    disabled={loadingMatches}
+                  >
+                    {loadingMatches ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Link2 className="mr-2 h-4 w-4" />
+                    )}
+                    {potentialMatches.length > 0 ? `Match (${potentialMatches.length})` : 'Find Match'}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <Popover open={categorizeOpen} onOpenChange={(open) => {
                 setCategorizeOpen(open);
                 if (!open) {
@@ -434,6 +525,76 @@ export const SmartTransactionRow = ({
           </DropdownMenu>
         </div>
       </TableCell>
+
+      {/* Match Dialog */}
+      <Dialog open={matchesOpen} onOpenChange={setMatchesOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Match Transaction</DialogTitle>
+            <DialogDescription>
+              {isFromBankFeed 
+                ? 'This transaction is from your bank feed. Select a manually entered transaction to match it with.'
+                : 'This transaction was manually entered. Select a bank feed transaction to match it with.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-4 bg-muted rounded-lg">
+              <div className="text-sm font-medium mb-2">Current Transaction</div>
+              <div className="text-sm space-y-1">
+                <div><span className="font-medium">Amount:</span> {formatCurrency(transaction.amount)}</div>
+                <div><span className="font-medium">Date:</span> {format(new Date(transaction.transactionDate), 'MMM dd, yyyy')}</div>
+                <div><span className="font-medium">Description:</span> {transaction.description || '-'}</div>
+                <div><span className="font-medium">Payee:</span> {transaction.payee || '-'}</div>
+              </div>
+            </div>
+
+            {potentialMatches.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No potential matches found</p>
+                <p className="text-sm mt-2">Make sure you have a transaction with the same amount on the same bank account.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Potential Matches ({potentialMatches.length})</div>
+                {potentialMatches.map((match) => (
+                  <div
+                    key={match.id}
+                    className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                    onClick={() => handleAcceptMatch(match.id)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 space-y-1">
+                        <div className="text-sm font-medium">
+                          {format(new Date(match.transactionDate), 'MMM dd, yyyy')}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          <div><span className="font-medium">Description:</span> {match.description || '-'}</div>
+                          <div><span className="font-medium">Payee:</span> {match.payee || '-'}</div>
+                          {match.expenseAccount && (
+                            <div><span className="font-medium">Expense Account:</span> {match.expenseAccount.code} - {match.expenseAccount.name}</div>
+                          )}
+                          {match.incomeAccount && (
+                            <div><span className="font-medium">Income Account:</span> {match.incomeAccount.code} - {match.incomeAccount.name}</div>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAcceptMatch(match.id);
+                        }}
+                      >
+                        Match
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </TableRow>
   );
 };

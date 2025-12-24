@@ -847,6 +847,7 @@ export const SmartBankFeed = () => {
                         onSelect={handleSelectTransaction}
                         onUpdate={handleUpdateTransaction}
                         onCategorize={handleCategorize}
+                        onMatch={fetchData}
                       />
                     ))}
                   </TableBody>
