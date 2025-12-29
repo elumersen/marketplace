@@ -279,6 +279,10 @@ export const transactionAPI = {
   delete: (id: string): Promise<void> => api.delete(`/transactions/${id}`),
   getAccountRegister: (accountId: string, params?: { startDate?: string; endDate?: string }): Promise<AccountRegister> => 
     api.get<AccountRegister>(`/transactions/register/${accountId}`, { params }),
+  findMatches: (id: string): Promise<{ transaction: Transaction; matches: Transaction[] }> => 
+    api.get<{ transaction: Transaction; matches: Transaction[] }>(`/transactions/${id}/matches`),
+  acceptMatch: (id: string, manualTransactionId: string): Promise<{ message: string; transaction: Transaction; matchedTransactionId: string }> => 
+    api.post<{ message: string; transaction: Transaction; matchedTransactionId: string }>(`/transactions/${id}/match`, { manualTransactionId }),
 };
 
 export const customerAPI = {
