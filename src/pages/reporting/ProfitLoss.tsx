@@ -10,6 +10,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { accountAPI, getErrorMessage } from '@/lib/api';
 import { Account, AccountType } from '@/types/api.types';
+import { sortAccountTypes, getSubTypeOrder } from '@/lib/accountOrdering';
 import { ChevronDown, ChevronRight, TrendingUp } from 'lucide-react';
 // import { format } from 'date-fns';s
 
@@ -25,13 +26,13 @@ interface SubTypeGroup {
   total: number;
 }
 
-// Profit & Loss account types
+// Profit & Loss account types (ordered as specified)
 const PROFIT_LOSS_TYPES: AccountType[] = [
   AccountType.Income,
   AccountType.Other_Income,
+  AccountType.Cost_of_Goods_Sold,
   AccountType.Expense,
   AccountType.Other_Expense,
-  AccountType.Cost_of_Goods_Sold,
 ];
 
 export const ProfitLoss = () => {
@@ -110,11 +111,22 @@ export const ProfitLoss = () => {
       subTypeMap.get(subType)!.push(acc);
     });
     
-    return Array.from(subTypeMap.entries()).map(([subType, accs]) => ({
-      subType,
-      accounts: accs,
-      total: accs.reduce((sum, acc) => sum + acc.balance, 0),
-    }));
+    return Array.from(subTypeMap.entries())
+      .sort((a, b) => {
+        // Sort by the global sub type order
+        const aOrder = getSubTypeOrder(a[0]);
+        const bOrder = getSubTypeOrder(b[0]);
+        if (aOrder === bOrder) {
+          // If both have same order, sort alphabetically
+          return a[0].localeCompare(b[0]);
+        }
+        return aOrder - bOrder;
+      })
+      .map(([subType, accs]) => ({
+        subType,
+        accounts: accs,
+        total: accs.reduce((sum, acc) => sum + acc.balance, 0),
+      }));
   };
 
   const formatCurrency = (amount: number) => {

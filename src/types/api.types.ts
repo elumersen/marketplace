@@ -98,6 +98,7 @@ export enum AccountType {
   Current_Assets = 'Current_Assets',
   Fixed_Assets = 'Fixed_Assets',
   Current_Liabilities = 'Current_Liabilities',
+  Long_Term_Liabilities = 'Long_Term_Liabilities',
   Equity = 'Equity',
 }
 
