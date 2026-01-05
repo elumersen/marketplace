@@ -10,7 +10,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { accountAPI, getErrorMessage } from '@/lib/api';
 import { Account, AccountType } from '@/types/api.types';
-import { sortAccountTypes, getSubTypeOrder } from '@/lib/accountOrdering';
+import { getSubTypeOrder } from '@/lib/accountOrdering';
 import { ChevronDown, ChevronRight, TrendingUp } from 'lucide-react';
 // import { format } from 'date-fns';s
 
