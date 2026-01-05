@@ -22,6 +22,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { accountAPI, getErrorMessage } from '@/lib/api';
 import { Account, AccountType } from '@/types/api.types';
+import { sortAccountTypes } from '@/lib/accountOrdering';
 import { ArrowLeft } from 'lucide-react';
 
 // Form schema for account creation/editing
@@ -56,14 +57,15 @@ export const ChartOfAccountsForm = ({
   // Account subtypes mapping
   const accountSubTypes = {
     [AccountType.Income]: ['Income'],
-    [AccountType.Other_Income]: ['Other_Income'],
+    [AccountType.Other_Income]: ['Other_Income', 'Gain_or_Loss_on_Sale'],
     [AccountType.Expense]: ['Expense'],
     [AccountType.Other_Expense]: ['Other_Expense'],
     [AccountType.Cost_of_Goods_Sold]: ['Cost_of_Goods_Sold'],
     [AccountType.Current_Assets]: ['Cash_Cash_Equivalents', 'Accounts_Receivable', 'Undeposited_Funds', 'Other_Current_Assets'],
     [AccountType.Fixed_Assets]: ['Property_Plant_Equipment', 'Accumulated_Depreciation', 'Intangible_Assets', 'Accumulated_Amortization', 'Other_Fixed_Assets'],
-    [AccountType.Current_Liabilities]: ['Accounts_Payable', 'Credit_Card', 'Long_Term_Liabilities', 'Other_Current_Liabilities'],
-    [AccountType.Equity]: ['Equity', 'Retained_Earnings', 'Net_Income'],
+    [AccountType.Current_Liabilities]: ['Accounts_Payable', 'Credit_Card', 'Other_Current_Liabilities'],
+    [AccountType.Long_Term_Liabilities]: ['Long_Term_Liabilities'],
+    [AccountType.Equity]: ['Equity', 'Retained_Earnings'],
   };
 
   const form = useForm<AccountFormValues>({
@@ -188,7 +190,7 @@ export const ChartOfAccountsForm = ({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {Object.values(AccountType).map(type => (
+                          {sortAccountTypes(Object.values(AccountType)).map(type => (
                             <SelectItem key={type} value={type}>
                               {formatAccountType(type)}
                             </SelectItem>

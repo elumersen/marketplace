@@ -33,6 +33,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { accountAPI, getErrorMessage } from '@/lib/api';
 import { Account, AccountType } from '@/types/api.types';
+import { sortAccountTypes, sortSubTypes, getAccountTypeOrder, getSubTypeOrder } from '@/lib/accountOrdering';
 import { Plus, Search, Edit, Trash2, ToggleLeft, ToggleRight, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -70,7 +71,9 @@ export const ChartOfAccountsList = ({ onEdit, onCreateNew, refreshSignal = 0 }: 
       if (typeFilter && typeFilter !== 'all') params.type = typeFilter;
       
       const response = await accountAPI.getAll({ ...params, all: 'true' });
-      setAllAccounts(response.data);
+      // Filter out Net_Income accounts (calculation-based, not real accounts)
+      const filteredAccounts = response.data.filter(acc => acc.subType !== 'Net_Income');
+      setAllAccounts(filteredAccounts);
     } catch (err) {
       // Silently fail - filter will just use current page results
       console.error('Failed to load all accounts for filter:', err);
@@ -93,7 +96,9 @@ export const ChartOfAccountsList = ({ onEdit, onCreateNew, refreshSignal = 0 }: 
       if (searchTerm) params.search = searchTerm;
 
       const response = await accountAPI.getAll(params);
-      setAccounts(response.data);
+      // Filter out Net_Income accounts (calculation-based, not real accounts)
+      const filteredAccounts = response.data.filter(acc => acc.subType !== 'Net_Income');
+      setAccounts(filteredAccounts);
       setTotalItems(response.pagination.total);
       setTotalPages(response.pagination.totalPages);
       setCurrentPage(response.pagination.page);
@@ -201,7 +206,7 @@ export const ChartOfAccountsList = ({ onEdit, onCreateNew, refreshSignal = 0 }: 
         }
       }
     });
-    return Array.from(subTypes).sort();
+    return sortSubTypes(Array.from(subTypes));
   };
 
   return (
@@ -243,7 +248,7 @@ export const ChartOfAccountsList = ({ onEdit, onCreateNew, refreshSignal = 0 }: 
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
-                  {Object.values(AccountType).map(type => (
+                  {sortAccountTypes(Object.values(AccountType)).map(type => (
                     <SelectItem key={type} value={type}>
                       {formatAccountType(type)}
                     </SelectItem>
@@ -323,7 +328,21 @@ export const ChartOfAccountsList = ({ onEdit, onCreateNew, refreshSignal = 0 }: 
                     </TableCell>
                   </TableRow>
                 ) : (
-                  accounts.map((account) => (
+                  [...accounts].sort((a, b) => {
+                    // First sort by account type
+                    const typeOrder = getAccountTypeOrder(a.type) - getAccountTypeOrder(b.type);
+                    if (typeOrder !== 0) return typeOrder;
+                    
+                    // Then sort by sub type
+                    const subTypeOrder = getSubTypeOrder(a.subType) - getSubTypeOrder(b.subType);
+                    if (subTypeOrder !== 0) return subTypeOrder;
+                    
+                    // Finally sort by code (numeric)
+                    const aNum = parseInt(a.code.replace(/\D/g, '')) || 0;
+                    const bNum = parseInt(b.code.replace(/\D/g, '')) || 0;
+                    if (aNum !== bNum) return aNum - bNum;
+                    return a.code.localeCompare(b.code);
+                  }).map((account) => (
                     <TableRow key={account.id}>
                       <TableCell className="font-mono text-sm">{account.code}</TableCell>
                       <TableCell>
@@ -349,15 +368,17 @@ export const ChartOfAccountsList = ({ onEdit, onCreateNew, refreshSignal = 0 }: 
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            title="View Register"
-                            onClick={() => navigate(`/registers/${account.id}`)}
-                            className="hover:bg-blue-50 hover:text-blue-600"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          {account.subType !== 'Net_Income' && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              title="View Register"
+                              onClick={() => navigate(`/registers/${account.id}`)}
+                              className="hover:bg-blue-50 hover:text-blue-600"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button 
                             variant="ghost" 
                             size="sm" 

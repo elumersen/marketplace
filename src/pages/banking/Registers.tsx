@@ -44,16 +44,21 @@ export const Registers = () => {
   useEffect(() => {
     if (accountId && accounts.length > 0) {
       const account = accounts.find(acc => acc.id === accountId);
-      if (account) {
+      if (account && account.subType !== 'Net_Income') {
         setSelectedAccount(account);
+      } else if (account && account.subType === 'Net_Income') {
+        // Redirect away from Net_Income accounts (they can't be viewed)
+        navigate('/registers');
       }
     }
-  }, [accountId, accounts]);
+  }, [accountId, accounts, navigate]);
 
   const loadAccounts = async () => {
     try {
       const response = await accountAPI.getAll( { all: 'true', isActive: true });
-      setAccounts(response.data);
+      // Filter out Net_Income accounts (calculation-based, not real accounts)
+      const filteredAccounts = response.data.filter(acc => acc.subType !== 'Net_Income');
+      setAccounts(filteredAccounts);
     } catch (error) {
       console.error('Failed to load accounts:', error);
     }

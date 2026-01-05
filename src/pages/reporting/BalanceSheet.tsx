@@ -10,6 +10,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { accountAPI, getErrorMessage } from '@/lib/api';
 import { Account, AccountType } from '@/types/api.types';
+import { getSubTypeOrder } from '@/lib/accountOrdering';
 import { ChevronDown, ChevronRight, FileText, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 // import { format } from 'date-fns';
@@ -26,32 +27,36 @@ interface SubTypeGroup {
   total: number;
 }
 
-// Balance Sheet account types
+// Balance Sheet account types (ordered as specified)
 const BALANCE_SHEET_TYPES: AccountType[] = [
-  AccountType.Current_Assets,
   AccountType.Fixed_Assets,
+  AccountType.Current_Assets,
   AccountType.Current_Liabilities,
+  AccountType.Long_Term_Liabilities,
   AccountType.Equity,
 ];
 
-// Subtype mappings for Balance Sheet organization
+// Subtype mappings for Balance Sheet organization (ordered as specified)
 const SUBTYPE_MAPPING: Record<string, string[]> = {
+  [AccountType.Fixed_Assets]: [
+    'Property_Plant_Equipment',
+    'Accumulated_Amortization',
+    'Accumulated_Depreciation',
+    'Other_Fixed_Assets',
+    'Intangible_Assets',
+  ],
   [AccountType.Current_Assets]: [
     'Cash_Cash_Equivalents',
     'Accounts_Receivable',
     'Other_Current_Assets',
-  ],
-  [AccountType.Fixed_Assets]: [
-    'Property_Plant_Equipment',
-    'Accumulated_Depreciation',
-    'Intangible_Assets',
-    'Accumulated_Amortization',
-    'Other_Fixed_Assets',
+    'Undeposited_Funds',
   ],
   [AccountType.Current_Liabilities]: [
     'Accounts_Payable',
     'Credit_Card',
     'Other_Current_Liabilities',
+  ],
+  [AccountType.Long_Term_Liabilities]: [
     'Long_Term_Liabilities',
   ],
   [AccountType.Equity]: [
@@ -174,12 +179,19 @@ export const BalanceSheet = () => {
     return Array.from(subTypeMap.entries())
       .filter(([_, accs]) => accs.length > 0)
       .sort((a, b) => {
-        const aIndex = expectedSubTypes.indexOf(a[0]);
-        const bIndex = expectedSubTypes.indexOf(b[0]);
-        if (aIndex === -1 && bIndex === -1) return a[0].localeCompare(b[0]);
-        if (aIndex === -1) return 1;
-        if (bIndex === -1) return -1;
-        return aIndex - bIndex;
+        // Use the global sub type order
+        const aOrder = getSubTypeOrder(a[0]);
+        const bOrder = getSubTypeOrder(b[0]);
+        if (aOrder === bOrder) {
+          // If both have same order, check expectedSubTypes as fallback
+          const aIndex = expectedSubTypes.indexOf(a[0]);
+          const bIndex = expectedSubTypes.indexOf(b[0]);
+          if (aIndex === -1 && bIndex === -1) return a[0].localeCompare(b[0]);
+          if (aIndex === -1) return 1;
+          if (bIndex === -1) return -1;
+          return aIndex - bIndex;
+        }
+        return aOrder - bOrder;
       })
       .map(([subType, accs]) => ({
         subType,
@@ -256,7 +268,9 @@ export const BalanceSheet = () => {
   }, [groupedAccounts]);
 
   const totalLiabilities = useMemo(() => {
-    return groupedAccounts[AccountType.Current_Liabilities]?.total || 0;
+    const currentLiabilities = groupedAccounts[AccountType.Current_Liabilities]?.total || 0;
+    const longTermLiabilities = groupedAccounts[AccountType.Long_Term_Liabilities]?.total || 0;
+    return currentLiabilities + longTermLiabilities;
   }, [groupedAccounts]);
 
   const totalEquity = useMemo(() => {
@@ -330,91 +344,6 @@ export const BalanceSheet = () => {
             <div className="space-y-1">
               <h2 className="text-lg font-bold mb-4 pb-2 border-b">Assets</h2>
               
-              {/* Current Assets */}
-              {groupedAccounts[AccountType.Current_Assets] && (
-                <Collapsible
-                  open={expandedTypes.has(AccountType.Current_Assets)}
-                  onOpenChange={() => toggleType(AccountType.Current_Assets)}
-                >
-                  <CollapsibleTrigger className="w-full">
-                    <div className="flex items-center justify-between w-full p-3 hover:bg-muted/50 rounded-lg transition-colors">
-                      <div className="flex items-center gap-2">
-                        {expandedTypes.has(AccountType.Current_Assets) ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                        <span className="font-semibold text-base">Current Assets</span>
-                      </div>
-                      <span className="font-semibold">
-                        {formatCurrency(groupedAccounts[AccountType.Current_Assets].total)}
-                      </span>
-                    </div>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="ml-6 space-y-1">
-                      {getSubTypeGroups(AccountType.Current_Assets, groupedAccounts[AccountType.Current_Assets].accounts).map((subGroup) => {
-                        const subTypeKey = `${AccountType.Current_Assets}-${subGroup.subType}`;
-                        const isSubExpanded = expandedSubTypes.has(subTypeKey);
-                        
-                        return (
-                          <Collapsible
-                            key={subTypeKey}
-                            open={isSubExpanded}
-                            onOpenChange={() => toggleSubType(subTypeKey)}
-                          >
-                            <CollapsibleTrigger className="w-full">
-                              <div className="flex items-center justify-between w-full p-2 pl-4 hover:bg-muted/30 rounded transition-colors">
-                                <div className="flex items-center gap-2">
-                                  {isSubExpanded ? (
-                                    <ChevronDown className="h-3 w-3" />
-                                  ) : (
-                                    <ChevronRight className="h-3 w-3" />
-                                  )}
-                                  <span className="text-sm font-medium">
-                                    {formatAccountType(subGroup.subType)}
-                                  </span>
-                                </div>
-                                <span className="text-sm font-medium">
-                                  {formatCurrency(subGroup.total)}
-                                </span>
-                              </div>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent>
-                              <div className="ml-6 space-y-0">
-                                {subGroup.accounts.map((account) => (
-                                  <div
-                                    key={account.id}
-                                    className="flex items-center justify-between p-2 pl-6 hover:bg-muted/20 rounded text-sm"
-                                  >
-                                    <span className="text-muted-foreground">{account.name}</span>
-                                    <span className="font-mono text-sm">
-                                      {formatCurrency(account.balance)}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </CollapsibleContent>
-                          </Collapsible>
-                        );
-                      })}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              )}
-
-              {/* Total Current Assets */}
-              {groupedAccounts[AccountType.Current_Assets] && (
-                <div className="flex items-center justify-between p-2 pl-6">
-                  <span className="font-semibold text-sm">
-                    Total Current Assets
-                  </span>
-                  <span className="font-semibold text-sm">
-                    {formatCurrency(groupedAccounts[AccountType.Current_Assets].total)}
-                  </span>
-                </div>
-              )}
-
               {/* Fixed Assets */}
               {groupedAccounts[AccountType.Fixed_Assets] && (
                 <Collapsible
@@ -496,6 +425,91 @@ export const BalanceSheet = () => {
                   </span>
                   <span className="font-semibold text-sm">
                     {formatCurrency(groupedAccounts[AccountType.Fixed_Assets].total)}
+                  </span>
+                </div>
+              )}
+
+              {/* Current Assets */}
+              {groupedAccounts[AccountType.Current_Assets] && (
+                <Collapsible
+                  open={expandedTypes.has(AccountType.Current_Assets)}
+                  onOpenChange={() => toggleType(AccountType.Current_Assets)}
+                >
+                  <CollapsibleTrigger className="w-full">
+                    <div className="flex items-center justify-between w-full p-3 hover:bg-muted/50 rounded-lg transition-colors">
+                      <div className="flex items-center gap-2">
+                        {expandedTypes.has(AccountType.Current_Assets) ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                        <span className="font-semibold text-base">Current Assets</span>
+                      </div>
+                      <span className="font-semibold">
+                        {formatCurrency(groupedAccounts[AccountType.Current_Assets].total)}
+                      </span>
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="ml-6 space-y-1">
+                      {getSubTypeGroups(AccountType.Current_Assets, groupedAccounts[AccountType.Current_Assets].accounts).map((subGroup) => {
+                        const subTypeKey = `${AccountType.Current_Assets}-${subGroup.subType}`;
+                        const isSubExpanded = expandedSubTypes.has(subTypeKey);
+                        
+                        return (
+                          <Collapsible
+                            key={subTypeKey}
+                            open={isSubExpanded}
+                            onOpenChange={() => toggleSubType(subTypeKey)}
+                          >
+                            <CollapsibleTrigger className="w-full">
+                              <div className="flex items-center justify-between w-full p-2 pl-4 hover:bg-muted/30 rounded transition-colors">
+                                <div className="flex items-center gap-2">
+                                  {isSubExpanded ? (
+                                    <ChevronDown className="h-3 w-3" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3" />
+                                  )}
+                                  <span className="text-sm font-medium">
+                                    {formatAccountType(subGroup.subType)}
+                                  </span>
+                                </div>
+                                <span className="text-sm font-medium">
+                                  {formatCurrency(subGroup.total)}
+                                </span>
+                              </div>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                              <div className="ml-6 space-y-0">
+                                {subGroup.accounts.map((account) => (
+                                  <div
+                                    key={account.id}
+                                    className="flex items-center justify-between p-2 pl-6 hover:bg-muted/20 rounded text-sm"
+                                  >
+                                    <span className="text-muted-foreground">{account.name}</span>
+                                    <span className="font-mono text-sm">
+                                      {formatCurrency(account.balance)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        );
+                      })}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+
+              {/* Total Current Assets */}
+              {groupedAccounts[AccountType.Current_Assets] && (
+                <div className="flex items-center justify-between p-2 pl-6">
+                  <span className="font-semibold text-sm">
+                    Total Current Assets
+                  </span>
+                  <span className="font-semibold text-sm">
+                    {formatCurrency(groupedAccounts[AccountType.Current_Assets].total)}
                   </span>
                 </div>
               )}
@@ -592,6 +606,91 @@ export const BalanceSheet = () => {
                   </span>
                   <span className="font-semibold text-sm">
                     {formatCurrency(groupedAccounts[AccountType.Current_Liabilities].total)}
+                  </span>
+                </div>
+              )}
+
+              {/* Long-Term Liabilities */}
+              {groupedAccounts[AccountType.Long_Term_Liabilities] && (
+                <Collapsible
+                  open={expandedTypes.has(AccountType.Long_Term_Liabilities)}
+                  onOpenChange={() => toggleType(AccountType.Long_Term_Liabilities)}
+                >
+                  <CollapsibleTrigger className="w-full">
+                    <div className="flex items-center justify-between w-full p-3 hover:bg-muted/50 rounded-lg transition-colors">
+                      <div className="flex items-center gap-2">
+                        {expandedTypes.has(AccountType.Long_Term_Liabilities) ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                        <span className="font-semibold text-base">Long-Term Liabilities</span>
+                      </div>
+                      <span className="font-semibold">
+                        {formatCurrency(groupedAccounts[AccountType.Long_Term_Liabilities].total)}
+                      </span>
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="ml-6 space-y-1">
+                      {getSubTypeGroups(AccountType.Long_Term_Liabilities, groupedAccounts[AccountType.Long_Term_Liabilities].accounts).map((subGroup) => {
+                        const subTypeKey = `${AccountType.Long_Term_Liabilities}-${subGroup.subType}`;
+                        const isSubExpanded = expandedSubTypes.has(subTypeKey);
+                        
+                        return (
+                          <Collapsible
+                            key={subTypeKey}
+                            open={isSubExpanded}
+                            onOpenChange={() => toggleSubType(subTypeKey)}
+                          >
+                            <CollapsibleTrigger className="w-full">
+                              <div className="flex items-center justify-between w-full p-2 pl-4 hover:bg-muted/30 rounded transition-colors">
+                                <div className="flex items-center gap-2">
+                                  {isSubExpanded ? (
+                                    <ChevronDown className="h-3 w-3" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3" />
+                                  )}
+                                  <span className="text-sm font-medium">
+                                    {formatAccountType(subGroup.subType)}
+                                  </span>
+                                </div>
+                                <span className="text-sm font-medium">
+                                  {formatCurrency(subGroup.total)}
+                                </span>
+                              </div>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                              <div className="ml-6 space-y-0">
+                                {subGroup.accounts.map((account) => (
+                                  <div
+                                    key={account.id}
+                                    className="flex items-center justify-between p-2 pl-6 hover:bg-muted/20 rounded text-sm"
+                                  >
+                                    <span className="text-muted-foreground">{account.name}</span>
+                                    <span className="font-mono text-sm">
+                                      {formatCurrency(account.balance)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        );
+                      })}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+
+              {/* Total Long-Term Liabilities */}
+              {groupedAccounts[AccountType.Long_Term_Liabilities] && (
+                <div className="flex items-center justify-between p-2 pl-6">
+                  <span className="font-semibold text-sm">
+                    Total Long-Term Liabilities
+                  </span>
+                  <span className="font-semibold text-sm">
+                    {formatCurrency(groupedAccounts[AccountType.Long_Term_Liabilities].total)}
                   </span>
                 </div>
               )}
