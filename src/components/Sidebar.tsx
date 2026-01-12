@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCompanySettings } from '@/contexts/CompanySettingsContext';
 import {
   LayoutDashboard,
   TrendingUp,
@@ -94,6 +95,7 @@ export const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const { logoUrl } = useCompanySettings();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -124,8 +126,8 @@ export const Sidebar = () => {
       {/* Header */}
       <div className="relative flex h-24 items-center justify-center px-6 border-b border-[#1B3F7A]/50">
         <img 
-          src="/images/logo.png" 
-          alt="JTM CPAS - The Business Accountants" 
+          src={logoUrl || "/images/logo.png"}
+          alt="Company Logo" 
           className="h-auto max-w-full max-h-14 object-contain"
         />
       </div>

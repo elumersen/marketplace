@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { CompanySettingsProvider } from '@/contexts/CompanySettingsContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { MainLayout } from '@/layouts/MainLayout';
 import { Toaster } from '@/components/ui/toaster';
@@ -35,10 +36,11 @@ import { RecurringTransactions } from '@/pages/accounting/RecurringTransactions'
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <TooltipProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
+      <CompanySettingsProvider>
+        <BrowserRouter>
+          <TooltipProvider>
+            <Routes>
+              <Route path="/login" element={<Login />} />
             
             <Route
               element={
@@ -85,6 +87,7 @@ function App() {
           <Toaster />
         </TooltipProvider>
       </BrowserRouter>
+      </CompanySettingsProvider>
     </AuthProvider>
   );
 }

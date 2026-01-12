@@ -5,6 +5,85 @@ export interface ApiResponse<T = any> {
   data?: T;
 }
 
+// Company Settings types
+export enum AccountingMethod {
+  CASH = 'CASH',
+  ACCRUAL = 'ACCRUAL',
+}
+
+export enum EntityType {
+  SOLE_PROPRIETORSHIP = 'SOLE_PROPRIETORSHIP',
+  PARTNERSHIP = 'PARTNERSHIP',
+  LIMITED_LIABILITY_COMPANY = 'LIMITED_LIABILITY_COMPANY',
+  S_CORPORATION = 'S_CORPORATION',
+  C_CORPORATION = 'C_CORPORATION',
+  NONPROFIT = 'NONPROFIT',
+}
+
+export interface CompanySettings {
+  id: string;
+  accountingMethod: AccountingMethod;
+  entityType: EntityType;
+  journalEntryPrefix: string | null;
+  logoUrl: string | null;
+  hasLockBooksPassword: boolean;
+  hasLockBooksPIN: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+  createdByUser?: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+  updatedByUser?: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+}
+
+export interface UpdateCompanySettingsData {
+  accountingMethod?: AccountingMethod;
+  entityType?: EntityType;
+  journalEntryPrefix?: string | null;
+  logoUrl?: string | null;
+}
+
+export interface UpdateLockBooksAuthData {
+  password?: string;
+  pin?: string;
+}
+
+export interface VerifyLockBooksAuthData {
+  password?: string;
+  pin?: string;
+}
+
+export interface BookLock {
+  id: string;
+  companySettingsId: string;
+  dateLocked: string;
+  datePlaced: string;
+  placedBy: string;
+  createdAt: string;
+  placedByUser?: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+}
+
+export interface CreateBookLockData {
+  dateLocked: string;
+  authPassword?: string;
+  authPIN?: string;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   pagination: {
