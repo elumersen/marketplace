@@ -52,6 +52,12 @@ import type {
   LinkPlaidAccountData,
   SyncTransactionsData,
   SyncTransactionsResponse,
+  CompanySettings,
+  UpdateCompanySettingsData,
+  UpdateLockBooksAuthData,
+  VerifyLockBooksAuthData,
+  BookLock,
+  CreateBookLockData,
 } from '@/types/api.types';
 
 // API Configuration
@@ -431,6 +437,27 @@ export const plaidAPI = {
     api.post<SyncTransactionsResponse>('/plaid/sync-transactions', data),
   removeItem: (id: string): Promise<{ message: string }> =>
     api.delete<{ message: string }>(`/plaid/items/${id}`),
+};
+
+export const companySettingsAPI = {
+  getSettings: (): Promise<{ settings: CompanySettings }> =>
+    api.get<{ settings: CompanySettings }>('/company-settings'),
+  updateSettings: (data: UpdateCompanySettingsData): Promise<{ message: string; settings: CompanySettings }> =>
+    api.put<{ message: string; settings: CompanySettings }>('/company-settings', data),
+  updateLockBooksAuth: (data: UpdateLockBooksAuthData): Promise<{ message: string }> =>
+    api.put<{ message: string }>('/company-settings/lock-books-auth', data),
+  removeLockBooksAuth: (): Promise<{ message: string }> =>
+    api.delete<{ message: string }>('/company-settings/lock-books-auth'),
+  verifyLockBooksAuth: (data: VerifyLockBooksAuthData): Promise<{ message: string; valid: boolean }> =>
+    api.post<{ message: string; valid: boolean }>('/company-settings/lock-books-auth/verify', data),
+  createBookLock: (data: CreateBookLockData): Promise<{ message: string; bookLock: BookLock }> =>
+    api.post<{ message: string; bookLock: BookLock }>('/company-settings/book-locks', data),
+  getBookLocks: (): Promise<{ bookLocks: BookLock[] }> =>
+    api.get<{ bookLocks: BookLock[] }>('/company-settings/book-locks'),
+  getActiveBookLock: (): Promise<{ activeLock: BookLock | null }> =>
+    api.get<{ activeLock: BookLock | null }>('/company-settings/book-locks/active'),
+  checkDateLocked: (date: string): Promise<{ isLocked: boolean; lockDate?: string }> =>
+    api.get<{ isLocked: boolean; lockDate?: string }>('/company-settings/book-locks/check', { params: { date } }),
 };
 
 // Export the main axios instance for advanced use cases
