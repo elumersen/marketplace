@@ -10,6 +10,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Badge } from '@/components/ui/badge';
+import { Lock, Key, Shield } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -44,6 +47,7 @@ import {
 } from '@/types/api.types';
 import { format } from 'date-fns';
 import { getRetainedEarningsName } from '@/lib/accountNaming';
+import { DatePicker } from '@/components/ui/date-picker';
 
 export const Settings = () => {
   const { toast } = useToast();
@@ -61,13 +65,52 @@ export const Settings = () => {
   // Lock Books State
   const [lockBooksPassword, setLockBooksPassword] = useState('');
   const [lockBooksPIN, setLockBooksPIN] = useState('');
+  const [authMethod, setAuthMethod] = useState<'password' | 'pin'>('password');
+  const [lockAuthMethod, setLockAuthMethod] = useState<'password' | 'pin'>('password');
   const [showUpdateAuthDialog, setShowUpdateAuthDialog] = useState(false);
   const [showLockBooksDialog, setShowLockBooksDialog] = useState(false);
   const [showPreviousLocksDialog, setShowPreviousLocksDialog] = useState(false);
-  const [lockDate, setLockDate] = useState('');
+  const [lockDate, setLockDate] = useState<Date | undefined>(undefined);
   const [authPassword, setAuthPassword] = useState('');
   const [authPIN, setAuthPIN] = useState('');
   const [bookLocks, setBookLocks] = useState<BookLock[]>([]);
+  const [undoLockId, setUndoLockId] = useState<string | null>(null);
+  const [showUndoAuthDialog, setShowUndoAuthDialog] = useState(false);
+  const [undoAuthPassword, setUndoAuthPassword] = useState('');
+  const [undoAuthPIN, setUndoAuthPIN] = useState('');
+
+  const handleUndoLock = async (lockId: string) => {
+    setUndoLockId(lockId);
+    setShowUndoAuthDialog(true);
+  };
+
+  const handleUndoLockConfirm = async () => {
+    if (!undoLockId) return;
+
+    try {
+      await companySettingsAPI.deleteBookLock(undoLockId, {
+        authPassword: undoAuthPassword || undefined,
+        authPIN: undoAuthPIN || undefined,
+      });
+      toast({
+        title: 'Success',
+        description: 'Book lock removed successfully',
+      });
+      setShowUndoAuthDialog(false);
+      setUndoLockId(null);
+      setUndoAuthPassword('');
+      setUndoAuthPIN('');
+      // Reload book locks
+      const response = await companySettingsAPI.getBookLocks();
+      setBookLocks(response.bookLocks);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.error || 'Failed to remove book lock',
+        variant: 'destructive',
+      });
+    }
+  };
 
   useEffect(() => {
     loadSettings();
@@ -82,7 +125,8 @@ export const Settings = () => {
       setEntityType(response.settings.entityType);
       setJournalEntryPrefix(response.settings.journalEntryPrefix || '');
       setTempJournalEntryPrefix(response.settings.journalEntryPrefix || '');
-      // Logo is now managed by context, no need to set it here
+      // Update logo in context to ensure it's displayed on first load
+      updateLogoUrl(response.settings.logoUrl);
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -213,10 +257,13 @@ export const Settings = () => {
         return;
       }
 
+      // Convert Date to YYYY-MM-DD format for API
+      const dateString = format(lockDate, 'yyyy-MM-dd');
+
       await companySettingsAPI.createBookLock({
-        dateLocked: lockDate,
-        authPassword: authPassword || undefined,
-        authPIN: authPIN || undefined,
+        dateLocked: dateString,
+        authPassword: authPassword && authPassword.trim() !== '' ? authPassword : undefined,
+        authPIN: authPIN && authPIN.trim() !== '' ? authPIN : undefined,
       });
 
       toast({
@@ -225,9 +272,10 @@ export const Settings = () => {
       });
 
       setShowLockBooksDialog(false);
-      setLockDate('');
+      setLockDate(undefined);
       setAuthPassword('');
       setAuthPIN('');
+      setLockAuthMethod('password');
       loadSettings();
     } catch (error: any) {
       toast({
@@ -563,89 +611,222 @@ export const Settings = () => {
 
       {/* Update Lock Books Authentication Dialog */}
       <Dialog open={showUpdateAuthDialog} onOpenChange={setShowUpdateAuthDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Update Lock Books Authentication</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Lock Books Authentication
+            </DialogTitle>
             <DialogDescription>
-              Set a password or 4-digit PIN to protect locked books. Either one can be
-              used for authentication.
+              Choose either a password or 4-digit PIN to protect your locked books. You can set one or both methods.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="lockBooksPassword">Password (optional)</Label>
-              <Input
-                id="lockBooksPassword"
-                type="password"
-                value={lockBooksPassword}
-                onChange={(e) => setLockBooksPassword(e.target.value)}
-                placeholder="Enter password"
-              />
+          <div className="space-y-6 py-4">
+            {/* Authentication Method Toggle */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Authentication Method</Label>
+              <ToggleGroup
+                type="single"
+                value={authMethod}
+                onValueChange={(value) => value && setAuthMethod(value as 'password' | 'pin')}
+                className="grid grid-cols-2 gap-2"
+              >
+                <ToggleGroupItem
+                  value="password"
+                  aria-label="Password"
+                  className="flex items-center gap-2 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  <Key className="h-4 w-4" />
+                  <span>Password</span>
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="pin"
+                  aria-label="PIN"
+                  className="flex items-center gap-2 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  <Lock className="h-4 w-4" />
+                  <span>4-Digit PIN</span>
+                </ToggleGroupItem>
+              </ToggleGroup>
             </div>
-            <div>
-              <Label htmlFor="lockBooksPIN">4-Digit PIN (optional)</Label>
-              <Input
-                id="lockBooksPIN"
-                type="password"
-                value={lockBooksPIN}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, '').slice(0, 4);
-                  setLockBooksPIN(value);
-                }}
-                placeholder="Enter 4-digit PIN"
-                maxLength={4}
-              />
-            </div>
+
+            {/* Password Input */}
+            {authMethod === 'password' && (
+              <div className="space-y-2 animate-in fade-in-50 slide-in-from-top-2">
+                <Label htmlFor="lockBooksPassword" className="flex items-center gap-2">
+                  <Key className="h-4 w-4" />
+                  Password
+                </Label>
+                <Input
+                  id="lockBooksPassword"
+                  type="password"
+                  value={lockBooksPassword}
+                  onChange={(e) => setLockBooksPassword(e.target.value)}
+                  placeholder="Enter a secure password"
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Use a strong password to protect your locked books
+                </p>
+              </div>
+            )}
+
+            {/* PIN Input */}
+            {authMethod === 'pin' && (
+              <div className="space-y-2 animate-in fade-in-50 slide-in-from-top-2">
+                <Label htmlFor="lockBooksPIN" className="flex items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  4-Digit PIN
+                </Label>
+                <Input
+                  id="lockBooksPIN"
+                  type="password"
+                  inputMode="numeric"
+                  value={lockBooksPIN}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    setLockBooksPIN(value);
+                  }}
+                  placeholder="Enter 4-digit PIN"
+                  maxLength={4}
+                  className="w-full text-center text-2xl tracking-widest font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter a 4-digit PIN for quick authentication
+                </p>
+              </div>
+            )}
+
+            {/* Current Status */}
+            {(settings?.hasLockBooksPassword || settings?.hasLockBooksPIN) && (
+              <div className="rounded-lg border bg-muted/50 p-3 space-y-1">
+                <p className="text-sm font-medium">Current Authentication</p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {settings?.hasLockBooksPassword && (
+                    <Badge variant="secondary" className="gap-1">
+                      <Key className="h-3 w-3" />
+                      Password Set
+                    </Badge>
+                  )}
+                  {settings?.hasLockBooksPIN && (
+                    <Badge variant="secondary" className="gap-1">
+                      <Lock className="h-3 w-3" />
+                      PIN Set
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowUpdateAuthDialog(false)}>
+            <Button variant="outline" onClick={() => {
+              setShowUpdateAuthDialog(false);
+              setLockBooksPassword('');
+              setLockBooksPIN('');
+              setAuthMethod('password');
+            }}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateLockBooksAuth}>Save</Button>
+            <Button onClick={handleUpdateLockBooksAuth} disabled={!lockBooksPassword && !lockBooksPIN}>
+              Save Authentication
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Lock Books Dialog */}
       <Dialog open={showLockBooksDialog} onOpenChange={setShowLockBooksDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Lock Books</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Lock Books
+            </DialogTitle>
             <DialogDescription>
               Lock all transactions on or before the selected date. This action requires
               authentication if a password or PIN has been set.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="lockDate">Lock Date</Label>
-              <Input
-                id="lockDate"
-                type="date"
-                value={lockDate}
-                onChange={(e) => setLockDate(e.target.value)}
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="lockDate" className="flex items-center gap-2">
+                <Lock className="h-4 w-4" />
+                Lock Date
+              </Label>
+              <DatePicker
+                date={lockDate}
+                setDate={setLockDate}
+                className="w-full"
               />
+              <p className="text-xs text-muted-foreground">
+                All transactions on or before this date will be locked
+              </p>
             </div>
+
             {(settings?.hasLockBooksPassword || settings?.hasLockBooksPIN) && (
-              <>
-                {settings?.hasLockBooksPassword && (
-                  <div>
-                    <Label htmlFor="authPassword">Password</Label>
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Authentication Required</Label>
+                  <ToggleGroup
+                    type="single"
+                    value={lockAuthMethod}
+                    onValueChange={(value) => value && setLockAuthMethod(value as 'password' | 'pin')}
+                    className="grid grid-cols-2 gap-2"
+                  >
+                    {settings?.hasLockBooksPassword && (
+                      <ToggleGroupItem
+                        value="password"
+                        aria-label="Password"
+                        className="flex items-center gap-2 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                      >
+                        <Key className="h-4 w-4" />
+                        <span>Password</span>
+                      </ToggleGroupItem>
+                    )}
+                    {settings?.hasLockBooksPIN && (
+                      <ToggleGroupItem
+                        value="pin"
+                        aria-label="PIN"
+                        className="flex items-center gap-2 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                      >
+                        <Lock className="h-4 w-4" />
+                        <span>4-Digit PIN</span>
+                      </ToggleGroupItem>
+                    )}
+                  </ToggleGroup>
+                </div>
+
+                {lockAuthMethod === 'password' && settings?.hasLockBooksPassword && (
+                  <div className="space-y-2 animate-in fade-in-50 slide-in-from-top-2">
+                    <Label htmlFor="authPassword" className="flex items-center gap-2">
+                      <Key className="h-4 w-4" />
+                      Password
+                    </Label>
                     <Input
                       id="authPassword"
                       type="password"
                       value={authPassword}
                       onChange={(e) => setAuthPassword(e.target.value)}
-                      placeholder="Enter password"
+                      placeholder="Enter your password"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && authPassword && lockDate) {
+                          handleCreateBookLock();
+                        }
+                      }}
                     />
                   </div>
                 )}
-                {settings?.hasLockBooksPIN && (
-                  <div>
-                    <Label htmlFor="authPIN">PIN</Label>
+
+                {lockAuthMethod === 'pin' && settings?.hasLockBooksPIN && (
+                  <div className="space-y-2 animate-in fade-in-50 slide-in-from-top-2">
+                    <Label htmlFor="authPIN" className="flex items-center gap-2">
+                      <Lock className="h-4 w-4" />
+                      4-Digit PIN
+                    </Label>
                     <Input
                       id="authPIN"
                       type="password"
+                      inputMode="numeric"
                       value={authPIN}
                       onChange={(e) => {
                         const value = e.target.value.replace(/\D/g, '').slice(0, 4);
@@ -653,17 +834,34 @@ export const Settings = () => {
                       }}
                       placeholder="Enter 4-digit PIN"
                       maxLength={4}
+                      className="w-full text-center text-2xl tracking-widest font-mono"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && authPIN && lockDate) {
+                          handleCreateBookLock();
+                        }
+                      }}
                     />
                   </div>
                 )}
-              </>
+              </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowLockBooksDialog(false)}>
+            <Button variant="outline" onClick={() => {
+              setShowLockBooksDialog(false);
+              setLockDate(undefined);
+              setAuthPassword('');
+              setAuthPIN('');
+              setLockAuthMethod('password');
+            }}>
               Cancel
             </Button>
-            <Button onClick={handleCreateBookLock}>Lock Books</Button>
+            <Button 
+              onClick={handleCreateBookLock}
+              disabled={!lockDate || ((settings?.hasLockBooksPassword || settings?.hasLockBooksPIN) && !authPassword && !authPIN)}
+            >
+              Lock Books
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -689,6 +887,7 @@ export const Settings = () => {
                     <TableHead>Date Locked</TableHead>
                     <TableHead>Date Placed</TableHead>
                     <TableHead>Placed By</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -705,6 +904,15 @@ export const Settings = () => {
                           ? `${lock.placedByUser.firstName} ${lock.placedByUser.lastName}`
                           : lock.placedByUser?.email || 'Unknown'}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleUndoLock(lock.id)}
+                        >
+                          Undo
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -713,6 +921,61 @@ export const Settings = () => {
           </div>
           <DialogFooter>
             <Button onClick={() => setShowPreviousLocksDialog(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Undo Lock Authentication Dialog */}
+      <Dialog open={showUndoAuthDialog} onOpenChange={setShowUndoAuthDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Authentication Required</DialogTitle>
+            <DialogDescription>
+              Please enter your password or PIN to remove this book lock.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {settings?.hasLockBooksPassword && (
+              <div>
+                <Label htmlFor="undoAuthPassword">Password</Label>
+                <Input
+                  id="undoAuthPassword"
+                  type="password"
+                  value={undoAuthPassword}
+                  onChange={(e) => setUndoAuthPassword(e.target.value)}
+                  placeholder="Enter password"
+                />
+              </div>
+            )}
+            {settings?.hasLockBooksPIN && (
+              <div>
+                <Label htmlFor="undoAuthPIN">4-Digit PIN</Label>
+                <Input
+                  id="undoAuthPIN"
+                  type="password"
+                  value={undoAuthPIN}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    setUndoAuthPIN(value);
+                  }}
+                  placeholder="Enter 4-digit PIN"
+                  maxLength={4}
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowUndoAuthDialog(false);
+              setUndoLockId(null);
+              setUndoAuthPassword('');
+              setUndoAuthPIN('');
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleUndoLockConfirm} disabled={!undoAuthPassword && !undoAuthPIN}>
+              Remove Lock
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -458,6 +458,8 @@ export const companySettingsAPI = {
     api.get<{ activeLock: BookLock | null }>('/company-settings/book-locks/active'),
   checkDateLocked: (date: string): Promise<{ isLocked: boolean; lockDate?: string }> =>
     api.get<{ isLocked: boolean; lockDate?: string }>('/company-settings/book-locks/check', { params: { date } }),
+  deleteBookLock: (id: string, data: { authPassword?: string; authPIN?: string }): Promise<{ message: string }> =>
+    api.delete<{ message: string }>(`/company-settings/book-locks/${id}`, { data }),
 };
 
 // Export the main axios instance for advanced use cases
