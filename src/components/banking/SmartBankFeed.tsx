@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePlaidLink } from 'react-plaid-link';
-import { plaidAPI, bankAccountAPI, transactionAPI, accountAPI, journalEntryAPI, getErrorMessage } from '@/lib/api';
+import { plaidAPI, bankAccountAPI, transactionAPI, accountAPI, journalEntryAPI, companySettingsAPI, getErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Link2, RefreshCw, CheckCircle2, XCircle, SearchIcon } from 'lucide-react';
-import type { PlaidItem, BankAccount, Transaction, TransactionType, Account } from '@/types/api.types';
+import type { PlaidItem, BankAccount, Transaction, TransactionType, Account, CompanySettings } from '@/types/api.types';
 import { TransactionType as TransactionTypeEnum, JournalEntryStatus } from '@/types/api.types';
+import { BookLockAuthDialog } from '@/components/common/BookLockAuthDialog';
 import {
   Select,
   SelectContent,
@@ -46,17 +47,22 @@ export const SmartBankFeed = () => {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('uncategorized');
   const [datePreset, setDatePreset] = useState<string>('all');
+  const [settings, setSettings] = useState<CompanySettings | null>(null);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [pendingUpdate, setPendingUpdate] = useState<{ id: string; updates: Partial<Transaction> } | null>(null);
+  const [lockDate, setLockDate] = useState<string | undefined>();
   const { toast } = useToast();
 
   // Fetch all data
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [itemsResponse, bankAccountsResponse, transactionsResponse, accountsResponse] = await Promise.all([
+      const [itemsResponse, bankAccountsResponse, transactionsResponse, accountsResponse, settingsResponse] = await Promise.all([
         plaidAPI.getItems(),
         bankAccountAPI.getAll(),
         transactionAPI.getAll({}),
         accountAPI.getAll({ isActive: true, all: 'true' }),
+        companySettingsAPI.getSettings().catch(() => ({ settings: null })),
       ]);
       setItems(itemsResponse.items);
       setBankAccounts(bankAccountsResponse);
@@ -64,6 +70,9 @@ export const SmartBankFeed = () => {
       setTransactions(transactionsResponse.transactions);
       // Backend returns { data: Account[] }
       setAccounts(accountsResponse.data || []);
+      if (settingsResponse.settings) {
+        setSettings(settingsResponse.settings);
+      }
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -196,8 +205,33 @@ export const SmartBankFeed = () => {
   };
 
   // Transaction update handler
-  const handleUpdateTransaction = async (id: string, updates: Partial<Transaction>) => {
+  const handleUpdateTransaction = async (id: string, updates: Partial<Transaction>, authPassword?: string, authPIN?: string) => {
     try {
+      // Find the transaction to check its date
+      const transaction = transactions.find(t => t.id === id);
+      if (!transaction) {
+        throw new Error('Transaction not found');
+      }
+
+      // Check if the transaction date (or new date if being updated) is locked
+      const dateToCheck = updates.transactionDate ? new Date(updates.transactionDate) : new Date(transaction.transactionDate);
+      const dateStr = dateToCheck.toISOString().split('T')[0];
+      
+      try {
+        const lockCheck = await companySettingsAPI.checkDateLocked(dateStr);
+        if (lockCheck.isLocked) {
+          // If locked and no auth provided, show dialog
+          if (!authPassword && !authPIN) {
+            setPendingUpdate({ id, updates });
+            setLockDate(lockCheck.lockDate);
+            setAuthDialogOpen(true);
+            return;
+          }
+        }
+      } catch (error) {
+        // If check fails, proceed anyway (might not have settings)
+      }
+
       // Convert null to undefined for account IDs
       const updateData: any = { ...updates };
       if (updateData.expenseAccountId === null) {
@@ -206,18 +240,42 @@ export const SmartBankFeed = () => {
       if (updateData.incomeAccountId === null) {
         updateData.incomeAccountId = undefined;
       }
+      
+      // Add authentication if provided
+      if (authPassword) {
+        updateData.authPassword = authPassword;
+      }
+      if (authPIN) {
+        updateData.authPIN = authPIN;
+      }
+
       await transactionAPI.update(id, updateData);
       toast({
         title: 'Success',
         description: 'Transaction updated successfully',
       });
       await fetchData();
+      setPendingUpdate(null);
+      setAuthDialogOpen(false);
     } catch (error: any) {
+      const errorMessage = getErrorMessage(error);
+      if (errorMessage.includes('401') || errorMessage.includes('authentication') || errorMessage.includes('credentials')) {
+        // Authentication failed, show dialog again
+        if (pendingUpdate) {
+          setAuthDialogOpen(true);
+        }
+      }
       toast({
         title: 'Error',
-        description: getErrorMessage(error),
+        description: errorMessage,
         variant: 'destructive',
       });
+    }
+  };
+
+  const handleAuthDialogAuthenticate = (password?: string, pin?: string) => {
+    if (pendingUpdate) {
+      handleUpdateTransaction(pendingUpdate.id, pendingUpdate.updates, password, pin);
     }
   };
 
@@ -857,6 +915,17 @@ export const SmartBankFeed = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Book Lock Authentication Dialog */}
+      <BookLockAuthDialog
+        open={authDialogOpen}
+        onOpenChange={setAuthDialogOpen}
+        onAuthenticate={handleAuthDialogAuthenticate}
+        settings={settings || undefined}
+        lockDate={lockDate}
+        title="Authentication Required"
+        description={lockDate ? `This transaction is dated on or before ${new Date(lockDate).toLocaleDateString()}, which is locked. Please authenticate to make changes.` : undefined}
+      />
     </div>
   );
 };
