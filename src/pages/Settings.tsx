@@ -46,7 +46,6 @@ import {
   BookLock,
 } from '@/types/api.types';
 import { format } from 'date-fns';
-import { getRetainedEarningsName } from '@/lib/accountNaming';
 import { DatePicker } from '@/components/ui/date-picker';
 
 export const Settings = () => {
@@ -479,12 +478,6 @@ export const Settings = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  {entityType && (
-                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
-                      <strong>Note:</strong> The Retained Earnings account will be named{' '}
-                      <strong>"{getRetainedEarningsName(entityType)}"</strong> for this entity type.
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>

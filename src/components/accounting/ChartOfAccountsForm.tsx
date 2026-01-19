@@ -65,7 +65,7 @@ export const ChartOfAccountsForm = ({
     [AccountType.Fixed_Assets]: ['Property_Plant_Equipment', 'Accumulated_Depreciation', 'Intangible_Assets', 'Accumulated_Amortization', 'Other_Fixed_Assets'],
     [AccountType.Current_Liabilities]: ['Accounts_Payable', 'Credit_Card', 'Other_Current_Liabilities'],
     [AccountType.Long_Term_Liabilities]: ['Long_Term_Liabilities'],
-    [AccountType.Equity]: ['Equity', 'Retained_Earnings'],
+    [AccountType.Equity]: ['Other_Equity', 'Retained_Earnings', 'Contributions', 'Distributions'],
   };
 
   const form = useForm<AccountFormValues>({
