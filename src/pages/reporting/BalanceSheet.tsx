@@ -60,8 +60,10 @@ const SUBTYPE_MAPPING: Record<string, string[]> = {
     'Long_Term_Liabilities',
   ],
   [AccountType.Equity]: [
-    'Equity',
+    'Other_Equity',
     'Retained_Earnings',
+    'Contributions',
+    'Distributions',
     'Net_Income',
   ],
 };
