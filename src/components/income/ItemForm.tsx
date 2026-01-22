@@ -65,11 +65,18 @@ export const ItemForm: React.FC<ItemFormProps> = ({
   const [incomeAccounts, setIncomeAccounts] = useState<AccountOption[]>([]);
   const [expenseAccounts, setExpenseAccounts] = useState<AccountOption[]>([]);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    description: string;
+    type: ItemType;
+    amount: number | string;
+    incomeAccountId: string;
+    expenseAccountId: string;
+  }>({
     name: initialData?.name ?? '',
     description: initialData?.description ?? '',
     type: initialData?.type ?? ItemType.INCOME,
-    amount: initialData?.amount ?? 0,
+    amount: initialData?.amount ?? '',
     incomeAccountId: initialData?.incomeAccountId ?? '',
     expenseAccountId: initialData?.expenseAccountId ?? '',
   });
@@ -113,7 +120,8 @@ export const ItemForm: React.FC<ItemFormProps> = ({
       return;
     }
 
-    if (!formData.amount || formData.amount < 0) {
+    // Check for empty string explicitly to allow 0 (number) or '0' (string)
+    if (formData.amount === '' || Number(formData.amount) < 0) {
       setError('Amount must be zero or greater');
       return;
     }
@@ -240,7 +248,7 @@ export const ItemForm: React.FC<ItemFormProps> = ({
                 onChange={(event) =>
                   setFormData((prev) => ({
                     ...prev,
-                    amount: Number(event.target.value),
+                    amount: event.target.value,
                   }))
                 }
                 placeholder="0.00"

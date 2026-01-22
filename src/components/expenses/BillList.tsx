@@ -1,13 +1,26 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { DatePicker } from '@/components/ui/date-picker';
+import React, { useState, useEffect, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,28 +30,28 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { 
-  Search, 
-  Plus, 
-  Eye, 
-  Edit, 
+} from "@/components/ui/alert-dialog";
+import {
+  Search,
+  Plus,
+  Eye,
+  Edit,
   MoreHorizontal,
   FileText,
   CheckCircle,
   XCircle,
   AlertCircle,
-  DollarSign
-} from 'lucide-react';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
-import { Bill, BillStatus, BillQueryParams } from '@/types/api.types';
-import { billAPI, getErrorMessage } from '@/lib/api';
-import { format } from 'date-fns';
+  DollarSign,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Bill, BillStatus, BillQueryParams } from "@/types/api.types";
+import { billAPI, getErrorMessage } from "@/lib/api";
+import { format } from "date-fns";
 
 interface BillListProps {
   onView?: (bill: Bill) => void;
@@ -49,33 +62,33 @@ interface BillListProps {
 
 const statusConfig = {
   [BillStatus.DRAFT]: {
-    label: 'Draft',
-    variant: 'secondary' as const,
+    label: "Draft",
+    variant: "secondary" as const,
     icon: FileText,
   },
   [BillStatus.OPEN]: {
-    label: 'Open',
-    variant: 'default' as const,
+    label: "Open",
+    variant: "default" as const,
     icon: FileText,
   },
   [BillStatus.PARTIALLY_PAID]: {
-    label: 'Partially Paid',
-    variant: 'default' as const,
+    label: "Partially Paid",
+    variant: "default" as const,
     icon: DollarSign,
   },
   [BillStatus.PAID]: {
-    label: 'Paid',
-    variant: 'default' as const,
+    label: "Paid",
+    variant: "default" as const,
     icon: CheckCircle,
   },
   [BillStatus.OVERDUE]: {
-    label: 'Overdue',
-    variant: 'destructive' as const,
+    label: "Overdue",
+    variant: "destructive" as const,
     icon: AlertCircle,
   },
   [BillStatus.VOID]: {
-    label: 'Void',
-    variant: 'destructive' as const,
+    label: "Void",
+    variant: "destructive" as const,
     icon: XCircle,
   },
 };
@@ -86,26 +99,34 @@ export const BillList: React.FC<BillListProps> = ({
   onCreateNew,
   refreshSignal = 0,
 }) => {
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [bills, setBills] = useState<Bill[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<BillQueryParams>({
-    startDate: '',
-    endDate: '',
+    startDate: "",
+    endDate: "",
     status: undefined,
     vendorId: undefined,
   });
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [billToDelete, setBillToDelete] = useState<string | null>(null);
 
   useEffect(() => {
-    setFilters(prev => ({
+    setFilters((prev) => ({
       ...prev,
-      startDate: startDate ? startDate.toISOString().split('T')[0] : '',
-      endDate: endDate ? endDate.toISOString().split('T')[0] : '',
+      startDate: startDate ? startDate.toISOString().split("T")[0] : "",
+      endDate: endDate ? endDate.toISOString().split("T")[0] : "",
     }));
   }, [startDate, endDate]);
 
@@ -122,7 +143,7 @@ export const BillList: React.FC<BillListProps> = ({
       setBills(response.bills || []);
     } catch (error) {
       setError(getErrorMessage(error));
-      console.error('Failed to load bills:', error);
+      console.error("Failed to load bills:", error);
     } finally {
       setLoading(false);
     }
@@ -135,12 +156,12 @@ export const BillList: React.FC<BillListProps> = ({
 
   const confirmDelete = async () => {
     if (!billToDelete) return;
-    
+
     try {
       await billAPI.delete(billToDelete);
       loadBills();
     } catch (error) {
-      console.error('Failed to delete bill:', getErrorMessage(error));
+      console.error("Failed to delete bill:", getErrorMessage(error));
     } finally {
       setDeleteDialogOpen(false);
       setBillToDelete(null);
@@ -151,12 +172,10 @@ export const BillList: React.FC<BillListProps> = ({
     const lower = searchTerm.toLowerCase();
     return bills.filter((bill) => {
       const number = bill.billNumber.toLowerCase();
-      const vendor = bill.vendor?.name?.toLowerCase() ?? '';
-      const note = bill.notes?.toLowerCase() ?? '';
+      const vendor = bill.vendor?.name?.toLowerCase() ?? "";
+      const note = bill.notes?.toLowerCase() ?? "";
       return (
-        number.includes(lower) ||
-        vendor.includes(lower) ||
-        note.includes(lower)
+        number.includes(lower) || vendor.includes(lower) || note.includes(lower)
       );
     });
   }, [bills, searchTerm]);
@@ -164,7 +183,7 @@ export const BillList: React.FC<BillListProps> = ({
   const getStatusBadge = (status: BillStatus) => {
     const config = statusConfig[status];
     const Icon = config.icon;
-    
+
     return (
       <Badge variant={config.variant} className="flex items-center gap-1">
         <Icon className="h-3 w-3" />
@@ -174,9 +193,9 @@ export const BillList: React.FC<BillListProps> = ({
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
     }).format(amount);
   };
 
@@ -189,12 +208,12 @@ export const BillList: React.FC<BillListProps> = ({
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl font-bold">
+              <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
               Bills
             </CardTitle>
-            <Button onClick={onCreateNew}>
+            <Button onClick={onCreateNew} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               New Bill
             </Button>
@@ -202,17 +221,17 @@ export const BillList: React.FC<BillListProps> = ({
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="space-y-2 md:col-span-2 lg:col-span-1">
               <Label htmlFor="search">Search</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   id="search"
-                  placeholder="Search by bill number or vendor..."
+                  placeholder={isDesktop ? "Search by bill number or vendor..." : "Search bills..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-xs sm:text-sm placeholder:text-xs sm:placeholder:text-sm"
                 />
               </div>
             </div>
@@ -248,12 +267,11 @@ export const BillList: React.FC<BillListProps> = ({
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
               <Select
-                value={filters.status || 'all'}
+                value={filters.status || "all"}
                 onValueChange={(value) =>
                   setFilters({
                     ...filters,
-                    status:
-                      value === 'all' ? undefined : (value as BillStatus),
+                    status: value === "all" ? undefined : (value as BillStatus),
                   })
                 }
               >
@@ -264,7 +282,9 @@ export const BillList: React.FC<BillListProps> = ({
                   <SelectItem value="all">All status</SelectItem>
                   <SelectItem value={BillStatus.DRAFT}>Draft</SelectItem>
                   <SelectItem value={BillStatus.OPEN}>Open</SelectItem>
-                  <SelectItem value={BillStatus.PARTIALLY_PAID}>Partially Paid</SelectItem>
+                  <SelectItem value={BillStatus.PARTIALLY_PAID}>
+                    Partially Paid
+                  </SelectItem>
                   <SelectItem value={BillStatus.PAID}>Paid</SelectItem>
                   <SelectItem value={BillStatus.OVERDUE}>Overdue</SelectItem>
                   <SelectItem value={BillStatus.VOID}>Void</SelectItem>
@@ -296,15 +316,25 @@ export const BillList: React.FC<BillListProps> = ({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Bill #</TableHead>
-                    <TableHead>Vendor</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-right">Paid</TableHead>
-                    <TableHead className="text-right">Balance</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="whitespace-nowrap">Bill #</TableHead>
+                    <TableHead className="whitespace-nowrap">Vendor</TableHead>
+                    <TableHead className="whitespace-nowrap">Date</TableHead>
+                    <TableHead className="whitespace-nowrap">
+                      Due Date
+                    </TableHead>
+                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">
+                      Total
+                    </TableHead>
+                    <TableHead className="text-right whitespace-nowrap">
+                      Paid
+                    </TableHead>
+                    <TableHead className="text-right whitespace-nowrap">
+                      Balance
+                    </TableHead>
+                    <TableHead className="text-right whitespace-nowrap">
+                      Actions
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -312,21 +342,31 @@ export const BillList: React.FC<BillListProps> = ({
                     const balanceDue = bill.totalAmount - bill.paidAmount;
                     return (
                       <TableRow key={bill.id}>
-                        <TableCell className="font-medium">{bill.billNumber}</TableCell>
-                        <TableCell>{bill.vendor?.name || 'Unknown'}</TableCell>
-                        <TableCell>{format(new Date(bill.billDate), 'MMM dd, yyyy')}</TableCell>
-                        <TableCell>{format(new Date(bill.dueDate), 'MMM dd, yyyy')}</TableCell>
-                        <TableCell>{getStatusBadge(bill.status)}</TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="font-medium whitespace-nowrap">
+                          {bill.billNumber}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {bill.vendor?.name || "Unknown"}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {format(new Date(bill.billDate), "MMM dd, yyyy")}
+                        </TableCell>
+                        <TableCell className="text-red-600 whitespace-nowrap">
+                          {format(new Date(bill.dueDate), "MMM dd, yyyy")}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {getStatusBadge(bill.status)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono whitespace-nowrap">
                           {formatCurrency(bill.totalAmount)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right font-mono whitespace-nowrap">
                           {formatCurrency(bill.paidAmount)}
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right font-mono whitespace-nowrap">
                           {formatCurrency(balanceDue)}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right whitespace-nowrap">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm">
@@ -339,12 +379,14 @@ export const BillList: React.FC<BillListProps> = ({
                                 View
                               </DropdownMenuItem>
                               {bill.status === BillStatus.DRAFT && (
-                                <DropdownMenuItem onClick={() => onEdit?.(bill)}>
+                                <DropdownMenuItem
+                                  onClick={() => onEdit?.(bill)}
+                                >
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 onClick={() => handleDelete(bill.id)}
                                 className="text-red-600"
                               >
@@ -375,7 +417,10 @@ export const BillList: React.FC<BillListProps> = ({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -384,4 +429,3 @@ export const BillList: React.FC<BillListProps> = ({
     </div>
   );
 };
-

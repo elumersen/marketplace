@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -10,8 +10,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+} from "@/components/ui/table";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,15 +21,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Customer } from '@/types/api.types';
-import { customerAPI, getErrorMessage } from '@/lib/api';
+} from "@/components/ui/dropdown-menu";
+import { Customer } from "@/types/api.types";
+import { customerAPI, getErrorMessage } from "@/lib/api";
 import {
   Search,
   Plus,
@@ -39,7 +39,8 @@ import {
   Users,
   Trash2,
   AlertCircle,
-} from 'lucide-react';
+} from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface CustomerListProps {
   onView?: (customer: Customer) => void;
@@ -54,10 +55,19 @@ export const CustomerList: React.FC<CustomerListProps> = ({
   onCreateNew,
   refreshSignal = 0,
 }) => {
+  const isMobile = useIsMobile();
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<string | null>(null);
 
@@ -75,7 +85,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
     } catch (err) {
       const message = getErrorMessage(err);
       setError(message);
-      console.error('Failed to load customers:', err);
+      console.error("Failed to load customers:", err);
     } finally {
       setLoading(false);
     }
@@ -86,11 +96,11 @@ export const CustomerList: React.FC<CustomerListProps> = ({
     const lower = searchTerm.toLowerCase();
     return customers.filter((customer) => {
       const name = customer.name.toLowerCase();
-      const email = customer.email?.toLowerCase() ?? '';
-      const phone = customer.phone?.toLowerCase() ?? '';
-      const address = customer.address?.toLowerCase() ?? '';
-      const city = customer.city?.toLowerCase() ?? '';
-      const state = customer.state?.toLowerCase() ?? '';
+      const email = customer.email?.toLowerCase() ?? "";
+      const phone = customer.phone?.toLowerCase() ?? "";
+      const address = customer.address?.toLowerCase() ?? "";
+      const city = customer.city?.toLowerCase() ?? "";
+      const state = customer.state?.toLowerCase() ?? "";
       return (
         name.includes(lower) ||
         email.includes(lower) ||
@@ -113,7 +123,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
       await customerAPI.delete(customerToDelete);
       loadCustomers();
     } catch (err) {
-      console.error('Failed to delete customer:', getErrorMessage(err));
+      console.error("Failed to delete customer:", getErrorMessage(err));
     } finally {
       setCustomerToDelete(null);
       setDeleteDialogOpen(false);
@@ -127,36 +137,36 @@ export const CustomerList: React.FC<CustomerListProps> = ({
       customer.state,
       customer.zipCode,
     ].filter(Boolean);
-    return parts.length > 0 ? parts.join(', ') : '—';
+    return parts.length > 0 ? parts.join(", ") : "—";
   };
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
               Customers
             </CardTitle>
-            <Button onClick={onCreateNew}>
+            <Button onClick={onCreateNew} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               New Customer
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="space-y-2">
+          <div className="mb-6">
+            <div className="space-y-2 w-full md:max-w-md">
               <Label htmlFor="search">Search</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   id="search"
-                  placeholder="Search by name, email, phone, or address..."
+                  placeholder={isDesktop ? "Search by name, email, phone, or address..." : "Search customers..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-xs sm:text-sm placeholder:text-xs sm:placeholder:text-sm"
                 />
               </div>
             </div>
@@ -186,23 +196,31 @@ export const CustomerList: React.FC<CustomerListProps> = ({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Address</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="whitespace-nowrap">Name</TableHead>
+                    <TableHead className="whitespace-nowrap">Email</TableHead>
+                    <TableHead className="whitespace-nowrap">Phone</TableHead>
+                    <TableHead className="whitespace-nowrap">Address</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">
+                      Actions
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredCustomers.map((customer) => (
                     <TableRow key={customer.id}>
-                      <TableCell className="font-medium">{customer.name}</TableCell>
-                      <TableCell>{customer.email || '—'}</TableCell>
-                      <TableCell>{customer.phone || '—'}</TableCell>
-                      <TableCell className="max-w-md truncate">
+                      <TableCell className="font-medium whitespace-nowrap">
+                        {customer.name}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {customer.email || "—"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {customer.phone || "—"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {formatAddress(customer)}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right whitespace-nowrap">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm">
@@ -211,12 +229,16 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {onView && (
-                              <DropdownMenuItem onClick={() => onView(customer)}>
+                              <DropdownMenuItem
+                                onClick={() => onView(customer)}
+                              >
                                 <Eye className="h-4 w-4 mr-2" />
                                 View
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem onClick={() => onEdit?.(customer)}>
+                            <DropdownMenuItem
+                              onClick={() => onEdit?.(customer)}
+                            >
                               <Edit className="h-4 w-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
@@ -261,4 +283,3 @@ export const CustomerList: React.FC<CustomerListProps> = ({
     </div>
   );
 };
-

@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -10,8 +10,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+} from "@/components/ui/table";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,15 +21,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Vendor } from '@/types/api.types';
-import { vendorAPI, getErrorMessage } from '@/lib/api';
+} from "@/components/ui/dropdown-menu";
+import { Vendor } from "@/types/api.types";
+import { vendorAPI, getErrorMessage } from "@/lib/api";
 import {
   Search,
   Plus,
@@ -39,7 +39,8 @@ import {
   Building2,
   Trash2,
   AlertCircle,
-} from 'lucide-react';
+} from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface VendorListProps {
   onView?: (vendor: Vendor) => void;
@@ -54,10 +55,19 @@ export const VendorList: React.FC<VendorListProps> = ({
   onCreateNew,
   refreshSignal = 0,
 }) => {
+  const isMobile = useIsMobile();
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [vendorToDelete, setVendorToDelete] = useState<string | null>(null);
 
@@ -75,7 +85,7 @@ export const VendorList: React.FC<VendorListProps> = ({
     } catch (err) {
       const message = getErrorMessage(err);
       setError(message);
-      console.error('Failed to load vendors:', err);
+      console.error("Failed to load vendors:", err);
     } finally {
       setLoading(false);
     }
@@ -86,11 +96,11 @@ export const VendorList: React.FC<VendorListProps> = ({
     const lower = searchTerm.toLowerCase();
     return vendors.filter((vendor) => {
       const name = vendor.name.toLowerCase();
-      const email = vendor.email?.toLowerCase() ?? '';
-      const phone = vendor.phone?.toLowerCase() ?? '';
-      const address = vendor.address?.toLowerCase() ?? '';
-      const city = vendor.city?.toLowerCase() ?? '';
-      const state = vendor.state?.toLowerCase() ?? '';
+      const email = vendor.email?.toLowerCase() ?? "";
+      const phone = vendor.phone?.toLowerCase() ?? "";
+      const address = vendor.address?.toLowerCase() ?? "";
+      const city = vendor.city?.toLowerCase() ?? "";
+      const state = vendor.state?.toLowerCase() ?? "";
       return (
         name.includes(lower) ||
         email.includes(lower) ||
@@ -113,7 +123,7 @@ export const VendorList: React.FC<VendorListProps> = ({
       await vendorAPI.delete(vendorToDelete);
       loadVendors();
     } catch (err) {
-      console.error('Failed to delete vendor:', getErrorMessage(err));
+      console.error("Failed to delete vendor:", getErrorMessage(err));
     } finally {
       setVendorToDelete(null);
       setDeleteDialogOpen(false);
@@ -127,36 +137,36 @@ export const VendorList: React.FC<VendorListProps> = ({
       vendor.state,
       vendor.zipCode,
     ].filter(Boolean);
-    return parts.length > 0 ? parts.join(', ') : '—';
+    return parts.length > 0 ? parts.join(", ") : "—";
   };
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />
               Vendors
             </CardTitle>
-            <Button onClick={onCreateNew}>
+            <Button onClick={onCreateNew} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               New Vendor
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="space-y-2">
+          <div className="mb-6">
+            <div className="space-y-2 w-full md:max-w-md">
               <Label htmlFor="search">Search</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   id="search"
-                  placeholder="Search by name, email, phone, or address..."
+                  placeholder={isDesktop ? "Search by name, email, phone, or address..." : "Search vendors..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-xs sm:text-sm placeholder:text-xs sm:placeholder:text-sm"
                 />
               </div>
             </div>
@@ -177,32 +187,38 @@ export const VendorList: React.FC<VendorListProps> = ({
             <div className="text-center py-8 text-gray-500">
               <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No vendors found</p>
-              <p className="text-sm">
-                Create your first vendor to get started
-              </p>
+              <p className="text-sm">Create your first vendor to get started</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Address</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="whitespace-nowrap">Name</TableHead>
+                    <TableHead className="whitespace-nowrap">Email</TableHead>
+                    <TableHead className="whitespace-nowrap">Phone</TableHead>
+                    <TableHead className="whitespace-nowrap">Address</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">
+                      Actions
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredVendors.map((vendor) => (
                     <TableRow key={vendor.id}>
-                      <TableCell className="font-medium">{vendor.name}</TableCell>
-                      <TableCell>{vendor.email || '—'}</TableCell>
-                      <TableCell>{vendor.phone || '—'}</TableCell>
-                      <TableCell className="max-w-md truncate">
+                      <TableCell className="font-medium whitespace-nowrap">
+                        {vendor.name}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {vendor.email || "—"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {vendor.phone || "—"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {formatAddress(vendor)}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right whitespace-nowrap">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm">
@@ -261,4 +277,3 @@ export const VendorList: React.FC<VendorListProps> = ({
     </div>
   );
 };
-

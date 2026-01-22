@@ -1,24 +1,46 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DatePicker } from '@/components/ui/date-picker';
-import { Spinner } from '@/components/ui/spinner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { MessageCircle } from 'lucide-react';
-import { format } from 'date-fns';
-import { accountAPI, transactionAPI } from '@/lib/api';
-import type { Account, AccountRegister, RegisterTransaction } from '@/types/api.types';
-import { QBOTransactionForm } from '@/components/banking/QBOTransactionForm';
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { MessageCircle } from "lucide-react";
+import { format } from "date-fns";
+import { accountAPI, transactionAPI } from "@/lib/api";
+import type {
+  Account,
+  AccountRegister,
+  RegisterTransaction,
+} from "@/types/api.types";
+import { QBOTransactionForm } from "@/components/banking/QBOTransactionForm";
 
 export const Registers = () => {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
-  
+
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [register, setRegister] = useState<AccountRegister | null>(null);
@@ -26,7 +48,7 @@ export const Registers = () => {
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [memoDialogOpen, setMemoDialogOpen] = useState(false);
-  const [selectedMemo, setSelectedMemo] = useState<string>('');
+  const [selectedMemo, setSelectedMemo] = useState<string>("");
 
   // Load accounts on component mount
   useEffect(() => {
@@ -43,24 +65,26 @@ export const Registers = () => {
   // Set selected account from URL params
   useEffect(() => {
     if (accountId && accounts.length > 0) {
-      const account = accounts.find(acc => acc.id === accountId);
-      if (account && account.subType !== 'Net_Income') {
+      const account = accounts.find((acc) => acc.id === accountId);
+      if (account && account.subType !== "Net_Income") {
         setSelectedAccount(account);
-      } else if (account && account.subType === 'Net_Income') {
+      } else if (account && account.subType === "Net_Income") {
         // Redirect away from Net_Income accounts (they can't be viewed)
-        navigate('/registers');
+        navigate("/registers");
       }
     }
   }, [accountId, accounts, navigate]);
 
   const loadAccounts = async () => {
     try {
-      const response = await accountAPI.getAll( { all: 'true', isActive: true });
+      const response = await accountAPI.getAll({ all: "true", isActive: true });
       // Filter out Net_Income accounts (calculation-based, not real accounts)
-      const filteredAccounts = response.data.filter(acc => acc.subType !== 'Net_Income');
+      const filteredAccounts = response.data.filter(
+        (acc) => acc.subType !== "Net_Income"
+      );
       setAccounts(filteredAccounts);
     } catch (error) {
-      console.error('Failed to load accounts:', error);
+      console.error("Failed to load accounts:", error);
     }
   };
 
@@ -70,18 +94,21 @@ export const Registers = () => {
       const params: { startDate?: string; endDate?: string } = {};
       if (startDate) params.startDate = startDate.toISOString();
       if (endDate) params.endDate = endDate.toISOString();
-      
-      const registerData = await transactionAPI.getAccountRegister(accountId, params);
+
+      const registerData = await transactionAPI.getAccountRegister(
+        accountId,
+        params
+      );
       setRegister(registerData);
     } catch (error) {
-      console.error('Failed to load register:', error);
+      console.error("Failed to load register:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleAccountChange = (accountId: string) => {
-    const account = accounts.find(acc => acc.id === accountId);
+    const account = accounts.find((acc) => acc.id === accountId);
     if (account) {
       setSelectedAccount(account);
       navigate(`/registers/${accountId}`);
@@ -89,34 +116,34 @@ export const Registers = () => {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
     }).format(amount);
   };
 
   const formatDate = (dateString: string) => {
-    const dateOnly = dateString.split('T')[0];
-    const [year, month, day] = dateOnly.split('-').map(Number);
+    const dateOnly = dateString.split("T")[0];
+    const [year, month, day] = dateOnly.split("-").map(Number);
     const date = new Date(year, month - 1, day + 1);
-    return format(date, 'MM/dd/yyyy');
+    return format(date, "MM/dd/yyyy");
   };
 
   const getTransactionTypeDisplay = (transaction: RegisterTransaction) => {
     const typeMap: Record<string, string> = {
-      'CHECK': 'Check',
-      'DEPOSIT': 'Deposit',
-      'EXPENSE': 'Expense',
-      'REFUND': 'Refund',
-      'INVOICE': 'Invoice',
-      'RECEIVE_PAYMENT': 'Receive Payment',
-      'BILL': 'Bill',
-      'BILL_PAYMENT': 'Bill Payment',
-      'TRANSFER': 'Transfer',
-      'CREDIT_CARD_PAYMENT': 'Credit Card Payment',
-      'JOURNAL_ENTRY': 'Journal Entry',
+      CHECK: "Check",
+      DEPOSIT: "Deposit",
+      EXPENSE: "Expense",
+      REFUND: "Refund",
+      INVOICE: "Invoice",
+      RECEIVE_PAYMENT: "Receive Payment",
+      BILL: "Bill",
+      BILL_PAYMENT: "Bill Payment",
+      TRANSFER: "Transfer",
+      CREDIT_CARD_PAYMENT: "Credit Card Payment",
+      JOURNAL_ENTRY: "Journal Entry",
     };
-    
+
     return typeMap[transaction.type] || transaction.type;
   };
 
@@ -126,9 +153,11 @@ export const Registers = () => {
     }
     if (transaction.journalEntry?.createdByUser) {
       const user = transaction.journalEntry.createdByUser;
-      return `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+      return (
+        `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email
+      );
     }
-    return '-';
+    return "-";
   };
 
   const getAccountNameDisplay = (transaction: RegisterTransaction) => {
@@ -136,15 +165,17 @@ export const Registers = () => {
     if (transaction.pairedAccount) {
       return transaction.pairedAccount;
     }
-    return '-';
+    return "-";
   };
 
   const getReconciliationStatus = (transaction: RegisterTransaction) => {
-    return transaction.isReconciled ? 'Reconciled' : 'Unreconciled';
+    return transaction.isReconciled ? "Reconciled" : "Unreconciled";
   };
 
   const getReconciliationColor = (transaction: RegisterTransaction) => {
-    return transaction.isReconciled ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+    return transaction.isReconciled
+      ? "bg-green-100 text-green-800"
+      : "bg-red-100 text-red-800";
   };
 
   const clearFilters = () => {
@@ -153,12 +184,12 @@ export const Registers = () => {
   };
 
   const handleMemoClick = (description: string | undefined) => {
-    setSelectedMemo(description || '');
+    setSelectedMemo(description || "");
     setMemoDialogOpen(true);
   };
 
   const hasMemo = (transaction: RegisterTransaction) => {
-    return !!transaction.description && transaction.description.trim() !== '';
+    return !!transaction.description && transaction.description.trim() !== "";
   };
 
   // Show loading state while accounts are being loaded
@@ -182,9 +213,11 @@ export const Registers = () => {
       <div className="container mx-auto p-6">
         <div className="mb-6">
           <h1 className="text-3xl font-bold">Account Registers</h1>
-          <p className="text-muted-foreground">Select an account to view its register</p>
+          <p className="text-muted-foreground">
+            Select an account to view its register
+          </p>
         </div>
-        
+
         <Card>
           <CardHeader>
             <CardTitle>Select Account</CardTitle>
@@ -197,7 +230,8 @@ export const Registers = () => {
               <SelectContent>
                 {accounts.map((account) => (
                   <SelectItem key={account.id} value={account.id}>
-                    {account.code} - {account.name}{account.subType ? ` (${account.subType})` : ''}
+                    {account.code} - {account.name}
+                    {account.subType ? ` (${account.subType})` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -234,7 +268,8 @@ export const Registers = () => {
             <h1 className="text-3xl font-bold">Account Register</h1>
             {selectedAccount && (
               <p className="text-muted-foreground">
-                {selectedAccount.code} - {selectedAccount.name} {selectedAccount.subType ? `(${selectedAccount.subType})` : ''}
+                {selectedAccount.code} - {selectedAccount.name}{" "}
+                {selectedAccount.subType ? `(${selectedAccount.subType})` : ""}
               </p>
             )}
           </div>
@@ -244,11 +279,14 @@ export const Registers = () => {
       {/* Filters */}
       <Card className="mb-6 py-4">
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
+          <div className="flex flex-wrap gap-3">
+            <div className="flex-1 min-w-[220px]">
               <Label htmlFor="account-select">Account</Label>
-              <Select value={selectedAccount?.id || ''} onValueChange={handleAccountChange}>
-                <SelectTrigger>
+              <Select
+                value={selectedAccount?.id || ""}
+                onValueChange={handleAccountChange}
+              >
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select account" />
                 </SelectTrigger>
                 <SelectContent>
@@ -261,8 +299,8 @@ export const Registers = () => {
                 </SelectContent>
               </Select>
             </div>
-            
-            <div>
+
+            <div className="flex-1 min-w-[200px]">
               <Label>Start Date</Label>
               <DatePicker
                 date={startDate}
@@ -270,8 +308,8 @@ export const Registers = () => {
                 className="w-full"
               />
             </div>
-            
-            <div>
+
+            <div className="flex-1 min-w-[200px]">
               <Label>End Date</Label>
               <DatePicker
                 date={endDate}
@@ -279,12 +317,12 @@ export const Registers = () => {
                 className="w-full"
               />
             </div>
-          </div>
-          
-          <div className="flex gap-2 mt-4">
-            <Button variant="outline" size="sm" onClick={clearFilters}>
-              Clear Filters
-            </Button>
+
+            <div className="flex items-end">
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Clear Filters
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -309,7 +347,9 @@ export const Registers = () => {
             {register && (
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Current Balance</p>
-                <p className="text-2xl font-bold">{formatCurrency(register.currentBalance)}</p>
+                <p className="text-2xl font-bold">
+                  {formatCurrency(register.currentBalance)}
+                </p>
               </div>
             )}
           </div>
@@ -339,42 +379,67 @@ export const Registers = () => {
                 <TableBody>
                   {register.transactions.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                      <TableCell
+                        colSpan={10}
+                        className="text-center py-8 text-muted-foreground"
+                      >
                         No transactions found for the selected period
                       </TableCell>
                     </TableRow>
                   ) : (
                     register.transactions.map((transaction) => (
                       <TableRow key={transaction.id}>
-                        <TableCell>{formatDate(transaction.transactionDate)}</TableCell>
-                        <TableCell>{transaction.referenceNumber || '-'}</TableCell>
-                        <TableCell>{getTransactionTypeDisplay(transaction)}</TableCell>
+                        <TableCell>
+                          {formatDate(transaction.transactionDate)}
+                        </TableCell>
+                        <TableCell>
+                          {transaction.referenceNumber || "-"}
+                        </TableCell>
+                        <TableCell>
+                          {getTransactionTypeDisplay(transaction)}
+                        </TableCell>
                         <TableCell>{getPayeeDisplay(transaction)}</TableCell>
-                        <TableCell>{getAccountNameDisplay(transaction)}</TableCell>
+                        <TableCell>
+                          {getAccountNameDisplay(transaction)}
+                        </TableCell>
                         <TableCell className="text-center">
                           <Button
                             variant="ghost"
                             size="sm"
                             className="h-8 w-8 p-0 relative"
-                            onClick={() => handleMemoClick(transaction.description)}
+                            onClick={() =>
+                              handleMemoClick(transaction.description)
+                            }
                           >
-                            <MessageCircle className={`h-4 w-4 ${hasMemo(transaction) ? 'text-blue-600' : 'text-gray-400'}`} />
+                            <MessageCircle
+                              className={`h-4 w-4 ${
+                                hasMemo(transaction)
+                                  ? "text-blue-600"
+                                  : "text-gray-400"
+                              }`}
+                            />
                             {hasMemo(transaction) && (
                               <span className="absolute top-0 right-0 h-2 w-2 bg-blue-600 rounded-full border-2 border-white"></span>
                             )}
                           </Button>
                         </TableCell>
                         <TableCell className="text-right">
-                          {transaction.debitAmount > 0 ? formatCurrency(transaction.debitAmount) : '-'}
+                          {transaction.debitAmount > 0
+                            ? formatCurrency(transaction.debitAmount)
+                            : "-"}
                         </TableCell>
                         <TableCell className="text-right">
-                          {transaction.creditAmount > 0 ? formatCurrency(transaction.creditAmount) : '-'}
+                          {transaction.creditAmount > 0
+                            ? formatCurrency(transaction.creditAmount)
+                            : "-"}
                         </TableCell>
                         <TableCell className="text-right font-medium">
                           {formatCurrency(transaction.runningBalance)}
                         </TableCell>
                         <TableCell>
-                          <Badge className={getReconciliationColor(transaction)}>
+                          <Badge
+                            className={getReconciliationColor(transaction)}
+                          >
                             {getReconciliationStatus(transaction)}
                           </Badge>
                         </TableCell>
@@ -410,4 +475,3 @@ export const Registers = () => {
     </div>
   );
 };
-

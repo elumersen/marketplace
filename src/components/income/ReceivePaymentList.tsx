@@ -62,6 +62,7 @@ import {
   getErrorMessage,
 } from '@/lib/api';
 import { format } from 'date-fns';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ReceivePaymentListProps {
   onView?: (payment: ReceivePayment) => void;
@@ -86,6 +87,15 @@ export const ReceivePaymentList: React.FC<ReceivePaymentListProps> = ({
   onCreateNew,
   refreshSignal = 0,
 }) => {
+  const isMobile = useIsMobile();
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [receivePayments, setReceivePayments] = useState<ReceivePayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -217,12 +227,12 @@ export const ReceivePaymentList: React.FC<ReceivePaymentListProps> = ({
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl font-bold">
+              <DollarSign className="h-5 w-5 sm:h-6 sm:w-6" />
               Receive Payments
             </CardTitle>
-            <Button onClick={onCreateNew}>
+            <Button onClick={onCreateNew} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               New Payment
             </Button>
@@ -230,16 +240,16 @@ export const ReceivePaymentList: React.FC<ReceivePaymentListProps> = ({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div className="space-y-2">
+            <div className="space-y-2 md:col-span-2 lg:col-span-1">
               <Label htmlFor="search">Search</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   id="search"
-                  placeholder="Invoice, customer, or reference..."
+                  placeholder={isDesktop ? "Invoice, customer, or reference..." : "Search payments..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-xs sm:text-sm placeholder:text-xs sm:placeholder:text-sm"
                 />
               </div>
             </div>
@@ -317,46 +327,48 @@ export const ReceivePaymentList: React.FC<ReceivePaymentListProps> = ({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Invoices</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Reference</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="whitespace-nowrap text-xs sm:text-sm">Date</TableHead>
+                    <TableHead className="whitespace-nowrap text-xs sm:text-sm">Invoices</TableHead>
+                    <TableHead className="text-right whitespace-nowrap text-xs sm:text-sm">Amount</TableHead>
+                    <TableHead className="whitespace-nowrap text-xs sm:text-sm">Reference</TableHead>
+                    <TableHead className="text-right whitespace-nowrap text-xs sm:text-sm">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredPayments.map((payment) => (
                     <TableRow key={payment.id}>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap text-xs sm:text-sm">
                         {format(new Date(payment.paymentDate), 'MMM dd, yyyy')}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <div className="space-y-1">
                           {payment.invoices && payment.invoices.length > 0 ? (
                             payment.invoices.map((rpi, idx) => (
-                              <div key={rpi.id || idx} className="text-sm">
+                              <div key={rpi.id || idx} className="text-xs sm:text-sm flex items-center gap-x-2">
                                 <span className="font-medium">
                                   {rpi.invoice?.invoiceNumber ?? '—'}
                                 </span>
                                 {rpi.invoice?.customer?.name && (
-                                  <span className="text-muted-foreground ml-2">
+                                  <span className="text-muted-foreground">
                                     — {rpi.invoice.customer.name}
                                   </span>
                                 )}
-                                <span className="text-muted-foreground ml-2">
+                                <span className="text-muted-foreground">
                                   ({formatCurrency(rpi.amount)})
                                 </span>
                               </div>
                             ))
                           ) : (
-                            <span className="text-muted-foreground">—</span>
+                            <span className="text-muted-foreground text-xs sm:text-sm">—</span>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right font-mono whitespace-nowrap text-xs sm:text-sm">
                         {formatCurrency(payment.amount)}
                       </TableCell>
-                      <TableCell>{payment.referenceNumber || '—'}</TableCell>
+                      <TableCell className="text-xs sm:text-sm whitespace-nowrap">
+                        {payment.referenceNumber || '—'}
+                      </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>

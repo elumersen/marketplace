@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Invoice, CreateInvoiceData, Customer, Item, Account } from '@/types/api.types';
+import { Invoice, CreateInvoiceData, Customer, Item, Account, ItemType } from '@/types/api.types';
 import { invoiceAPI, customerAPI, itemAPI, accountAPI, getErrorMessage } from '@/lib/api';
 
 interface InvoiceFormProps {
@@ -97,7 +97,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
       setLoading(true);
       const [customersRes, itemsRes, accountsRes] = await Promise.all([
         customerAPI.getAll(),
-        itemAPI.getAll(),
+        itemAPI.getAll({ type: ItemType.INCOME }),
         accountAPI.getAll({ type: 'Income', all: 'true' }),
       ]);
 
@@ -485,8 +485,14 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                     id="newQuantity"
                     type="number"
                     step="0.01"
-                    value={newLine.quantity || 1}
-                    onChange={(e) => setNewLine({ ...newLine, quantity: parseFloat(e.target.value) || 1 })}
+                    value={newLine.quantity !== undefined ? newLine.quantity : ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setNewLine({ 
+                        ...newLine, 
+                        quantity: val === '' ? undefined : parseFloat(val) 
+                      });
+                    }}
                   />
                 </div>
 
