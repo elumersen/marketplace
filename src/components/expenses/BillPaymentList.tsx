@@ -55,6 +55,7 @@ import {
 import {
   BillPayment,
   Bill,
+  BillStatus,
 } from '@/types/api.types';
 import {
   billPaymentAPI,
@@ -86,6 +87,14 @@ export const BillPaymentList: React.FC<BillPaymentListProps> = ({
   onCreateNew,
   refreshSignal = 0,
 }) => {
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [billPayments, setBillPayments] = useState<BillPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,13 +132,15 @@ export const BillPaymentList: React.FC<BillPaymentListProps> = ({
       const billRes = await billAPI.getAll();
 
       const billOptions =
-        billRes.bills?.map((bill) => ({
-          id: bill.id,
-          billNumber: bill.billNumber,
-          vendor: bill.vendor,
-          balanceDue:
-            bill.totalAmount - bill.paidAmount,
-        })) ?? [];
+        billRes.bills
+          ?.filter((bill) => String(bill.status).trim() !== 'PAID')
+          .map((bill) => ({
+            id: bill.id,
+            billNumber: bill.billNumber,
+            vendor: bill.vendor,
+            balanceDue:
+              bill.totalAmount - bill.paidAmount,
+          })) ?? [];
 
       setBills(billOptions);
     } catch (err) {
@@ -221,12 +232,12 @@ export const BillPaymentList: React.FC<BillPaymentListProps> = ({
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl font-bold">
+              <DollarSign className="h-5 w-5 sm:h-6 sm:w-6" />
               Bill Payments
             </CardTitle>
-            <Button onClick={onCreateNew}>
+            <Button onClick={onCreateNew} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               New Payment
             </Button>
@@ -234,16 +245,16 @@ export const BillPaymentList: React.FC<BillPaymentListProps> = ({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div className="space-y-2">
+            <div className="space-y-2 md:col-span-2 lg:col-span-1">
               <Label htmlFor="search">Search</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   id="search"
-                  placeholder="Bill, vendor, or reference..."
+                  placeholder={isDesktop ? "Bill, vendor, or reference..." : "Search payments..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-xs sm:text-sm placeholder:text-xs sm:placeholder:text-sm"
                 />
               </div>
             </div>
@@ -321,21 +332,21 @@ export const BillPaymentList: React.FC<BillPaymentListProps> = ({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Bills</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Reference</TableHead>
-                    <TableHead>Check #</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="whitespace-nowrap">Date</TableHead>
+                    <TableHead className="whitespace-nowrap">Bills</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Amount</TableHead>
+                    <TableHead className="whitespace-nowrap">Reference</TableHead>
+                    <TableHead className="whitespace-nowrap">Check #</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredPayments.map((payment) => (
                     <TableRow key={payment.id}>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {format(new Date(payment.paymentDate), 'MMM dd, yyyy')}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <div className="space-y-1">
                           {payment.billPaymentBills && payment.billPaymentBills.length > 0 ? (
                             payment.billPaymentBills.map((bpb, idx) => (
@@ -369,12 +380,12 @@ export const BillPaymentList: React.FC<BillPaymentListProps> = ({
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right font-mono whitespace-nowrap">
                         {formatCurrency(payment.amount)}
                       </TableCell>
-                      <TableCell>{payment.referenceNumber || '—'}</TableCell>
-                      <TableCell>{payment.checkNumber || '—'}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="whitespace-nowrap">{payment.referenceNumber || '—'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{payment.checkNumber || '—'}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm">

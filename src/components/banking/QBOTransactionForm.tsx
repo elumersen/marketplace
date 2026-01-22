@@ -1,16 +1,49 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Account, Customer, Vendor, JournalEntryStatus, TransactionType } from '@/types/api.types';
-import { accountAPI, customerAPI, vendorAPI, journalEntryAPI, getErrorMessage } from '@/lib/api';
-import { getPostingRule, describeRule } from '@/lib/postingRules';
-import { useToast } from '@/hooks/use-toast';
-import { Check, ChevronsUpDown, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import React, { useState, useEffect, useRef } from "react";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Account,
+  Customer,
+  Vendor,
+  JournalEntryStatus,
+  TransactionType,
+} from "@/types/api.types";
+import {
+  accountAPI,
+  customerAPI,
+  vendorAPI,
+  journalEntryAPI,
+  getErrorMessage,
+} from "@/lib/api";
+import { getPostingRule, describeRule } from "@/lib/postingRules";
+import { useToast } from "@/hooks/use-toast";
+import { Check, ChevronsUpDown, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 
 interface QBOTransactionFormProps {
   registerAccountId: string;
@@ -19,31 +52,64 @@ interface QBOTransactionFormProps {
 
 // Transaction type label mapping
 const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
-  [TransactionType.CHECK]: 'Check',
-  [TransactionType.DEPOSIT]: 'Deposit',
-  [TransactionType.EXPENSE]: 'Expense',
-  [TransactionType.REFUND]: 'Refund',
-  [TransactionType.INVOICE]: 'Invoice',
-  [TransactionType.RECEIVE_PAYMENT]: 'Receive Payment',
-  [TransactionType.BILL]: 'Bill',
-  [TransactionType.BILL_PAYMENT]: 'Bill Payment',
-  [TransactionType.TRANSFER]: 'Transfer',
-  [TransactionType.CREDIT_CARD_PAYMENT]: 'Credit Card Payment',
-  [TransactionType.JOURNAL_ENTRY]: 'Journal Entry',
+  [TransactionType.CHECK]: "Check",
+  [TransactionType.DEPOSIT]: "Deposit",
+  [TransactionType.EXPENSE]: "Expense",
+  [TransactionType.REFUND]: "Refund",
+  [TransactionType.INVOICE]: "Invoice",
+  [TransactionType.RECEIVE_PAYMENT]: "Receive Payment",
+  [TransactionType.BILL]: "Bill",
+  [TransactionType.BILL_PAYMENT]: "Bill Payment",
+  [TransactionType.TRANSFER]: "Transfer",
+  [TransactionType.CREDIT_CARD_PAYMENT]: "Credit Card Payment",
+  [TransactionType.JOURNAL_ENTRY]: "Journal Entry",
 };
 
 const TRANSACTION_TYPES = [
-  { value: TransactionType.EXPENSE, label: TRANSACTION_TYPE_LABELS[TransactionType.EXPENSE] },
-  { value: TransactionType.REFUND, label: TRANSACTION_TYPE_LABELS[TransactionType.REFUND] },
-  { value: TransactionType.CHECK, label: TRANSACTION_TYPE_LABELS[TransactionType.CHECK] },
-  { value: TransactionType.DEPOSIT, label: TRANSACTION_TYPE_LABELS[TransactionType.DEPOSIT] },
-  { value: TransactionType.INVOICE, label: TRANSACTION_TYPE_LABELS[TransactionType.INVOICE] },
-  { value: TransactionType.RECEIVE_PAYMENT, label: TRANSACTION_TYPE_LABELS[TransactionType.RECEIVE_PAYMENT] },
-  { value: TransactionType.BILL, label: TRANSACTION_TYPE_LABELS[TransactionType.BILL] },
-  { value: TransactionType.BILL_PAYMENT, label: TRANSACTION_TYPE_LABELS[TransactionType.BILL_PAYMENT] },
-  { value: TransactionType.TRANSFER, label: TRANSACTION_TYPE_LABELS[TransactionType.TRANSFER] },
-  { value: TransactionType.CREDIT_CARD_PAYMENT, label: TRANSACTION_TYPE_LABELS[TransactionType.CREDIT_CARD_PAYMENT] },
-  { value: TransactionType.JOURNAL_ENTRY, label: TRANSACTION_TYPE_LABELS[TransactionType.JOURNAL_ENTRY] },
+  {
+    value: TransactionType.EXPENSE,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.EXPENSE],
+  },
+  {
+    value: TransactionType.REFUND,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.REFUND],
+  },
+  {
+    value: TransactionType.CHECK,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.CHECK],
+  },
+  {
+    value: TransactionType.DEPOSIT,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.DEPOSIT],
+  },
+  {
+    value: TransactionType.INVOICE,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.INVOICE],
+  },
+  {
+    value: TransactionType.RECEIVE_PAYMENT,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.RECEIVE_PAYMENT],
+  },
+  {
+    value: TransactionType.BILL,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.BILL],
+  },
+  {
+    value: TransactionType.BILL_PAYMENT,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.BILL_PAYMENT],
+  },
+  {
+    value: TransactionType.TRANSFER,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.TRANSFER],
+  },
+  {
+    value: TransactionType.CREDIT_CARD_PAYMENT,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.CREDIT_CARD_PAYMENT],
+  },
+  {
+    value: TransactionType.JOURNAL_ENTRY,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.JOURNAL_ENTRY],
+  },
 ];
 
 export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
@@ -52,17 +118,23 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
 }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [entryDate, setEntryDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  
+  const [entryDate, setEntryDate] = useState<string>(
+    new Date().toISOString().split("T")[0]
+  );
+
   // Transaction fields
-  const [transactionType, setTransactionType] = useState<TransactionType>(TransactionType.EXPENSE);
-  const [refNo, setRefNo] = useState('');
-  const [payee, setPayee] = useState('');
-  const [accountId, setAccountId] = useState('');
-  const [amount, setAmount] = useState<number | ''>('');
-  const [debitCredit, setDebitCredit] = useState<'debit' | 'credit'>('debit');
-  const [ruleLock, setRuleLock] = useState<'debit' | 'credit' | 'both' | 'none'>('both');
-  const [memo, setMemo] = useState('');
+  const [transactionType, setTransactionType] = useState<TransactionType>(
+    TransactionType.EXPENSE
+  );
+  const [refNo, setRefNo] = useState("");
+  const [payee, setPayee] = useState("");
+  const [accountId, setAccountId] = useState("");
+  const [amount, setAmount] = useState<number | "">("");
+  const [debitCredit, setDebitCredit] = useState<"debit" | "credit">("debit");
+  const [ruleLock, setRuleLock] = useState<
+    "debit" | "credit" | "both" | "none"
+  >("both");
+  const [memo, setMemo] = useState("");
 
   // Autocomplete data
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -91,10 +163,10 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
   // Recompute posting rule whenever register account, accounts, or transaction type changes
   useEffect(() => {
     if (!accounts.length) return;
-    const register = accounts.find(a => a.id === registerAccountId);
+    const register = accounts.find((a) => a.id === registerAccountId);
     const rule = getPostingRule(register?.subType, transactionType);
     setRuleLock(rule);
-    if (rule === 'debit' || rule === 'credit') {
+    if (rule === "debit" || rule === "credit") {
       setDebitCredit(rule);
     }
   }, [accounts, registerAccountId, transactionType]);
@@ -102,13 +174,13 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
   // Reset transaction type if current selection is not allowed for the register account
   useEffect(() => {
     if (!accounts.length) return;
-    const register = accounts.find(a => a.id === registerAccountId);
+    const register = accounts.find((a) => a.id === registerAccountId);
     const rule = getPostingRule(register?.subType, transactionType);
-    if (rule === 'none') {
+    if (rule === "none") {
       // Find first allowed transaction type
       const allowedType = TRANSACTION_TYPES.find((type) => {
         const typeRule = getPostingRule(register?.subType, type.value);
-        return typeRule !== 'none';
+        return typeRule !== "none";
       });
       if (allowedType) {
         setTransactionType(allowedType.value);
@@ -128,31 +200,34 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
 
   const loadAutocompleteData = async () => {
     try {
-      const [accountsResponse, customersResponse, vendorsResponse] = await Promise.all([
-        accountAPI.getAll({ isActive: true, all: 'true' }),
-        customerAPI.getAll(),
-        vendorAPI.getAll(),
-      ]);
+      const [accountsResponse, customersResponse, vendorsResponse] =
+        await Promise.all([
+          accountAPI.getAll({ isActive: true, all: "true" }),
+          customerAPI.getAll(),
+          vendorAPI.getAll(),
+        ]);
       setAccounts(accountsResponse.data || []);
       setCustomers(customersResponse.data || []);
       setVendors(vendorsResponse.data || []);
     } catch (error) {
-      console.error('Failed to load autocomplete data:', error);
+      console.error("Failed to load autocomplete data:", error);
     }
   };
 
   const getFilteredPayees = (query: string) => {
     const allPayees = [
-      ...customers.map(c => ({ type: 'Customer', name: c.name })),
-      ...vendors.map(v => ({ type: 'Vendor', name: v.name })),
+      ...customers.map((c) => ({ type: "Customer", name: c.name })),
+      ...vendors.map((v) => ({ type: "Vendor", name: v.name })),
     ];
-    
+
     if (!query) {
       return allPayees.slice(0, 10);
     }
-    
+
     const lowerQuery = query.toLowerCase();
-    return allPayees.filter(p => p.name.toLowerCase().includes(lowerQuery)).slice(0, 10);
+    return allPayees
+      .filter((p) => p.name.toLowerCase().includes(lowerQuery))
+      .slice(0, 10);
   };
 
   const handleSave = async () => {
@@ -177,7 +252,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
     }
 
     // Enforce rule
-    if (ruleLock === 'none') {
+    if (ruleLock === "none") {
       toast({
         variant: "destructive",
         title: "Not Allowed",
@@ -185,7 +260,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
       });
       return;
     }
-    if (ruleLock === 'debit' || ruleLock === 'credit') {
+    if (ruleLock === "debit" || ruleLock === "credit") {
       // Lock side to rule
       if (debitCredit !== ruleLock) setDebitCredit(ruleLock);
     }
@@ -193,9 +268,9 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
     setLoading(true);
     try {
       const amountValue = Number(amount);
-      const regSide = ruleLock === 'both' ? debitCredit : ruleLock;
+      const regSide = ruleLock === "both" ? debitCredit : ruleLock;
       let lines;
-      if (regSide === 'debit') {
+      if (regSide === "debit") {
         lines = [
           {
             accountId: registerAccountId,
@@ -208,7 +283,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
             description: memo,
             debit: 0,
             credit: amountValue,
-          }
+          },
         ];
       } else {
         // credit
@@ -224,14 +299,14 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
             description: memo,
             debit: amountValue,
             credit: 0,
-          }
+          },
         ];
       }
 
       const data = {
         entryDate,
         description: memo,
-        status: 'POSTED' as JournalEntryStatus,
+        status: "POSTED" as JournalEntryStatus,
         transactionType: transactionType,
         payee: payee,
         entryNumber: refNo || undefined,
@@ -239,7 +314,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
       };
 
       await journalEntryAPI.create(data);
-      
+
       toast({
         title: "Success",
         description: "Transaction created successfully",
@@ -259,14 +334,14 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
   };
 
   const resetForm = () => {
-    setEntryDate(new Date().toISOString().split('T')[0]);
-    setRefNo('');
-    setPayee('');
-    setAccountId('');
-    setAmount('');
-    setDebitCredit('debit');
-    setMemo('');
-    
+    setEntryDate(new Date().toISOString().split("T")[0]);
+    setRefNo("");
+    setPayee("");
+    setAccountId("");
+    setAmount("");
+    setDebitCredit("debit");
+    setMemo("");
+
     setTimeout(() => {
       if (dateInputRef.current) {
         dateInputRef.current.focus();
@@ -275,36 +350,43 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, currentField: string) => {
-    if (e.key === 'Enter' && !e.shiftKey && !loading) {
+    if (e.key === "Enter" && !e.shiftKey && !loading) {
       e.preventDefault();
-      
-      if (currentField === 'memo') {
+
+      if (currentField === "memo") {
         handleSave();
         return;
       }
 
       // Move to next field or save
-      const fieldSequence = ['date', 'refNo', 'payee', 'account', 'amount', 'memo'];
+      const fieldSequence = [
+        "date",
+        "refNo",
+        "payee",
+        "account",
+        "amount",
+        "memo",
+      ];
       const currentIndex = fieldSequence.indexOf(currentField);
       const nextField = fieldSequence[currentIndex + 1];
-      
-      if (nextField === 'refNo' && refNoInputRef.current) {
+
+      if (nextField === "refNo" && refNoInputRef.current) {
         refNoInputRef.current.focus();
         refNoInputRef.current.select();
-      } else if (nextField === 'payee') {
+      } else if (nextField === "payee") {
         setPayeeOpen(true);
         if (payeeInputRef.current) {
           setTimeout(() => payeeInputRef.current?.click(), 100);
         }
-      } else if (nextField === 'account') {
+      } else if (nextField === "account") {
         setAccountOpen(true);
         if (accountInputRef.current) {
           setTimeout(() => accountInputRef.current?.click(), 100);
         }
-      } else if (nextField === 'amount' && amountInputRef.current) {
+      } else if (nextField === "amount" && amountInputRef.current) {
         amountInputRef.current.focus();
         amountInputRef.current.select();
-      } else if (nextField === 'memo' && memoInputRef.current) {
+      } else if (nextField === "memo" && memoInputRef.current) {
         memoInputRef.current.focus();
         memoInputRef.current.select();
       } else if (!nextField) {
@@ -314,19 +396,19 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
   };
 
   const toggleDebitCredit = () => {
-    if (ruleLock !== 'both') return; // locked
-    setDebitCredit(prev => prev === 'debit' ? 'credit' : 'debit');
+    if (ruleLock !== "both") return; // locked
+    setDebitCredit((prev) => (prev === "debit" ? "credit" : "debit"));
   };
 
-  const selectedAccount = accounts.find(acc => acc.id === accountId);
-  const registerAccount = accounts.find(acc => acc.id === registerAccountId);
+  const selectedAccount = accounts.find((acc) => acc.id === accountId);
+  const registerAccount = accounts.find((acc) => acc.id === registerAccountId);
 
   // Filter transaction types based on posting rules for the register account
   // If register account is not loaded yet, show all types temporarily
   const allowedTransactionTypes = registerAccount
     ? TRANSACTION_TYPES.filter((type) => {
         const rule = getPostingRule(registerAccount.subType, type.value);
-        return rule !== 'none';
+        return rule !== "none";
       })
     : TRANSACTION_TYPES;
 
@@ -341,10 +423,14 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
       <div className="px-3 py-2 bg-blue-100 border-b border-blue-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-blue-900">Add Transaction</span>
-            <Select 
-              value={transactionType} 
-              onValueChange={(value) => setTransactionType(value as TransactionType)} 
+            <span className="text-sm font-medium text-blue-900">
+              Add Transaction
+            </span>
+            <Select
+              value={transactionType}
+              onValueChange={(value) =>
+                setTransactionType(value as TransactionType)
+              }
               disabled={loading}
             >
               <SelectTrigger className="h-8 w-40 text-sm">
@@ -375,7 +461,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
       </div>
 
       {/* Transaction Entry Row */}
-      <div className="flex flex-wrap gap-2 p-3 items-center">
+      <div className="flex flex-wrap items-end gap-3 p-3">
         {/* Date */}
         <div className="w-36 flex-none">
           <Input
@@ -384,26 +470,26 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
             value={entryDate}
             onChange={(e) => setEntryDate(e.target.value)}
             className="h-9 text-sm"
-            onKeyDown={(e) => handleKeyDown(e, 'date')}
+            onKeyDown={(e) => handleKeyDown(e, "date")}
             disabled={loading}
           />
         </div>
 
         {/* Ref No */}
-        <div className="w-20 flex-none">
+        <div className="w-24 flex-none">
           <Input
             ref={refNoInputRef}
             value={refNo}
             onChange={(e) => setRefNo(e.target.value)}
             placeholder="Ref No"
             className="h-9 text-sm"
-            onKeyDown={(e) => handleKeyDown(e, 'refNo')}
+            onKeyDown={(e) => handleKeyDown(e, "refNo")}
             disabled={loading}
           />
         </div>
 
         {/* Payee */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-[200px]">
           <Popover open={payeeOpen} onOpenChange={setPayeeOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -422,35 +508,42 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
             </PopoverTrigger>
             <PopoverContent className="w-[20rem] p-0" align="start">
               <Command>
-                <CommandInput 
-                  placeholder="Search customer/vendor..." 
+                <CommandInput
+                  placeholder="Search customer/vendor..."
                   value={payee}
                   onValueChange={setPayee}
                   onKeyDown={(e) => {
-                    if (e.key === 'Tab' && !e.shiftKey) {
+                    if (e.key === "Tab" && !e.shiftKey) {
                       const filteredPayees = getFilteredPayees(payee);
                       if (filteredPayees.length > 0) {
                         e.preventDefault();
                         // Find the highlighted item (cmdk uses aria-selected="true")
-                        const highlightedItem = payeeCommandListRef.current?.querySelector(
-                          '[cmdk-item][aria-selected="true"]'
-                        ) as HTMLElement | null;
-                        
-                        let selectedPayee: { type: string; name: string } | null = null;
-                        
+                        const highlightedItem =
+                          payeeCommandListRef.current?.querySelector(
+                            '[cmdk-item][aria-selected="true"]'
+                          ) as HTMLElement | null;
+
+                        let selectedPayee: {
+                          type: string;
+                          name: string;
+                        } | null = null;
+
                         if (highlightedItem) {
                           // Extract the payee name from the highlighted item
                           // The item contains: <Check /> <span>Name</span> <span>Type</span>
-                          const spans = highlightedItem.querySelectorAll('span');
-                          const payeeName = spans[0]?.textContent?.trim() || '';
-                          selectedPayee = filteredPayees.find(p => p.name === payeeName) || null;
+                          const spans =
+                            highlightedItem.querySelectorAll("span");
+                          const payeeName = spans[0]?.textContent?.trim() || "";
+                          selectedPayee =
+                            filteredPayees.find((p) => p.name === payeeName) ||
+                            null;
                         }
-                        
+
                         // Fall back to first item if no highlighted item found
                         if (!selectedPayee) {
                           selectedPayee = filteredPayees[0];
                         }
-                        
+
                         setPayee(selectedPayee.name);
                         setPayeeOpen(false);
                         setTimeout(() => {
@@ -481,7 +574,9 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
                       >
                         <Check className="mr-2 h-4 w-4 opacity-0 data-[selected=true]:opacity-100" />
                         <span>{p.name}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">{p.type}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {p.type}
+                        </span>
                       </CommandItem>
                     ))}
                   </CommandGroup>
@@ -492,7 +587,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
         </div>
 
         {/* Account */}
-        <div className="flex-1 min-w-0 overflow-hidden">
+        <div className="flex-1 min-w-[200px] overflow-hidden">
           <Popover open={accountOpen} onOpenChange={setAccountOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -505,39 +600,49 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
                 )}
                 disabled={loading}
               >
-                {selectedAccount ? `${selectedAccount.code} - ${selectedAccount.name}` : "Account"}
+                {selectedAccount
+                  ? `${selectedAccount.code} - ${selectedAccount.name}`
+                  : "Account"}
                 <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[30rem] p-0" align="start">
               <Command>
-                <CommandInput 
-                  placeholder="Search account..." 
+                <CommandInput
+                  placeholder="Search account..."
                   onKeyDown={(e) => {
-                    if (e.key === 'Tab' && !e.shiftKey) {
-                      const filteredAccounts = accounts.filter((account) => account.id !== registerAccountId);
+                    if (e.key === "Tab" && !e.shiftKey) {
+                      const filteredAccounts = accounts.filter(
+                        (account) => account.id !== registerAccountId
+                      );
                       if (filteredAccounts.length > 0) {
                         e.preventDefault();
                         // Find the highlighted item (cmdk uses aria-selected="true")
-                        const highlightedItem = accountCommandListRef.current?.querySelector(
-                          '[cmdk-item][aria-selected="true"]'
-                        ) as HTMLElement | null;
-                        
+                        const highlightedItem =
+                          accountCommandListRef.current?.querySelector(
+                            '[cmdk-item][aria-selected="true"]'
+                          ) as HTMLElement | null;
+
                         let selectedAccount: Account | null = null;
-                        
+
                         if (highlightedItem) {
                           // Extract the account code from the highlighted item
                           // The item contains: <Check /> <span>Code</span> <span>Name</span>
-                          const spans = highlightedItem.querySelectorAll('span');
-                          const accountCode = spans[0]?.textContent?.trim() || '';
-                          selectedAccount = filteredAccounts.find(a => a.code === accountCode) || null;
+                          const spans =
+                            highlightedItem.querySelectorAll("span");
+                          const accountCode =
+                            spans[0]?.textContent?.trim() || "";
+                          selectedAccount =
+                            filteredAccounts.find(
+                              (a) => a.code === accountCode
+                            ) || null;
                         }
-                        
+
                         // Fall back to first account if no highlighted item found
                         if (!selectedAccount) {
                           selectedAccount = filteredAccounts[0];
                         }
-                        
+
                         setAccountId(selectedAccount.id);
                         setAccountOpen(false);
                         setTimeout(() => {
@@ -571,7 +676,9 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
                           }}
                         >
                           <Check className="mr-2 h-4 w-4 opacity-0 data-[selected=true]:opacity-100" />
-                          <span className="font-mono text-xs">{account.code}</span>
+                          <span className="font-mono text-xs">
+                            {account.code}
+                          </span>
                           <span className="ml-2 text-sm">{account.name}</span>
                         </CommandItem>
                       ))}
@@ -583,25 +690,23 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
         </div>
 
         {/* Debit/Credit Toggle */}
-        <div className="w-18 flex-none">
+        <div className="w-24 flex-none">
           <Tooltip>
             <TooltipTrigger asChild>
-              <span tabIndex={0} style={{ display: 'inline-block' }}>
+              <span tabIndex={0} style={{ display: "inline-block" }}>
                 <Button
                   ref={debitCreditRef}
-                  variant={debitCredit === 'debit' ? 'destructive' : 'default'}
+                  variant={debitCredit === "debit" ? "destructive" : "default"}
                   onClick={toggleDebitCredit}
                   className="h-9 w-full"
-                  disabled={loading || ruleLock !== 'both'}
+                  disabled={loading || ruleLock !== "both"}
                   tabIndex={-1}
                 >
-                  {debitCredit === 'debit' ? 'Debit' : 'Credit'}
+                  {debitCredit === "debit" ? "Debit" : "Credit"}
                 </Button>
               </span>
             </TooltipTrigger>
-            <TooltipContent>
-              {describeRule(ruleLock)}
-            </TooltipContent>
+            <TooltipContent>{describeRule(ruleLock)}</TooltipContent>
           </Tooltip>
         </div>
 
@@ -612,37 +717,39 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
             type="number"
             step="0.01"
             value={amount}
-            onChange={(e) => setAmount(e.target.value ? parseFloat(e.target.value) : '')}
+            onChange={(e) =>
+              setAmount(e.target.value ? parseFloat(e.target.value) : "")
+            }
             placeholder="0.00"
             className="h-9 text-sm"
-            onKeyDown={(e) => handleKeyDown(e, 'amount')}
+            onKeyDown={(e) => handleKeyDown(e, "amount")}
             disabled={loading}
           />
         </div>
 
         {/* Memo */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-[180px]">
           <Input
             ref={memoInputRef}
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             placeholder="Memo"
             className="h-9 text-sm"
-            onKeyDown={(e) => handleKeyDown(e, 'memo')}
+            onKeyDown={(e) => handleKeyDown(e, "memo")}
             disabled={loading}
           />
         </div>
 
         {/* Save Button */}
-        <div className="w-20 flex-none">
+        <div className="w-24 flex-none">
           <Button
             type="button"
             onClick={handleSave}
-            disabled={loading || ruleLock === 'none'}
+            disabled={loading || ruleLock === "none"}
             className="h-9 w-full"
             size="sm"
           >
-            {loading ? '...' : 'Save'}
+            {loading ? "..." : "Save"}
           </Button>
         </div>
       </div>

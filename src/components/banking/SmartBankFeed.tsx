@@ -1,25 +1,55 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { usePlaidLink } from 'react-plaid-link';
-import { plaidAPI, bankAccountAPI, transactionAPI, accountAPI, journalEntryAPI, companySettingsAPI, getErrorMessage } from '@/lib/api';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { Link2, RefreshCw, CheckCircle2, XCircle, SearchIcon } from 'lucide-react';
-import type { PlaidItem, BankAccount, Transaction, TransactionType, Account, CompanySettings } from '@/types/api.types';
-import { TransactionType as TransactionTypeEnum, JournalEntryStatus } from '@/types/api.types';
-import { BookLockAuthDialog } from '@/components/common/BookLockAuthDialog';
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { usePlaidLink } from "react-plaid-link";
+import {
+  plaidAPI,
+  bankAccountAPI,
+  transactionAPI,
+  accountAPI,
+  journalEntryAPI,
+  companySettingsAPI,
+  getErrorMessage,
+} from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Link2,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  SearchIcon,
+} from "lucide-react";
+import type {
+  PlaidItem,
+  BankAccount,
+  Transaction,
+  TransactionType,
+  Account,
+  CompanySettings,
+} from "@/types/api.types";
+import {
+  TransactionType as TransactionTypeEnum,
+  JournalEntryStatus,
+} from "@/types/api.types";
+import { BookLockAuthDialog } from "@/components/common/BookLockAuthDialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Spinner } from '@/components/ui/spinner';
-import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Checkbox } from '@/components/ui/checkbox';
+} from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,9 +57,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { SmartTransactionRow } from './SmartTransactionRow';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/dropdown-menu";
+import { SmartTransactionRow } from "./SmartTransactionRow";
+import { cn } from "@/lib/utils";
 
 export const SmartBankFeed = () => {
   const [linkToken, setLinkToken] = useState<string | null>(null);
@@ -39,17 +69,22 @@ export const SmartBankFeed = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState<string | null>(null);
-  const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
+  const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(
+    new Set()
+  );
   const [selectedBankItem, setSelectedBankItem] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterAccount, setFilterAccount] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterType, setFilterType] = useState<string>('all');
-  const [filterCategory, setFilterCategory] = useState<string>('uncategorized');
-  const [datePreset, setDatePreset] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterAccount, setFilterAccount] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterType, setFilterType] = useState<string>("all");
+  const [filterCategory, setFilterCategory] = useState<string>("uncategorized");
+  const [datePreset, setDatePreset] = useState<string>("all");
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
-  const [pendingUpdate, setPendingUpdate] = useState<{ id: string; updates: Partial<Transaction> } | null>(null);
+  const [pendingUpdate, setPendingUpdate] = useState<{
+    id: string;
+    updates: Partial<Transaction>;
+  } | null>(null);
   const [lockDate, setLockDate] = useState<string | undefined>();
   const { toast } = useToast();
 
@@ -57,11 +92,17 @@ export const SmartBankFeed = () => {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [itemsResponse, bankAccountsResponse, transactionsResponse, accountsResponse, settingsResponse] = await Promise.all([
+      const [
+        itemsResponse,
+        bankAccountsResponse,
+        transactionsResponse,
+        accountsResponse,
+        settingsResponse,
+      ] = await Promise.all([
         plaidAPI.getItems(),
         bankAccountAPI.getAll(),
         transactionAPI.getAll({}),
-        accountAPI.getAll({ isActive: true, all: 'true' }),
+        accountAPI.getAll({ isActive: true, all: "true" }),
         companySettingsAPI.getSettings().catch(() => ({ settings: null })),
       ]);
       setItems(itemsResponse.items);
@@ -75,9 +116,9 @@ export const SmartBankFeed = () => {
       }
     } catch (error: any) {
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to fetch data',
-        variant: 'destructive',
+        title: "Error",
+        description: error.message || "Failed to fetch data",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -95,16 +136,16 @@ export const SmartBankFeed = () => {
         setLoading(true);
         await plaidAPI.exchangePublicToken({ public_token: publicToken });
         toast({
-          title: 'Success',
-          description: 'Bank account connected successfully',
+          title: "Success",
+          description: "Bank account connected successfully",
         });
         await fetchData();
         setLinkToken(null);
       } catch (error: any) {
         toast({
-          title: 'Error',
-          description: error.message || 'Failed to connect bank account',
-          variant: 'destructive',
+          title: "Error",
+          description: error.message || "Failed to connect bank account",
+          variant: "destructive",
         });
       } finally {
         setLoading(false);
@@ -119,9 +160,9 @@ export const SmartBankFeed = () => {
     onExit: (err: any) => {
       if (err) {
         toast({
-          title: 'Error',
-          description: err.error_message || 'Failed to connect bank account',
-          variant: 'destructive',
+          title: "Error",
+          description: err.error_message || "Failed to connect bank account",
+          variant: "destructive",
         });
       }
       setLinkToken(null);
@@ -143,9 +184,9 @@ export const SmartBankFeed = () => {
       setLinkToken(response.link_token);
     } catch (error: any) {
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to create link token',
-        variant: 'destructive',
+        title: "Error",
+        description: error.message || "Failed to create link token",
+        variant: "destructive",
       });
       setLinkToken(null);
     } finally {
@@ -155,28 +196,34 @@ export const SmartBankFeed = () => {
 
   const handleSyncTransactions = async (itemId?: string) => {
     try {
-      setSyncing(itemId || 'transactions');
-      const endDate = new Date().toISOString().split('T')[0];
-      const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const response = await plaidAPI.syncTransactions({ itemId, startDate, endDate });
-      
+      setSyncing(itemId || "transactions");
+      const endDate = new Date().toISOString().split("T")[0];
+      const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0];
+      const response = await plaidAPI.syncTransactions({
+        itemId,
+        startDate,
+        endDate,
+      });
+
       if (response.syncedCount > 0) {
         toast({
-          title: 'Success',
+          title: "Success",
           description: `Synced ${response.syncedCount} transactions`,
         });
         await fetchData();
       } else {
         toast({
-          title: 'Info',
-          description: 'No new transactions found',
+          title: "Info",
+          description: "No new transactions found",
         });
       }
     } catch (error: any) {
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to sync transactions',
-        variant: 'destructive',
+        title: "Error",
+        description: error.message || "Failed to sync transactions",
+        variant: "destructive",
       });
     } finally {
       setSyncing(null);
@@ -205,18 +252,25 @@ export const SmartBankFeed = () => {
   };
 
   // Transaction update handler
-  const handleUpdateTransaction = async (id: string, updates: Partial<Transaction>, authPassword?: string, authPIN?: string) => {
+  const handleUpdateTransaction = async (
+    id: string,
+    updates: Partial<Transaction>,
+    authPassword?: string,
+    authPIN?: string
+  ) => {
     try {
       // Find the transaction to check its date
-      const transaction = transactions.find(t => t.id === id);
+      const transaction = transactions.find((t) => t.id === id);
       if (!transaction) {
-        throw new Error('Transaction not found');
+        throw new Error("Transaction not found");
       }
 
       // Check if the transaction date (or new date if being updated) is locked
-      const dateToCheck = updates.transactionDate ? new Date(updates.transactionDate) : new Date(transaction.transactionDate);
-      const dateStr = dateToCheck.toISOString().split('T')[0];
-      
+      const dateToCheck = updates.transactionDate
+        ? new Date(updates.transactionDate)
+        : new Date(transaction.transactionDate);
+      const dateStr = dateToCheck.toISOString().split("T")[0];
+
       try {
         const lockCheck = await companySettingsAPI.checkDateLocked(dateStr);
         if (lockCheck.isLocked) {
@@ -240,7 +294,7 @@ export const SmartBankFeed = () => {
       if (updateData.incomeAccountId === null) {
         updateData.incomeAccountId = undefined;
       }
-      
+
       // Add authentication if provided
       if (authPassword) {
         updateData.authPassword = authPassword;
@@ -251,43 +305,56 @@ export const SmartBankFeed = () => {
 
       await transactionAPI.update(id, updateData);
       toast({
-        title: 'Success',
-        description: 'Transaction updated successfully',
+        title: "Success",
+        description: "Transaction updated successfully",
       });
       await fetchData();
       setPendingUpdate(null);
       setAuthDialogOpen(false);
     } catch (error: any) {
       const errorMessage = getErrorMessage(error);
-      if (errorMessage.includes('401') || errorMessage.includes('authentication') || errorMessage.includes('credentials')) {
+      if (
+        errorMessage.includes("401") ||
+        errorMessage.includes("authentication") ||
+        errorMessage.includes("credentials")
+      ) {
         // Authentication failed, show dialog again
         if (pendingUpdate) {
           setAuthDialogOpen(true);
         }
       }
       toast({
-        title: 'Error',
+        title: "Error",
         description: errorMessage,
-        variant: 'destructive',
+        variant: "destructive",
       });
     }
   };
 
   const handleAuthDialogAuthenticate = (password?: string, pin?: string) => {
     if (pendingUpdate) {
-      handleUpdateTransaction(pendingUpdate.id, pendingUpdate.updates, password, pin);
+      handleUpdateTransaction(
+        pendingUpdate.id,
+        pendingUpdate.updates,
+        password,
+        pin
+      );
     }
   };
 
   // Categorize handler - creates journal entry with debit/credit
-  const handleCategorize = async (id: string, type: TransactionType, accountId?: string) => {
+  const handleCategorize = async (
+    id: string,
+    type: TransactionType,
+    accountId?: string
+  ) => {
     try {
-      const transaction = transactions.find(t => t.id === id);
+      const transaction = transactions.find((t) => t.id === id);
       if (!transaction) {
         toast({
-          title: 'Error',
-          description: 'Transaction not found',
-          variant: 'destructive',
+          title: "Error",
+          description: "Transaction not found",
+          variant: "destructive",
         });
         return;
       }
@@ -295,55 +362,65 @@ export const SmartBankFeed = () => {
       // For expense transactions, require an expense account
       if (type === TransactionTypeEnum.EXPENSE && !accountId) {
         toast({
-          title: 'Error',
-          description: 'Please select an expense account',
-          variant: 'destructive',
+          title: "Error",
+          description: "Please select an expense account",
+          variant: "destructive",
         });
         return;
       }
 
       // For deposit/receive payment transactions, require an income account
-      if ((type === TransactionTypeEnum.DEPOSIT || type === TransactionTypeEnum.RECEIVE_PAYMENT) && !accountId) {
+      if (
+        (type === TransactionTypeEnum.DEPOSIT ||
+          type === TransactionTypeEnum.RECEIVE_PAYMENT) &&
+        !accountId
+      ) {
         toast({
-          title: 'Error',
-          description: 'Please select an income account',
-          variant: 'destructive',
+          title: "Error",
+          description: "Please select an income account",
+          variant: "destructive",
         });
         return;
       }
 
       // Find the selected account and bank account
-      const selectedAccount = accounts.find(a => a.id === accountId);
-      const bankAccount = bankAccounts.find(ba => ba.id === transaction.bankAccountId);
+      const selectedAccount = accounts.find((a) => a.id === accountId);
+      const bankAccount = bankAccounts.find(
+        (ba) => ba.id === transaction.bankAccountId
+      );
 
       if (!bankAccount) {
         toast({
-          title: 'Error',
-          description: 'Bank account not found',
-          variant: 'destructive',
+          title: "Error",
+          description: "Bank account not found",
+          variant: "destructive",
         });
         return;
       }
 
       // Find the Chart of Accounts account that corresponds to the bank account
       // Try to find by name match first, then by account type
-      let bankAccountChartAccount = accounts.find(a => 
-        a.name.toLowerCase() === bankAccount.name.toLowerCase() ||
-        (a.subType === 'Credit_Card' && bankAccount.accountType?.toLowerCase().includes('credit'))
+      let bankAccountChartAccount = accounts.find(
+        (a) =>
+          a.name.toLowerCase() === bankAccount.name.toLowerCase() ||
+          (a.subType === "Credit_Card" &&
+            bankAccount.accountType?.toLowerCase().includes("credit"))
       );
 
       // If not found, try to find a Cash or Credit Card account
       if (!bankAccountChartAccount) {
-        bankAccountChartAccount = accounts.find(a => 
-          a.subType === 'Credit_Card' || a.subType === 'Cash_Cash_Equivalents'
+        bankAccountChartAccount = accounts.find(
+          (a) =>
+            a.subType === "Credit_Card" || a.subType === "Cash_Cash_Equivalents"
         );
       }
 
       if (!bankAccountChartAccount) {
         toast({
-          title: 'Error',
-          description: 'Could not find corresponding Chart of Accounts account for the bank account',
-          variant: 'destructive',
+          title: "Error",
+          description:
+            "Could not find corresponding Chart of Accounts account for the bank account",
+          variant: "destructive",
         });
         return;
       }
@@ -356,21 +433,24 @@ export const SmartBankFeed = () => {
         // Expense: Debit expense account, Credit bank account (Chart of Accounts)
         if (!selectedAccount) {
           toast({
-            title: 'Error',
-            description: 'Please select an expense account',
-            variant: 'destructive',
+            title: "Error",
+            description: "Please select an expense account",
+            variant: "destructive",
           });
           return;
         }
         debitAccountId = selectedAccount.id;
         creditAccountId = bankAccountChartAccount.id;
-      } else if (type === TransactionTypeEnum.DEPOSIT || type === TransactionTypeEnum.RECEIVE_PAYMENT) {
+      } else if (
+        type === TransactionTypeEnum.DEPOSIT ||
+        type === TransactionTypeEnum.RECEIVE_PAYMENT
+      ) {
         // Deposit/Receive Payment: Debit bank account (Chart of Accounts), Credit income account
         if (!selectedAccount) {
           toast({
-            title: 'Error',
-            description: 'Please select an income account',
-            variant: 'destructive',
+            title: "Error",
+            description: "Please select an income account",
+            variant: "destructive",
           });
           return;
         }
@@ -380,8 +460,8 @@ export const SmartBankFeed = () => {
         // For other types, just update the transaction type without creating journal entry
         await transactionAPI.update(id, { type });
         toast({
-          title: 'Success',
-          description: 'Transaction categorized successfully',
+          title: "Success",
+          description: "Transaction categorized successfully",
         });
         await fetchData();
         return;
@@ -390,18 +470,18 @@ export const SmartBankFeed = () => {
       // Create journal entry with two lines
       const journalEntryData = {
         entryDate: transaction.transactionDate,
-        description: transaction.description || 'Transaction categorization',
+        description: transaction.description || "Transaction categorization",
         status: JournalEntryStatus.POSTED,
         lines: [
           {
             accountId: debitAccountId,
-            description: transaction.description || '',
+            description: transaction.description || "",
             debit: transaction.amount,
             credit: 0,
           },
           {
             accountId: creditAccountId,
-            description: transaction.description || '',
+            description: transaction.description || "",
             debit: 0,
             credit: transaction.amount,
           },
@@ -415,21 +495,24 @@ export const SmartBankFeed = () => {
       const updateData: any = { type };
       if (type === TransactionTypeEnum.EXPENSE) {
         updateData.expenseAccountId = accountId;
-      } else if (type === TransactionTypeEnum.DEPOSIT || type === TransactionTypeEnum.RECEIVE_PAYMENT) {
+      } else if (
+        type === TransactionTypeEnum.DEPOSIT ||
+        type === TransactionTypeEnum.RECEIVE_PAYMENT
+      ) {
         updateData.incomeAccountId = accountId;
       }
       await transactionAPI.update(id, updateData);
 
       toast({
-        title: 'Success',
-        description: 'Transaction categorized successfully',
+        title: "Success",
+        description: "Transaction categorized successfully",
       });
       await fetchData();
     } catch (error: any) {
       toast({
-        title: 'Error',
+        title: "Error",
         description: getErrorMessage(error),
-        variant: 'destructive',
+        variant: "destructive",
       });
     }
   };
@@ -442,16 +525,16 @@ export const SmartBankFeed = () => {
       );
       await Promise.all(promises);
       toast({
-        title: 'Success',
+        title: "Success",
         description: `Categorized ${selectedTransactions.size} transactions as ${type}`,
       });
       setSelectedTransactions(new Set());
       await fetchData();
     } catch (error: any) {
       toast({
-        title: 'Error',
+        title: "Error",
         description: getErrorMessage(error),
-        variant: 'destructive',
+        variant: "destructive",
       });
     }
   };
@@ -459,10 +542,10 @@ export const SmartBankFeed = () => {
   // Get bank account IDs for selected Plaid item
   const selectedBankAccountIds = useMemo(() => {
     if (!selectedBankItem) return null;
-    
+
     const item = items.find((i) => i.id === selectedBankItem);
     if (!item) return null;
-    
+
     // Get all bank account IDs linked to this Plaid item's accounts
     const bankAccountIds = new Set<string>();
     item.plaidAccounts.forEach((plaidAccount) => {
@@ -470,7 +553,7 @@ export const SmartBankFeed = () => {
         bankAccountIds.add(plaidAccount.bankAccountId);
       }
     });
-    
+
     return bankAccountIds.size > 0 ? bankAccountIds : null;
   }, [selectedBankItem, items]);
 
@@ -480,58 +563,70 @@ export const SmartBankFeed = () => {
 
     // Filter by selected bank item
     if (selectedBankAccountIds) {
-      filtered = filtered.filter((t) => selectedBankAccountIds.has(t.bankAccountId));
+      filtered = filtered.filter((t) =>
+        selectedBankAccountIds.has(t.bankAccountId)
+      );
     }
 
     // Search filter
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
       filtered = filtered.filter((t) => {
-        const description = t.description?.toLowerCase() || '';
-        const payee = t.payee?.toLowerCase() || '';
-        const refNumber = t.referenceNumber?.toLowerCase() || '';
-        return description.includes(lower) || payee.includes(lower) || refNumber.includes(lower);
+        const description = t.description?.toLowerCase() || "";
+        const payee = t.payee?.toLowerCase() || "";
+        const refNumber = t.referenceNumber?.toLowerCase() || "";
+        return (
+          description.includes(lower) ||
+          payee.includes(lower) ||
+          refNumber.includes(lower)
+        );
       });
     }
 
     // Account filter (only if no bank item is selected)
-    if (filterAccount !== 'all' && !selectedBankItem) {
+    if (filterAccount !== "all" && !selectedBankItem) {
       filtered = filtered.filter((t) => t.bankAccountId === filterAccount);
     }
 
     // Type filter
-    if (filterType !== 'all') {
+    if (filterType !== "all") {
       filtered = filtered.filter((t) => t.type === filterType);
     }
 
     // Status filter
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter((t) => 
-        filterStatus === 'reconciled' ? t.isReconciled : !t.isReconciled
+    if (filterStatus !== "all") {
+      filtered = filtered.filter((t) =>
+        filterStatus === "reconciled" ? t.isReconciled : !t.isReconciled
       );
     }
 
     // Category filter (Uncategorized vs Categorized)
-    if (filterCategory !== 'all') {
-      if (filterCategory === 'uncategorized') {
+    if (filterCategory !== "all") {
+      if (filterCategory === "uncategorized") {
         // Show transactions that don't have an account assigned
         filtered = filtered.filter((t) => {
           if (t.type === TransactionTypeEnum.EXPENSE) {
             return !t.expenseAccountId;
           }
-          if (t.type === TransactionTypeEnum.DEPOSIT || t.type === TransactionTypeEnum.RECEIVE_PAYMENT) {
+          if (
+            t.type === TransactionTypeEnum.DEPOSIT ||
+            t.type === TransactionTypeEnum.RECEIVE_PAYMENT
+          ) {
             return !t.incomeAccountId;
           }
           // For other types, consider them uncategorized if they don't have a type set
           return !t.type || t.type === TransactionTypeEnum.JOURNAL_ENTRY;
         });
-      } else if (filterCategory === 'categorized') {
+      } else if (filterCategory === "categorized") {
         // Show transactions that have an account assigned
         filtered = filtered.filter((t) => {
           if (t.type === TransactionTypeEnum.EXPENSE) {
             return !!t.expenseAccountId;
           }
-          if (t.type === TransactionTypeEnum.DEPOSIT || t.type === TransactionTypeEnum.RECEIVE_PAYMENT) {
+          if (
+            t.type === TransactionTypeEnum.DEPOSIT ||
+            t.type === TransactionTypeEnum.RECEIVE_PAYMENT
+          ) {
             return !!t.incomeAccountId;
           }
           // For other types, consider them categorized if they have a proper type set
@@ -541,47 +636,67 @@ export const SmartBankFeed = () => {
     }
 
     // Date preset filter
-    if (datePreset !== 'all') {
+    if (datePreset !== "all") {
       const now = new Date();
       let startDate: Date;
       switch (datePreset) {
-        case 'today':
+        case "today":
           startDate = new Date(now.setHours(0, 0, 0, 0));
           break;
-        case 'last7':
+        case "last7":
           startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
           break;
-        case 'last30':
+        case "last30":
           startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
           break;
-        case 'last90':
+        case "last90":
           startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
           break;
         default:
           startDate = new Date(0);
       }
-      filtered = filtered.filter((t) => new Date(t.transactionDate) >= startDate);
+      filtered = filtered.filter(
+        (t) => new Date(t.transactionDate) >= startDate
+      );
     }
 
-    return filtered.sort((a, b) => 
-      new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime()
+    return filtered.sort(
+      (a, b) =>
+        new Date(b.transactionDate).getTime() -
+        new Date(a.transactionDate).getTime()
     );
-  }, [transactions, searchTerm, filterAccount, filterType, filterStatus, filterCategory, datePreset, selectedBankAccountIds, selectedBankItem]);
+  }, [
+    transactions,
+    searchTerm,
+    filterAccount,
+    filterType,
+    filterStatus,
+    filterCategory,
+    datePreset,
+    selectedBankAccountIds,
+    selectedBankItem,
+  ]);
 
-  const uncategorizedCount = useMemo(() => 
-    filteredTransactions.filter((t) => {
-      if (t.type === TransactionTypeEnum.EXPENSE) {
-        return !t.expenseAccountId;
-      }
-      if (t.type === TransactionTypeEnum.DEPOSIT || t.type === TransactionTypeEnum.RECEIVE_PAYMENT) {
-        return !t.incomeAccountId;
-      }
-      return !t.type || t.type === TransactionTypeEnum.JOURNAL_ENTRY;
-    }).length,
+  const uncategorizedCount = useMemo(
+    () =>
+      filteredTransactions.filter((t) => {
+        if (t.type === TransactionTypeEnum.EXPENSE) {
+          return !t.expenseAccountId;
+        }
+        if (
+          t.type === TransactionTypeEnum.DEPOSIT ||
+          t.type === TransactionTypeEnum.RECEIVE_PAYMENT
+        ) {
+          return !t.incomeAccountId;
+        }
+        return !t.type || t.type === TransactionTypeEnum.JOURNAL_ENTRY;
+      }).length,
     [filteredTransactions]
   );
 
-  const allSelected = selectedTransactions.size > 0 && selectedTransactions.size === filteredTransactions.length;
+  const allSelected =
+    selectedTransactions.size > 0 &&
+    selectedTransactions.size === filteredTransactions.length;
 
   return (
     <div className="space-y-6">
@@ -598,9 +713,9 @@ export const SmartBankFeed = () => {
             <Button
               variant="outline"
               onClick={() => handleSyncTransactions()}
-              disabled={syncing === 'transactions'}
+              disabled={syncing === "transactions"}
             >
-              {syncing === 'transactions' ? (
+              {syncing === "transactions" ? (
                 <>
                   <Spinner size="sm" className="mr-2" />
                   Syncing...
@@ -635,9 +750,10 @@ export const SmartBankFeed = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {items.map((item) => {
               const isSelected = selectedBankItem === item.id;
-              const linkedAccountsCount = item.plaidAccounts.filter((acc) => acc.bankAccountId).length;
-              
-              // Calculate transaction count for this item
+              const linkedAccountsCount = item.plaidAccounts.filter(
+                (acc) => acc.bankAccountId
+              ).length;
+
               const itemBankAccountIds = new Set(
                 item.plaidAccounts
                   .filter((pa) => pa.bankAccountId)
@@ -645,20 +761,26 @@ export const SmartBankFeed = () => {
               );
               const transactionCount = isSelected
                 ? filteredTransactions.length
-                : transactions.filter((t) => itemBankAccountIds.has(t.bankAccountId)).length;
+                : transactions.filter((t) =>
+                    itemBankAccountIds.has(t.bankAccountId)
+                  ).length;
 
               return (
                 <Card
                   key={item.id}
                   className={cn(
-                    'cursor-pointer transition-all hover:shadow-md',
-                    isSelected && 'ring-2 ring-primary shadow-md'
+                    "cursor-pointer transition-all hover:shadow-md",
+                    isSelected && "ring-2 ring-primary shadow-md"
                   )}
-                  onClick={() => setSelectedBankItem(isSelected ? null : item.id)}
+                  onClick={() =>
+                    setSelectedBankItem(isSelected ? null : item.id)
+                  }
                 >
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">{item.institutionName || 'Bank'}</CardTitle>
+                      <CardTitle className="text-base">
+                        {item.institutionName || "Bank"}
+                      </CardTitle>
                       {item.isActive ? (
                         <Badge variant="default" className="bg-green-500">
                           <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -675,7 +797,8 @@ export const SmartBankFeed = () => {
                   <CardContent>
                     <div className="space-y-2">
                       <div className="text-sm text-muted-foreground">
-                        {item.plaidAccounts.length} account{item.plaidAccounts.length !== 1 ? 's' : ''}
+                        {item.plaidAccounts.length} account
+                        {item.plaidAccounts.length !== 1 ? "s" : ""}
                         {linkedAccountsCount > 0 && (
                           <span className="ml-2">
                             • {linkedAccountsCount} linked
@@ -684,7 +807,8 @@ export const SmartBankFeed = () => {
                       </div>
                       {isSelected && (
                         <div className="text-sm font-medium text-primary">
-                          {transactionCount} transaction{transactionCount !== 1 ? 's' : ''}
+                          {transactionCount} transaction
+                          {transactionCount !== 1 ? "s" : ""}
                         </div>
                       )}
                       <Button
@@ -736,7 +860,10 @@ export const SmartBankFeed = () => {
                 </Button>
               )}
               {uncategorizedCount > 0 && (
-                <Badge variant="outline" className="bg-orange-50 text-orange-700">
+                <Badge
+                  variant="outline"
+                  className="bg-orange-50 text-orange-700"
+                >
                   {uncategorizedCount} need attention
                 </Badge>
               )}
@@ -793,7 +920,9 @@ export const SmartBankFeed = () => {
                   <SelectItem value="DEPOSIT">Deposit</SelectItem>
                   <SelectItem value="TRANSFER">Transfer</SelectItem>
                   <SelectItem value="BILL_PAYMENT">Bill Payment</SelectItem>
-                  <SelectItem value="RECEIVE_PAYMENT">Receive Payment</SelectItem>
+                  <SelectItem value="RECEIVE_PAYMENT">
+                    Receive Payment
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -836,13 +965,25 @@ export const SmartBankFeed = () => {
                     <DropdownMenuContent>
                       <DropdownMenuLabel>Quick Categories</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => handleBulkCategorize(TransactionTypeEnum.EXPENSE)}>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          handleBulkCategorize(TransactionTypeEnum.EXPENSE)
+                        }
+                      >
                         Expense
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleBulkCategorize(TransactionTypeEnum.DEPOSIT)}>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          handleBulkCategorize(TransactionTypeEnum.DEPOSIT)
+                        }
+                      >
                         Deposit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleBulkCategorize(TransactionTypeEnum.TRANSFER)}>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          handleBulkCategorize(TransactionTypeEnum.TRANSFER)
+                        }
+                      >
                         Transfer
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -865,15 +1006,17 @@ export const SmartBankFeed = () => {
               </div>
             ) : filteredTransactions.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
-                <p className="text-lg font-medium mb-2">No transactions found</p>
+                <p className="text-lg font-medium mb-2">
+                  No transactions found
+                </p>
                 <p className="text-sm">
                   {items.length === 0
-                    ? 'Connect a bank account to get started'
-                    : 'Try adjusting your filters'}
+                    ? "Connect a bank account to get started"
+                    : "Try adjusting your filters"}
                 </p>
               </div>
             ) : (
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -883,15 +1026,29 @@ export const SmartBankFeed = () => {
                           onCheckedChange={handleSelectAll}
                         />
                       </TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead className="w-32">Description</TableHead>
-                      <TableHead className="w-32">Payee</TableHead>
-                      <TableHead>Bank Account</TableHead>
-                      <TableHead>Chart Account</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead className="w-32">Reference</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead className="whitespace-nowrap">Date</TableHead>
+                      <TableHead className="whitespace-nowrap">Type</TableHead>
+                      <TableHead className="w-32 whitespace-nowrap">
+                        Description
+                      </TableHead>
+                      <TableHead className="w-32 whitespace-nowrap">
+                        Payee
+                      </TableHead>
+                      <TableHead className="whitespace-nowrap">
+                        Bank Account
+                      </TableHead>
+                      <TableHead className="whitespace-nowrap">
+                        Chart Account
+                      </TableHead>
+                      <TableHead className="text-right whitespace-nowrap">
+                        Amount
+                      </TableHead>
+                      <TableHead className="w-32 whitespace-nowrap">
+                        Reference
+                      </TableHead>
+                      <TableHead className="whitespace-nowrap">
+                        Status
+                      </TableHead>
                       <TableHead className="w-12"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -924,9 +1081,14 @@ export const SmartBankFeed = () => {
         settings={settings || undefined}
         lockDate={lockDate}
         title="Authentication Required"
-        description={lockDate ? `This transaction is dated on or before ${new Date(lockDate).toLocaleDateString()}, which is locked. Please authenticate to make changes.` : undefined}
+        description={
+          lockDate
+            ? `This transaction is dated on or before ${new Date(
+                lockDate
+              ).toLocaleDateString()}, which is locked. Please authenticate to make changes.`
+            : undefined
+        }
       />
     </div>
   );
 };
-

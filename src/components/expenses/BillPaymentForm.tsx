@@ -30,6 +30,7 @@ import {
   CreateBillPaymentData,
   UpdateBillPaymentData,
   Bill,
+  BillStatus,
   BankAccount,
 } from '@/types/api.types';
 import {
@@ -120,14 +121,16 @@ export const BillPaymentForm: React.FC<BillPaymentFormProps> = ({
       ]);
 
       const mappedBills =
-        billRes.bills?.map((bill) => ({
-          id: bill.id,
-          billNumber: bill.billNumber,
-          vendor: bill.vendor,
-          totalAmount: bill.totalAmount,
-          paidAmount: bill.paidAmount,
-          balanceDue: Number((bill.totalAmount - bill.paidAmount).toFixed(2)),
-        })) ?? [];
+        billRes.bills
+          ?.filter((bill) => String(bill.status).trim() !== 'PAID')
+          .map((bill) => ({
+            id: bill.id,
+            billNumber: bill.billNumber,
+            vendor: bill.vendor,
+            totalAmount: bill.totalAmount,
+            paidAmount: bill.paidAmount,
+            balanceDue: Number((bill.totalAmount - bill.paidAmount).toFixed(2)),
+          })) ?? [];
 
       setBills(mappedBills);
       setBankAccounts(bankAccountRes || []);

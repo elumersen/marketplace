@@ -53,7 +53,7 @@ interface ReceivePaymentFormProps {
 
 type InvoiceOption = Pick<
   Invoice,
-  'id' | 'invoiceNumber' | 'customer' | 'totalAmount' | 'paidAmount' | 'balanceDue'
+  'id' | 'invoiceNumber' | 'customer' | 'totalAmount' | 'paidAmount' | 'balanceDue' | 'status'
 >;
 
 interface InvoicePayment {
@@ -111,13 +111,15 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
         invoiceRes.invoices?.map((invoice) => ({
           id: invoice.id,
           invoiceNumber: invoice.invoiceNumber,
+          status: invoice.status,
           customer: invoice.customer,
           totalAmount: invoice.totalAmount,
           paidAmount: invoice.paidAmount,
           balanceDue:
             invoice.balanceDue ??
             Number((invoice.totalAmount - invoice.paidAmount).toFixed(2)),
-        })) ?? [];
+        }))
+        .filter((inv) => inv.status !== 'DRAFT') ?? [];
 
       setInvoices(mappedInvoices);
 
@@ -132,6 +134,7 @@ export const ReceivePaymentForm: React.FC<ReceivePaymentFormProps> = ({
                 {
                   id: invoice.invoice.id,
                   invoiceNumber: invoice.invoice.invoiceNumber,
+                  status: invoice.invoice.status,
                   customer: invoice.invoice.customer,
                   totalAmount: invoice.invoice.totalAmount,
                   paidAmount: invoice.invoice.paidAmount,

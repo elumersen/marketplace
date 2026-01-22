@@ -54,6 +54,14 @@ export const ChartOfAccountsList = ({ onEdit, onCreateNew, refreshSignal = 0 }: 
   const [activeFilter, setActiveFilter] = useState<string>('active');
   
   // Pagination state
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 25; // Fixed at 25 items per page
   const [totalItems, setTotalItems] = useState(0);
@@ -213,11 +221,11 @@ export const ChartOfAccountsList = ({ onEdit, onCreateNew, refreshSignal = 0 }: 
     <div className="h-full flex flex-col min-h-0">
       <Card className="flex flex-col h-full min-h-0">
         <CardHeader className="flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <CardTitle>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <CardTitle className="text-xl sm:text-2xl font-bold">
               Chart of Accounts
             </CardTitle>
-            <Button onClick={onCreateNew}>
+            <Button onClick={onCreateNew} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               New Account
             </Button>
@@ -226,15 +234,15 @@ export const ChartOfAccountsList = ({ onEdit, onCreateNew, refreshSignal = 0 }: 
         <CardContent className="flex flex-col flex-1 min-h-0 overflow-hidden">
           {/* Filters */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 flex-shrink-0">
-            <div className="space-y-2">
+            <div className="space-y-2 md:col-span-2 lg:col-span-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="search"
-                  placeholder="Search accounts..."
+                  placeholder={isDesktop ? "Search accounts..." : "Search..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-xs sm:text-sm placeholder:text-xs sm:placeholder:text-sm"
                 />
               </div>
             </div>
@@ -303,12 +311,12 @@ export const ChartOfAccountsList = ({ onEdit, onCreateNew, refreshSignal = 0 }: 
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Sub Type</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
+                  <TableHead className="whitespace-nowrap">Code</TableHead>
+                  <TableHead className="whitespace-nowrap">Name</TableHead>
+                  <TableHead className="whitespace-nowrap">Type</TableHead>
+                  <TableHead className="whitespace-nowrap">Sub Type</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Balance</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -344,8 +352,8 @@ export const ChartOfAccountsList = ({ onEdit, onCreateNew, refreshSignal = 0 }: 
                     return a.code.localeCompare(b.code);
                   }).map((account) => (
                     <TableRow key={account.id}>
-                      <TableCell className="font-mono text-sm">{account.code}</TableCell>
-                      <TableCell>
+                      <TableCell className="font-mono text-sm whitespace-nowrap">{account.code}</TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <div>
                           <div className="font-medium">{account.name}</div>
                           {account.description && (
@@ -353,20 +361,20 @@ export const ChartOfAccountsList = ({ onEdit, onCreateNew, refreshSignal = 0 }: 
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <span className="text-sm">
                           {formatAccountType(account.type)}
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <span className="text-sm">
                           {formatAccountType(account.subType)}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right font-mono whitespace-nowrap">
                         {formatCurrency(account.balance)}
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1">
                           {account.subType !== 'Net_Income' && (
                             <Button 

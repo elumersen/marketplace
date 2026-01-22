@@ -1,20 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import React, { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -22,9 +17,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { DatePicker } from '@/components/ui/date-picker';
+} from "@/components/ui/table";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +29,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
 import {
   Search,
   Plus,
@@ -45,23 +40,17 @@ import {
   Calendar,
   DollarSign,
   AlertCircle,
-} from 'lucide-react';
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Deposit,
-  BankAccount,
-} from '@/types/api.types';
-import {
-  depositAPI,
-  bankAccountAPI,
-  getErrorMessage,
-} from '@/lib/api';
-import { format } from 'date-fns';
+} from "@/components/ui/dropdown-menu";
+import { Deposit, BankAccount } from "@/types/api.types";
+import { depositAPI, bankAccountAPI, getErrorMessage } from "@/lib/api";
+import { format } from "date-fns";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface DepositListProps {
   onView?: (deposit: Deposit) => void;
@@ -82,14 +71,23 @@ export const DepositList: React.FC<DepositListProps> = ({
   onCreateNew,
   refreshSignal = 0,
 }) => {
+  const isMobile = useIsMobile();
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<Filters>({
     bankAccountId: undefined,
-    startDate: '',
-    endDate: '',
+    startDate: "",
+    endDate: "",
   });
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
@@ -100,8 +98,8 @@ export const DepositList: React.FC<DepositListProps> = ({
   useEffect(() => {
     setFilters((prev) => ({
       ...prev,
-      startDate: startDate ? startDate.toISOString().split('T')[0] : '',
-      endDate: endDate ? endDate.toISOString().split('T')[0] : '',
+      startDate: startDate ? startDate.toISOString().split("T")[0] : "",
+      endDate: endDate ? endDate.toISOString().split("T")[0] : "",
     }));
   }, [startDate, endDate]);
 
@@ -119,7 +117,7 @@ export const DepositList: React.FC<DepositListProps> = ({
       const bankAccountRes = await bankAccountAPI.getAll();
       setBankAccounts(bankAccountRes ?? []);
     } catch (err) {
-      console.error('Failed to load filter options:', err);
+      console.error("Failed to load filter options:", err);
     }
   };
 
@@ -146,7 +144,7 @@ export const DepositList: React.FC<DepositListProps> = ({
     } catch (err) {
       const message = getErrorMessage(err);
       setError(message);
-      console.error('Failed to load deposits:', err);
+      console.error("Failed to load deposits:", err);
     } finally {
       setLoading(false);
     }
@@ -164,7 +162,7 @@ export const DepositList: React.FC<DepositListProps> = ({
       await depositAPI.delete(depositToDelete);
       loadDeposits();
     } catch (err) {
-      console.error('Failed to delete deposit:', getErrorMessage(err));
+      console.error("Failed to delete deposit:", getErrorMessage(err));
     } finally {
       setDepositToDelete(null);
       setDeleteDialogOpen(false);
@@ -172,9 +170,9 @@ export const DepositList: React.FC<DepositListProps> = ({
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
     }).format(amount);
   };
 
@@ -183,8 +181,8 @@ export const DepositList: React.FC<DepositListProps> = ({
 
     const lower = searchTerm.toLowerCase();
     return deposits.filter((deposit) => {
-      const bankAccountName = deposit.bankAccount?.name?.toLowerCase() ?? '';
-      const reference = deposit.referenceNumber?.toLowerCase() ?? '';
+      const bankAccountName = deposit.bankAccount?.name?.toLowerCase() ?? "";
+      const reference = deposit.referenceNumber?.toLowerCase() ?? "";
       return bankAccountName.includes(lower) || reference.includes(lower);
     });
   }, [deposits, searchTerm]);
@@ -198,12 +196,12 @@ export const DepositList: React.FC<DepositListProps> = ({
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <CardTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5" />
               Deposits
             </CardTitle>
-            <Button onClick={onCreateNew}>
+            <Button onClick={onCreateNew} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               New Deposit
             </Button>
@@ -211,16 +209,16 @@ export const DepositList: React.FC<DepositListProps> = ({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div className="space-y-2">
+            <div className="space-y-2 md:col-span-2 lg:col-span-1">
               <Label htmlFor="search">Search</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   id="search"
-                  placeholder="Bank account or reference..."
+                  placeholder={isDesktop ? "Bank account or reference..." : "Search deposits..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-xs sm:text-sm placeholder:text-xs sm:placeholder:text-sm"
                 />
               </div>
             </div>
@@ -228,11 +226,11 @@ export const DepositList: React.FC<DepositListProps> = ({
             <div className="space-y-2">
               <Label htmlFor="bankAccountId">Bank Account</Label>
               <Select
-                value={filters.bankAccountId ?? 'all'}
+                value={filters.bankAccountId ?? "all"}
                 onValueChange={(value) =>
                   setFilters((prev) => ({
                     ...prev,
-                    bankAccountId: value === 'all' ? undefined : value,
+                    bankAccountId: value === "all" ? undefined : value,
                   }))
                 }
               >
@@ -252,12 +250,20 @@ export const DepositList: React.FC<DepositListProps> = ({
 
             <div className="space-y-2">
               <Label>Start Date</Label>
-              <DatePicker date={startDate} setDate={setStartDate} className="w-full" />
+              <DatePicker
+                date={startDate}
+                setDate={setStartDate}
+                className="w-full"
+              />
             </div>
 
             <div className="space-y-2">
               <Label>End Date</Label>
-              <DatePicker date={endDate} setDate={setEndDate} className="w-full" />
+              <DatePicker
+                date={endDate}
+                setDate={setEndDate}
+                className="w-full"
+              />
               {(startDate || endDate) && (
                 <Button
                   type="button"
@@ -295,27 +301,37 @@ export const DepositList: React.FC<DepositListProps> = ({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Bank Account</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Reference</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="whitespace-nowrap">Date</TableHead>
+                    <TableHead className="whitespace-nowrap">
+                      Bank Account
+                    </TableHead>
+                    <TableHead className="text-right whitespace-nowrap">
+                      Amount
+                    </TableHead>
+                    <TableHead className="whitespace-nowrap">
+                      Reference
+                    </TableHead>
+                    <TableHead className="text-right whitespace-nowrap">
+                      Actions
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredDeposits.map((deposit) => (
                     <TableRow key={deposit.id}>
-                      <TableCell>
-                        {format(new Date(deposit.depositDate), 'MMM dd, yyyy')}
+                      <TableCell className="whitespace-nowrap">
+                        {format(new Date(deposit.depositDate), "MMM dd, yyyy")}
                       </TableCell>
-                      <TableCell>
-                        {deposit.bankAccount?.name ?? '—'}
+                      <TableCell className="whitespace-nowrap">
+                        {deposit.bankAccount?.name ?? "—"}
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right font-mono whitespace-nowrap">
                         {formatCurrency(deposit.amount)}
                       </TableCell>
-                      <TableCell>{deposit.referenceNumber || '—'}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="whitespace-nowrap">
+                        {deposit.referenceNumber || "—"}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm">
@@ -323,15 +339,11 @@ export const DepositList: React.FC<DepositListProps> = ({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => onView?.(deposit)}
-                            >
+                            <DropdownMenuItem onClick={() => onView?.(deposit)}>
                               <Eye className="h-4 w-4 mr-2" />
                               View
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => onEdit?.(deposit)}
-                            >
+                            <DropdownMenuItem onClick={() => onEdit?.(deposit)}>
                               <Edit className="h-4 w-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
@@ -359,7 +371,8 @@ export const DepositList: React.FC<DepositListProps> = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Deposit</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this deposit? This action cannot be undone.
+              Are you sure you want to delete this deposit? This action cannot
+              be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -376,4 +389,3 @@ export const DepositList: React.FC<DepositListProps> = ({
     </div>
   );
 };
-
