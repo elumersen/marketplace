@@ -19,7 +19,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   AlertDialog,
@@ -34,13 +49,17 @@ import {
 import {
   Search,
   Plus,
-  Eye,
-  Edit,
   MoreHorizontal,
   FileText,
   CheckCircle,
   XCircle,
   AlertCircle,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  RotateCcw,
+  X,
+  Check,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -52,15 +71,23 @@ import {
   JournalEntry,
   JournalEntryStatus,
   JournalEntryQueryParams,
+  Account,
+  CreateJournalEntryData,
 } from "@/types/api.types";
-import { journalEntryAPI, getErrorMessage } from "@/lib/api";
+import { journalEntryAPI, accountAPI, getErrorMessage } from "@/lib/api";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 interface JournalEntryListProps {
-  onView?: (journalEntry: JournalEntry) => void;
-  onEdit?: (journalEntry: JournalEntry) => void;
   onCreateNew?: () => void;
   refreshSignal?: number;
+}
+
+interface JournalEntryLineForm {
+  accountId: string;
+  description: string;
+  debit: number;
+  credit: number;
 }
 
 const statusConfig = {
@@ -82,11 +109,10 @@ const statusConfig = {
 };
 
 export const JournalEntryList: React.FC<JournalEntryListProps> = ({
-  onView,
-  onEdit,
   onCreateNew,
   refreshSignal = 0,
 }) => {
+  const { toast } = useToast();
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -110,9 +136,38 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   const [journalEntryToDelete, setJournalEntryToDelete] = useState<
     string | null
   >(null);
+  
+  const [showInlineForm, setShowInlineForm] = useState(false);
+  const [, setInlineFormData] = useState({
+    entryDate: new Date().toISOString().split('T')[0],
+    description: '',
+    status: JournalEntryStatus.DRAFT,
+  });
+  const [inlineFormDate, setInlineFormDate] = useState<Date | undefined>(new Date());
+  const [inlineFormLines, setInlineFormLines] = useState<JournalEntryLineForm[]>([
+    { accountId: '', description: '', debit: 0, credit: 0 },
+    { accountId: '', description: '', debit: 0, credit: 0 },
+  ]);
+  const [inlineFormLoading, setInlineFormLoading] = useState(false);
+  const [inlineFormErrors, setInlineFormErrors] = useState<Record<string, string>>({});
+  const [inlineFormAccountPopovers, setInlineFormAccountPopovers] = useState<Record<number, boolean>>({});
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  
+  const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
+  
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editingFormData, setEditingFormData] = useState<{
+    entryDate: string;
+    description: string;
+    status: JournalEntryStatus;
+  } | null>(null);
+  const [editingFormDate, setEditingFormDate] = useState<Date | undefined>(undefined);
+  const [editingFormLines, setEditingFormLines] = useState<JournalEntryLineForm[]>([]);
+  const [editingFormLoading, setEditingFormLoading] = useState(false);
+  const [editingFormErrors, setEditingFormErrors] = useState<Record<string, string>>({});
+  const [editingFormAccountPopovers, setEditingFormAccountPopovers] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
-    // Update filters when dates change
     setFilters((prev) => ({
       ...prev,
       startDate: startDate ? startDate.toISOString().split("T")[0] : "",
@@ -123,6 +178,19 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   useEffect(() => {
     loadJournalEntries();
   }, [filters, refreshSignal]);
+
+  useEffect(() => {
+    loadAccounts();
+  }, []);
+
+  useEffect(() => {
+    if (inlineFormDate) {
+      setInlineFormData(prev => ({
+        ...prev,
+        entryDate: inlineFormDate.toISOString().split('T')[0]
+      }));
+    }
+  }, [inlineFormDate]);
 
   const loadJournalEntries = async () => {
     try {
@@ -138,16 +206,48 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     }
   };
 
+  const loadAccounts = async () => {
+    try {
+      const response = await accountAPI.getAll({ isActive: true, all: 'true' });
+      setAccounts(response.data || []);
+    } catch (error) {
+      console.error('Failed to load accounts:', error);
+    }
+  };
+
   const handleStatusUpdate = async (
     id: string,
     newStatus: JournalEntryStatus
   ) => {
     try {
-      await journalEntryAPI.updateStatus(id, newStatus);
-      console.log(`Journal entry ${newStatus.toLowerCase()} successfully`);
-      loadJournalEntries();
+      const response = await journalEntryAPI.updateStatus(id, newStatus);
+      
+      const statusLabels: Record<JournalEntryStatus, string> = {
+        [JournalEntryStatus.DRAFT]: "reverted to draft",
+        [JournalEntryStatus.POSTED]: "posted",
+        [JournalEntryStatus.VOID]: "voided",
+      };
+      
+      toast({
+        variant: "success",
+        title: "Success",
+        description: `Journal entry ${statusLabels[newStatus]} successfully`,
+      });
+      
+      if (response.journalEntry) {
+        setJournalEntries(prevEntries => 
+          prevEntries.map(entry => 
+            entry.id === id ? response.journalEntry : entry
+          )
+        );
+      }
     } catch (error) {
       console.error("Failed to update status:", getErrorMessage(error));
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: getErrorMessage(error),
+      });
     }
   };
 
@@ -161,22 +261,365 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
 
     try {
       await journalEntryAPI.delete(journalEntryToDelete);
-      console.log("Journal entry deleted successfully");
-      loadJournalEntries();
+      
+      toast({
+        variant: "success",
+        title: "Success",
+        description: "Journal entry deleted successfully",
+      });
+      
+      setJournalEntries(prevEntries => 
+        prevEntries.filter(entry => entry.id !== journalEntryToDelete)
+      );
+      
+      setExpandedEntries(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(journalEntryToDelete);
+        return newSet;
+      });
     } catch (error) {
       console.error("Failed to delete journal entry:", getErrorMessage(error));
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: getErrorMessage(error),
+      });
     } finally {
       setDeleteDialogOpen(false);
       setJournalEntryToDelete(null);
     }
   };
 
-  const filteredEntries = journalEntries.filter(
-    (entry) =>
-      entry.entryNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (entry.description &&
-        entry.description.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const toggleExpanded = (entryId: string) => {
+    setExpandedEntries(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(entryId)) {
+        newSet.delete(entryId);
+        if (editingEntryId === entryId) {
+          handleCancelEdit();
+        }
+      } else {
+        newSet.add(entryId);
+        const entry = journalEntries.find(e => e.id === entryId);
+        if (entry && entry.status === JournalEntryStatus.DRAFT && !editingEntryId) {
+          handleStartEdit(entry);
+        }
+      }
+      return newSet;
+    });
+  };
+
+  const handleCreateNewInline = () => {
+    setShowInlineForm(true);
+    setInlineFormData({
+      entryDate: new Date().toISOString().split('T')[0],
+      description: '',
+      status: JournalEntryStatus.DRAFT,
+    });
+    setInlineFormDate(new Date());
+    setInlineFormLines([
+      { accountId: '', description: '', debit: 0, credit: 0 },
+      { accountId: '', description: '', debit: 0, credit: 0 },
+    ]);
+    setInlineFormErrors({});
+  };
+
+  const handleCancelInlineForm = () => {
+    setShowInlineForm(false);
+    setInlineFormErrors({});
+  };
+
+  const updateInlineFormLine = (index: number, field: keyof JournalEntryLineForm, value: string | number) => {
+    const newLines = [...inlineFormLines];
+    newLines[index] = { ...newLines[index], [field]: value };
+    
+    if (field === 'debit' && typeof value === 'number' && value > 0) {
+      newLines[index].credit = 0;
+    } else if (field === 'credit' && typeof value === 'number' && value > 0) {
+      newLines[index].debit = 0;
+    }
+    
+    setInlineFormLines(newLines);
+    
+    if (field === 'accountId') {
+      setInlineFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[`line_${index}_account`];
+        return newErrors;
+      });
+    } else if (field === 'debit' || field === 'credit') {
+      setInlineFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[`line_${index}_amount`];
+        delete newErrors.balance;
+        return newErrors;
+      });
+    }
+  };
+
+  const calculateInlineFormTotals = () => {
+    const totalDebits = inlineFormLines.reduce((sum, line) => sum + (line.debit || 0), 0);
+    const totalCredits = inlineFormLines.reduce((sum, line) => sum + (line.credit || 0), 0);
+    return { totalDebits, totalCredits };
+  };
+
+  const validateInlineForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (inlineFormLines.length < 2) {
+      newErrors.lines = 'At least two line items are required';
+    }
+
+    inlineFormLines.forEach((line, index) => {
+      if (!line.accountId) {
+        newErrors[`line_${index}_account`] = 'Account is required';
+      }
+      if (line.debit === 0 && line.credit === 0) {
+        newErrors[`line_${index}_amount`] = 'Either debit or credit amount is required';
+      }
+    });
+
+    const { totalDebits, totalCredits } = calculateInlineFormTotals();
+    if (Math.abs(totalDebits - totalCredits) > 0.01) {
+      newErrors.balance = 'Total debits and credits must be equal';
+    }
+
+    setInlineFormErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleInlineFormSubmit = async () => {
+    if (!validateInlineForm()) {
+      return;
+    }
+
+    setInlineFormLoading(true);
+    try {
+      const submitData: CreateJournalEntryData = {
+        entryDate: new Date().toISOString().split('T')[0],
+        description: undefined,
+        status: JournalEntryStatus.DRAFT,
+        lines: inlineFormLines.map(line => ({
+          accountId: line.accountId,
+          description: line.description || undefined,
+          debit: line.debit,
+          credit: line.credit,
+        })),
+      };
+
+      const response = await journalEntryAPI.create(submitData);
+      
+      toast({
+        variant: "success",
+        title: "Success",
+        description: "Journal entry created successfully",
+      });
+      
+      if (response.journalEntry) {
+        setJournalEntries(prevEntries => [response.journalEntry, ...prevEntries]);
+      }
+      
+      setInlineFormLines([
+        { accountId: '', description: '', debit: 0, credit: 0 },
+        { accountId: '', description: '', debit: 0, credit: 0 },
+      ]);
+      setInlineFormAccountPopovers({});
+      setShowInlineForm(false);
+    } catch (error) {
+      console.error('Failed to create journal entry:', getErrorMessage(error));
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: getErrorMessage(error),
+      });
+    } finally {
+      setInlineFormLoading(false);
+    }
+  };
+
+  const handleStartEdit = (entry: JournalEntry) => {
+    if (entry.status !== JournalEntryStatus.DRAFT) return;
+    
+    setEditingEntryId(entry.id);
+    const dateOnly = entry.entryDate.split("T")[0];
+    const [year, month, day] = dateOnly.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+    
+    setEditingFormData({
+      entryDate: entry.entryDate,
+      description: entry.description || '',
+      status: entry.status,
+    });
+    setEditingFormDate(date);
+    setEditingFormLines(
+      entry.lines?.map(line => ({
+        accountId: line.accountId,
+        description: line.description || '',
+        debit: line.debit,
+        credit: line.credit,
+      })) || []
+    );
+    setEditingFormErrors({});
+  };
+
+  const handleCancelEdit = () => {
+    setEditingEntryId(null);
+    setEditingFormData(null);
+    setEditingFormDate(undefined);
+    setEditingFormLines([]);
+    setEditingFormErrors({});
+  };
+
+  const updateEditingFormLine = (index: number, field: keyof JournalEntryLineForm, value: string | number) => {
+    const newLines = [...editingFormLines];
+    newLines[index] = { ...newLines[index], [field]: value };
+    
+    if (field === 'debit' && typeof value === 'number' && value > 0) {
+      newLines[index].credit = 0;
+    } else if (field === 'credit' && typeof value === 'number' && value > 0) {
+      newLines[index].debit = 0;
+    }
+    
+    setEditingFormLines(newLines);
+    
+    if (field === 'accountId') {
+      setEditingFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[`line_${index}_account`];
+        return newErrors;
+      });
+    } else if (field === 'debit' || field === 'credit') {
+      setEditingFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[`line_${index}_amount`];
+        delete newErrors.balance;
+        return newErrors;
+      });
+    }
+  };
+
+  const calculateEditingFormTotals = () => {
+    const totalDebits = editingFormLines.reduce((sum, line) => sum + (line.debit || 0), 0);
+    const totalCredits = editingFormLines.reduce((sum, line) => sum + (line.credit || 0), 0);
+    return { totalDebits, totalCredits };
+  };
+
+  const validateEditingForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!editingFormData?.entryDate) {
+      newErrors.entryDate = 'Entry date is required';
+    }
+
+    if (editingFormLines.length < 2) {
+      newErrors.lines = 'At least two line items are required';
+    }
+
+    editingFormLines.forEach((line, index) => {
+      if (!line.accountId) {
+        newErrors[`line_${index}_account`] = 'Account is required';
+      }
+      if (line.debit === 0 && line.credit === 0) {
+        newErrors[`line_${index}_amount`] = 'Either debit or credit amount is required';
+      }
+    });
+
+    const { totalDebits, totalCredits } = calculateEditingFormTotals();
+    if (Math.abs(totalDebits - totalCredits) > 0.01) {
+      newErrors.balance = 'Total debits and credits must be equal';
+    }
+
+    setEditingFormErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingEntryId || !editingFormData) return;
+    if (!validateEditingForm()) {
+      return;
+    }
+
+    setEditingFormLoading(true);
+    try {
+      const submitData = {
+        entryDate: editingFormData.entryDate,
+        description: editingFormData.description || undefined,
+        status: editingFormData.status,
+        lines: editingFormLines.map(line => ({
+          accountId: line.accountId,
+          description: line.description || undefined,
+          debit: line.debit,
+          credit: line.credit,
+        })),
+      };
+
+      const response = await journalEntryAPI.update(editingEntryId, submitData);
+      
+      toast({
+        variant: "success",
+        title: "Success",
+        description: "Journal entry updated successfully",
+      });
+      
+      if (response.journalEntry) {
+        setJournalEntries(prevEntries => 
+          prevEntries.map(entry => 
+            entry.id === editingEntryId ? response.journalEntry : entry
+          )
+        );
+      }
+      
+      setExpandedEntries(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(editingEntryId);
+        return newSet;
+      });
+      
+      handleCancelEdit();
+    } catch (error) {
+      console.error('Failed to update journal entry:', getErrorMessage(error));
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: getErrorMessage(error),
+      });
+    } finally {
+      setEditingFormLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (editingFormDate && editingFormData) {
+      setEditingFormData(prev => ({
+        ...prev!,
+        entryDate: editingFormDate.toISOString().split('T')[0]
+      }));
+    }
+  }, [editingFormDate]);
+
+  const filteredEntries = journalEntries.filter((entry) => {
+    if (!searchTerm) return true;
+    
+    const searchLower = searchTerm.toLowerCase();
+    
+    if (entry.entryNumber.toLowerCase().includes(searchLower)) return true;
+    
+    if (entry.description && entry.description.toLowerCase().includes(searchLower)) return true;
+    
+    if (entry.lines) {
+      const accountNames = entry.lines
+        .map(line => {
+          const account = accounts.find(acc => acc.id === line.accountId);
+          return account ? `${account.code} ${account.name}` : '';
+        })
+        .join(' ')
+        .toLowerCase();
+      
+      if (accountNames.includes(searchLower)) return true;
+    }
+    
+    return false;
+  });
 
   const getStatusBadge = (status: JournalEntryStatus) => {
     const config = statusConfig[status];
@@ -199,7 +642,6 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
 
   const calculateTotalAmount = (entry: JournalEntry) => {
     if (!entry.lines) return 0;
-    // Return the total debit amount (or credit amount, they should be equal)
     return entry.lines.reduce((sum, line) => sum + line.debit, 0);
   };
 
@@ -212,14 +654,13 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
               <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
               Journal Entries
             </CardTitle>
-            <Button onClick={onCreateNew} className="w-full sm:w-auto">
+            <Button onClick={onCreateNew || handleCreateNewInline} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               New Entry
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {/* Filters */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="space-y-2 md:col-span-2 lg:col-span-1">
               <Label htmlFor="search">Search</Label>
@@ -227,7 +668,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   id="search"
-                  placeholder={isDesktop ? "Search by entry number or description..." : "Search entries..."}
+                  placeholder={isDesktop ? "Search by entry number, description, or accounts..." : "Search entries..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 text-xs sm:text-sm placeholder:text-xs sm:placeholder:text-sm"
@@ -284,7 +725,6 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
             </div>
           </div>
 
-          {/* Results */}
           {error && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
@@ -293,20 +733,8 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
           )}
 
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-            </div>
-          ) : filteredEntries.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No journal entries found</p>
-              <p className="text-sm">
-                Create your first journal entry to get started
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="overflow-x-auto w-full">
+              <Table className="w-full">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="whitespace-nowrap">
@@ -329,95 +757,603 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredEntries.map((entry) => (
-                    <TableRow key={entry.id}>
-                      <TableCell className="font-medium whitespace-nowrap">
-                        {entry.entryNumber}
+                  {[...Array(5)].map((_, index) => (
+                    <TableRow key={index}>
+                      <TableCell>
+                        <Skeleton className="h-5 w-24" />
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {(() => {
-                          const dateOnly = entry.entryDate.split("T")[0];
-                          const [year, month, day] = dateOnly
-                            .split("-")
-                            .map(Number);
-                          const date = new Date(year, month - 1, day);
-                          return format(date, "MMM dd, yyyy");
-                        })()}
+                      <TableCell>
+                        <Skeleton className="h-5 w-28" />
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {entry.description || "No description"}
+                      <TableCell>
+                        <Skeleton className="h-5 w-48" />
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {getStatusBadge(entry.status)}
+                      <TableCell>
+                        <Skeleton className="h-5 w-16" />
                       </TableCell>
-                      <TableCell className="text-right font-mono whitespace-nowrap">
-                        {formatCurrency(calculateTotalAmount(entry))}
+                      <TableCell className="text-right">
+                        <Skeleton className="h-5 w-20 ml-auto" />
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {entry.createdByUser
-                          ? `${entry.createdByUser.firstName || ""} ${
-                              entry.createdByUser.lastName || ""
-                            }`.trim() || entry.createdByUser.email
-                          : "Unknown"}
+                      <TableCell>
+                        <Skeleton className="h-5 w-24" />
                       </TableCell>
-                      <TableCell className="text-right whitespace-nowrap">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => onView?.(entry)}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              View
-                            </DropdownMenuItem>
-                            {entry.status === JournalEntryStatus.DRAFT && (
-                              <>
-                                <DropdownMenuItem
-                                  onClick={() => onEdit?.(entry)}
-                                >
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    handleStatusUpdate(
-                                      entry.id,
-                                      JournalEntryStatus.POSTED
-                                    )
-                                  }
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-2" />
-                                  Post
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            {entry.status === JournalEntryStatus.POSTED && (
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  handleStatusUpdate(
-                                    entry.id,
-                                    JournalEntryStatus.VOID
-                                  )
-                                }
-                              >
-                                <XCircle className="h-4 w-4 mr-2" />
-                                Void
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem
-                              onClick={() => handleDelete(entry.id)}
-                              className="text-red-600"
-                            >
-                              <XCircle className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                      <TableCell className="text-right">
+                        <Skeleton className="h-5 w-8 ml-auto" />
                       </TableCell>
                     </TableRow>
                   ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : filteredEntries.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No journal entries found</p>
+              <p className="text-sm">
+                Create your first journal entry to get started
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto w-full">
+              <Table className="w-full">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">
+                      Entry Number
+                    </TableHead>
+                    <TableHead className="whitespace-nowrap">Date</TableHead>
+                    <TableHead className="whitespace-nowrap">
+                      Description
+                    </TableHead>
+                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">
+                      Amount
+                    </TableHead>
+                    <TableHead className="whitespace-nowrap">
+                      Created By
+                    </TableHead>
+                    <TableHead className="text-right whitespace-nowrap">
+                      Actions
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {showInlineForm && (
+                    <TableRow className="bg-blue-50 hover:bg-blue-50">
+                      <TableCell colSpan={8} className="p-4">
+                        <div className="bg-white border rounded-lg p-4 relative">
+                          <div className="absolute top-0 right-0 w-12 h-12 z-[5]" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2 h-6 w-6 z-10"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCancelInlineForm();
+                            }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onMouseUp={(e) => e.stopPropagation()}
+                            onMouseEnter={(e) => e.stopPropagation()}
+                            onMouseLeave={(e) => e.stopPropagation()}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                          <Table className="relative">
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="text-black text-base">Account</TableHead>
+                                <TableHead className="text-right text-black text-base">Debit</TableHead>
+                                <TableHead className="text-right text-black text-base">Credit</TableHead>
+                                <TableHead className="text-black text-base">Description</TableHead>
+                                <TableHead className="w-24"></TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {inlineFormLines.map((line, index) => (
+                                <React.Fragment key={index}>
+                                  <TableRow>
+                                    <TableCell>
+                                      <div className="space-y-1">
+                                        <Popover
+                                          open={inlineFormAccountPopovers[index] || false}
+                                          onOpenChange={(open) => setInlineFormAccountPopovers({ ...inlineFormAccountPopovers, [index]: open })}
+                                        >
+                                          <PopoverTrigger asChild>
+                                            <Button
+                                              variant="outline"
+                                              role="combobox"
+                                              className={cn(
+                                                "h-8 w-full justify-between",
+                                                !line.accountId && "text-muted-foreground",
+                                                inlineFormErrors[`line_${index}_account`] && "border-destructive"
+                                              )}
+                                            >
+                                              {(() => {
+                                                const selectedAccount = line.accountId ? accounts.find((account) => account.id === line.accountId) : null;
+                                                return selectedAccount ? `${selectedAccount.code} - ${selectedAccount.name}` : "Select account...";
+                                              })()}
+                                              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-[400px] p-0" align="start">
+                                            <Command>
+                                              <CommandInput placeholder="Search accounts..." />
+                                              <CommandList>
+                                                <CommandEmpty>No accounts found.</CommandEmpty>
+                                                <CommandGroup>
+                                                  {accounts.map((account) => (
+                                                    <CommandItem
+                                                      key={account.id}
+                                                      value={`${account.code} ${account.name}`}
+                                                      onSelect={() => {
+                                                        updateInlineFormLine(index, 'accountId', account.id);
+                                                        setInlineFormAccountPopovers({ ...inlineFormAccountPopovers, [index]: false });
+                                                      }}
+                                                      className="cursor-pointer"
+                                                    >
+                                                      <Check
+                                                        className={cn(
+                                                          "mr-2 h-4 w-4",
+                                                          line.accountId === account.id
+                                                            ? "opacity-100"
+                                                            : "opacity-0"
+                                                        )}
+                                                      />
+                                                      <span className="font-medium">{account.code}</span>
+                                                      <span className="ml-2">{account.name}</span>
+                                                    </CommandItem>
+                                                  ))}
+                                                </CommandGroup>
+                                              </CommandList>
+                                            </Command>
+                                          </PopoverContent>
+                                        </Popover>
+                                        {inlineFormErrors[`line_${index}_account`] && (
+                                          <p className="text-xs text-destructive">{inlineFormErrors[`line_${index}_account`]}</p>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="space-y-1">
+                                        <Input
+                                          type="number"
+                                          step="0.01"
+                                          min="0"
+                                          value={line.debit || ''}
+                                          onChange={(e) => updateInlineFormLine(index, 'debit', parseFloat(e.target.value) || 0)}
+                                          placeholder="0.00"
+                                          className={cn(
+                                            "text-right h-8",
+                                            inlineFormErrors[`line_${index}_amount`] && "border-destructive"
+                                          )}
+                                        />
+                                        {inlineFormErrors[`line_${index}_amount`] && (
+                                          <p className="text-xs text-destructive">{inlineFormErrors[`line_${index}_amount`]}</p>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={line.credit || ''}
+                                        onChange={(e) => updateInlineFormLine(index, 'credit', parseFloat(e.target.value) || 0)}
+                                        placeholder="0.00"
+                                        className={cn(
+                                          "text-right h-8",
+                                          inlineFormErrors[`line_${index}_amount`] && "border-destructive"
+                                        )}
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <Input
+                                        value={line.description}
+                                        onChange={(e) => updateInlineFormLine(index, 'description', e.target.value)}
+                                        placeholder="Memo"
+                                        className="w-full h-8"
+                                      />
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {index === inlineFormLines.length - 1 && (
+                                        <Button
+                                          onClick={handleInlineFormSubmit}
+                                          disabled={inlineFormLoading}
+                                          size="sm"
+                                        >
+                                          {inlineFormLoading ? 'Saving...' : 'Save'}
+                                        </Button>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                  {index === inlineFormLines.length - 1 && inlineFormErrors.balance && (
+                                    <TableRow>
+                                      <TableCell colSpan={5} className="text-center">
+                                        <p className="text-sm text-destructive">{inlineFormErrors.balance}</p>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                </React.Fragment>
+                              ))}
+                              <TableRow>
+                                <TableCell></TableCell>
+                                <TableCell className="text-right font-mono text-green-600 font-medium">
+                                  {formatCurrency(calculateInlineFormTotals().totalDebits)}
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-green-600 font-medium">
+                                  {formatCurrency(calculateInlineFormTotals().totalCredits)}
+                                </TableCell>
+                                <TableCell className="font-medium">
+                                  Total
+                                </TableCell>
+                                <TableCell></TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+
+                  {filteredEntries.map((entry) => {
+                    const isExpanded = expandedEntries.has(entry.id);
+                    
+                    return (
+                      <React.Fragment key={entry.id}>
+                        <TableRow
+                          className="cursor-pointer hover:bg-gray-50"
+                          onClick={() => toggleExpanded(entry.id)}
+                        >
+                          <TableCell className="font-medium whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              {isExpanded ? (
+                                <ChevronUp className="h-4 w-4 text-gray-400" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-gray-400" />
+                              )}
+                              {entry.entryNumber}
+                            </div>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {(() => {
+                              const dateOnly = entry.entryDate.split("T")[0];
+                              const [year, month, day] = dateOnly
+                                .split("-")
+                                .map(Number);
+                              const date = new Date(year, month - 1, day);
+                              return format(date, "MMM dd, yyyy");
+                            })()}
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate">
+                            {entry.description || "No description"}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {getStatusBadge(entry.status)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono whitespace-nowrap">
+                            {formatCurrency(calculateTotalAmount(entry))}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {entry.createdByUser
+                              ? `${entry.createdByUser.firstName || ""} ${
+                                  entry.createdByUser.lastName || ""
+                                }`.trim() || entry.createdByUser.email
+                              : "Unknown"}
+                          </TableCell>
+                          <TableCell 
+                            className="text-right whitespace-nowrap"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {entry.status === JournalEntryStatus.DRAFT && (
+                                  <>
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        handleStatusUpdate(
+                                          entry.id,
+                                          JournalEntryStatus.POSTED
+                                        )
+                                      }
+                                    >
+                                      <CheckCircle className="h-4 w-4 mr-2" />
+                                      Post
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        handleStatusUpdate(
+                                          entry.id,
+                                          JournalEntryStatus.VOID
+                                        )
+                                      }
+                                    >
+                                      <XCircle className="h-4 w-4 mr-2" />
+                                      Void
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => handleDelete(entry.id)}
+                                      className="text-red-600"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {entry.status === JournalEntryStatus.POSTED && (
+                                  <>
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        handleStatusUpdate(
+                                          entry.id,
+                                          JournalEntryStatus.DRAFT
+                                        )
+                                      }
+                                    >
+                                      <RotateCcw className="h-4 w-4 mr-2" />
+                                      Revert to Draft
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        handleStatusUpdate(
+                                          entry.id,
+                                          JournalEntryStatus.VOID
+                                        )
+                                      }
+                                    >
+                                      <XCircle className="h-4 w-4 mr-2" />
+                                      Void
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => handleDelete(entry.id)}
+                                      className="text-red-600"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {entry.status === JournalEntryStatus.VOID && (
+                                  <>
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        handleStatusUpdate(
+                                          entry.id,
+                                          JournalEntryStatus.DRAFT
+                                        )
+                                      }
+                                    >
+                                      <RotateCcw className="h-4 w-4 mr-2" />
+                                      Restore
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => handleDelete(entry.id)}
+                                      className="text-red-600"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+
+                        {isExpanded && (
+                          <TableRow className="bg-blue-50 hover:bg-blue-50">
+                            <TableCell colSpan={8} className="p-4">
+                              {entry.status === JournalEntryStatus.DRAFT ? (
+                                <div className="bg-white border rounded-lg p-4">
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead className="text-black text-base">Account</TableHead>
+                                        <TableHead className="text-right text-black text-base">Debit</TableHead>
+                                        <TableHead className="text-right text-black text-base">Credit</TableHead>
+                                        <TableHead className="text-black text-base">Description</TableHead>
+                                        <TableHead className="w-24"></TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {editingFormLines.map((line, index) => (
+                                        <React.Fragment key={index}>
+                                          <TableRow>
+                                            <TableCell>
+                                              <div className="space-y-1">
+                                                <Popover
+                                                  open={editingFormAccountPopovers[index] || false}
+                                                  onOpenChange={(open) => setEditingFormAccountPopovers({ ...editingFormAccountPopovers, [index]: open })}
+                                                >
+                                                  <PopoverTrigger asChild>
+                                                    <Button
+                                                      variant="outline"
+                                                      role="combobox"
+                                                      className={cn(
+                                                        "h-8 w-full justify-between",
+                                                        !line.accountId && "text-muted-foreground",
+                                                        editingFormErrors[`line_${index}_account`] && "border-destructive"
+                                                      )}
+                                                    >
+                                                      {(() => {
+                                                        const selectedAccount = line.accountId ? accounts.find((account) => account.id === line.accountId) : null;
+                                                        return selectedAccount ? `${selectedAccount.code} - ${selectedAccount.name}` : "Select account...";
+                                                      })()}
+                                                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                  </PopoverTrigger>
+                                                  <PopoverContent className="w-[400px] p-0" align="start">
+                                                    <Command>
+                                                      <CommandInput placeholder="Search accounts..." />
+                                                      <CommandList>
+                                                        <CommandEmpty>No accounts found.</CommandEmpty>
+                                                        <CommandGroup>
+                                                          {accounts.map((account) => (
+                                                            <CommandItem
+                                                              key={account.id}
+                                                              value={`${account.code} ${account.name}`}
+                                                              onSelect={() => {
+                                                                updateEditingFormLine(index, 'accountId', account.id);
+                                                                setEditingFormAccountPopovers({ ...editingFormAccountPopovers, [index]: false });
+                                                              }}
+                                                              className="cursor-pointer"
+                                                            >
+                                                              <Check
+                                                                className={cn(
+                                                                  "mr-2 h-4 w-4",
+                                                                  line.accountId === account.id
+                                                                    ? "opacity-100"
+                                                                    : "opacity-0"
+                                                                )}
+                                                              />
+                                                              <span className="font-medium">{account.code}</span>
+                                                              <span className="ml-2">{account.name}</span>
+                                                            </CommandItem>
+                                                          ))}
+                                                        </CommandGroup>
+                                                      </CommandList>
+                                                    </Command>
+                                                  </PopoverContent>
+                                                </Popover>
+                                                {editingFormErrors[`line_${index}_account`] && (
+                                                  <p className="text-xs text-destructive">{editingFormErrors[`line_${index}_account`]}</p>
+                                                )}
+                                              </div>
+                                            </TableCell>
+                                            <TableCell>
+                                              <div className="space-y-1">
+                                                <Input
+                                                  type="number"
+                                                  step="0.01"
+                                                  min="0"
+                                                  value={line.debit || ''}
+                                                  onChange={(e) => updateEditingFormLine(index, 'debit', parseFloat(e.target.value) || 0)}
+                                                  placeholder="0.00"
+                                                  className={cn(
+                                                    "text-right h-8",
+                                                    editingFormErrors[`line_${index}_amount`] && "border-destructive"
+                                                  )}
+                                                />
+                                                {editingFormErrors[`line_${index}_amount`] && (
+                                                  <p className="text-xs text-destructive">{editingFormErrors[`line_${index}_amount`]}</p>
+                                                )}
+                                              </div>
+                                            </TableCell>
+                                            <TableCell>
+                                              <Input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                value={line.credit || ''}
+                                                onChange={(e) => updateEditingFormLine(index, 'credit', parseFloat(e.target.value) || 0)}
+                                                placeholder="0.00"
+                                                className={cn(
+                                                  "text-right h-8",
+                                                  editingFormErrors[`line_${index}_amount`] && "border-destructive"
+                                                )}
+                                              />
+                                            </TableCell>
+                                            <TableCell>
+                                              <Input
+                                                value={line.description}
+                                                onChange={(e) => updateEditingFormLine(index, 'description', e.target.value)}
+                                                placeholder="Memo"
+                                                className="w-full h-8"
+                                              />
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                              {index === editingFormLines.length - 1 && (
+                                                <Button
+                                                  onClick={handleSaveEdit}
+                                                  disabled={editingFormLoading}
+                                                  size="sm"
+                                                >
+                                                  {editingFormLoading ? 'Saving...' : 'Save'}
+                                                </Button>
+                                              )}
+                                            </TableCell>
+                                          </TableRow>
+                                          {index === editingFormLines.length - 1 && editingFormErrors.balance && (
+                                            <TableRow>
+                                              <TableCell colSpan={5} className="text-center">
+                                                <p className="text-sm text-destructive">{editingFormErrors.balance}</p>
+                                              </TableCell>
+                                            </TableRow>
+                                          )}
+                                        </React.Fragment>
+                                      ))}
+                                      <TableRow>
+                                        <TableCell></TableCell>
+                                        <TableCell className="text-right font-mono text-green-600 font-medium">
+                                          {formatCurrency(calculateEditingFormTotals().totalDebits)}
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-green-600 font-medium">
+                                          {formatCurrency(calculateEditingFormTotals().totalCredits)}
+                                        </TableCell>
+                                        <TableCell className="font-medium">
+                                          Total
+                                        </TableCell>
+                                        <TableCell></TableCell>
+                                      </TableRow>
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              ) : (
+                                <div className="bg-white border rounded-lg p-4">
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead className="text-black text-base">Account</TableHead>
+                                        <TableHead className="text-black text-base">Description</TableHead>
+                                        <TableHead className="text-right text-black text-base">Debit</TableHead>
+                                        <TableHead className="text-right text-black text-base">Credit</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {entry.lines?.map((line, index) => (
+                                        <TableRow key={line.id || index}>
+                                          <TableCell>
+                                            <span className="text-sm">
+                                              {line.account?.code} - {line.account?.name}
+                                            </span>
+                                          </TableCell>
+                                          <TableCell>
+                                            <span className="text-sm">{line.description || "-"}</span>
+                                          </TableCell>
+                                          <TableCell className="text-right font-mono text-sm">
+                                            {line.debit > 0 ? formatCurrency(line.debit) : "-"}
+                                          </TableCell>
+                                          <TableCell className="text-right font-mono text-sm">
+                                            {line.credit > 0 ? formatCurrency(line.credit) : "-"}
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                      <TableRow>
+                                        <TableCell></TableCell>
+                                        <TableCell className="font-medium">
+                                          Total
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-green-600 font-medium">
+                                          {formatCurrency(entry.lines?.reduce((sum, line) => sum + line.debit, 0) || 0)}
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-green-600 font-medium">
+                                          {formatCurrency(entry.lines?.reduce((sum, line) => sum + line.credit, 0) || 0)}
+                                        </TableCell>
+                                      </TableRow>
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -425,7 +1361,6 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
         </CardContent>
       </Card>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
