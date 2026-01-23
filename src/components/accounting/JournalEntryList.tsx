@@ -49,14 +49,12 @@ import {
 import {
   Search,
   Plus,
-  Edit,
   MoreHorizontal,
   FileText,
   CheckCircle,
   XCircle,
   AlertCircle,
   Trash2,
-  Calculator,
   ChevronDown,
   ChevronUp,
   RotateCcw,
@@ -140,7 +138,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   >(null);
   
   const [showInlineForm, setShowInlineForm] = useState(false);
-  const [inlineFormData, setInlineFormData] = useState({
+  const [, setInlineFormData] = useState({
     entryDate: new Date().toISOString().split('T')[0],
     description: '',
     status: JournalEntryStatus.DRAFT,
@@ -331,16 +329,6 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     setInlineFormErrors({});
   };
 
-  const addInlineFormLine = () => {
-    setInlineFormLines([...inlineFormLines, { accountId: '', description: '', debit: 0, credit: 0 }]);
-  };
-
-  const removeInlineFormLine = (index: number) => {
-    if (inlineFormLines.length > 2) {
-      setInlineFormLines(inlineFormLines.filter((_, i) => i !== index));
-    }
-  };
-
   const updateInlineFormLine = (index: number, field: keyof JournalEntryLineForm, value: string | number) => {
     const newLines = [...inlineFormLines];
     newLines[index] = { ...newLines[index], [field]: value };
@@ -507,16 +495,6 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
         delete newErrors.balance;
         return newErrors;
       });
-    }
-  };
-
-  const addEditingFormLine = () => {
-    setEditingFormLines([...editingFormLines, { accountId: '', description: '', debit: 0, credit: 0 }]);
-  };
-
-  const removeEditingFormLine = (index: number) => {
-    if (editingFormLines.length > 2) {
-      setEditingFormLines(editingFormLines.filter((_, i) => i !== index));
     }
   };
 
