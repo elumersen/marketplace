@@ -55,7 +55,6 @@ import {
 import {
   BillPayment,
   Bill,
-  BillStatus,
 } from '@/types/api.types';
 import {
   billPaymentAPI,

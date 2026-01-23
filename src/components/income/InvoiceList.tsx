@@ -52,8 +52,6 @@ import {
 import { Invoice, InvoiceStatus, InvoiceQueryParams } from "@/types/api.types";
 import { invoiceAPI, getErrorMessage } from "@/lib/api";
 import { format } from "date-fns";
-import { useIsMobile } from "@/hooks/use-mobile";
-
 interface InvoiceListProps {
   onView?: (invoice: Invoice) => void;
   onEdit?: (invoice: Invoice) => void;
@@ -100,7 +98,6 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
   onCreateNew,
   refreshSignal = 0,
 }) => {
-  const isMobile = useIsMobile();
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
 
   useEffect(() => {

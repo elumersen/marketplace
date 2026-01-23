@@ -30,7 +30,6 @@ import {
   CreateBillPaymentData,
   UpdateBillPaymentData,
   Bill,
-  BillStatus,
   BankAccount,
 } from '@/types/api.types';
 import {
