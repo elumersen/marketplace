@@ -62,8 +62,6 @@ import {
   getErrorMessage,
 } from '@/lib/api';
 import { format } from 'date-fns';
-import { useIsMobile } from '@/hooks/use-mobile';
-
 interface ReceivePaymentListProps {
   onView?: (payment: ReceivePayment) => void;
   onEdit?: (payment: ReceivePayment) => void;
@@ -87,7 +85,6 @@ export const ReceivePaymentList: React.FC<ReceivePaymentListProps> = ({
   onCreateNew,
   refreshSignal = 0,
 }) => {
-  const isMobile = useIsMobile();
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
 
   useEffect(() => {

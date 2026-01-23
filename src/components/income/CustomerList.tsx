@@ -40,8 +40,6 @@ import {
   Trash2,
   AlertCircle,
 } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
-
 interface CustomerListProps {
   onView?: (customer: Customer) => void;
   onEdit?: (customer: Customer) => void;
@@ -55,7 +53,6 @@ export const CustomerList: React.FC<CustomerListProps> = ({
   onCreateNew,
   refreshSignal = 0,
 }) => {
-  const isMobile = useIsMobile();
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
 
   useEffect(() => {

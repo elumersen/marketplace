@@ -50,8 +50,6 @@ import {
 import { Deposit, BankAccount } from "@/types/api.types";
 import { depositAPI, bankAccountAPI, getErrorMessage } from "@/lib/api";
 import { format } from "date-fns";
-import { useIsMobile } from "@/hooks/use-mobile";
-
 interface DepositListProps {
   onView?: (deposit: Deposit) => void;
   onEdit?: (deposit: Deposit) => void;
@@ -71,7 +69,6 @@ export const DepositList: React.FC<DepositListProps> = ({
   onCreateNew,
   refreshSignal = 0,
 }) => {
-  const isMobile = useIsMobile();
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
 
   useEffect(() => {
