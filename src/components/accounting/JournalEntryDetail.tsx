@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
@@ -25,25 +24,10 @@ interface JournalEntryDetailProps {
   onEdit?: (journalEntry: JournalEntry) => void;
 }
 
-const statusConfig = {
-  [JournalEntryStatus.DRAFT]: {
-    label: 'Draft',
-    variant: 'secondary' as const,
-    icon: FileText,
-    color: 'text-gray-600',
-  },
-  [JournalEntryStatus.POSTED]: {
-    label: 'Posted',
-    variant: 'default' as const,
-    icon: CheckCircle,
-    color: 'text-green-600',
-  },
-  [JournalEntryStatus.VOID]: {
-    label: 'Void',
-    variant: 'destructive' as const,
-    icon: XCircle,
-    color: 'text-red-600',
-  },
+const statusLabels: Record<JournalEntryStatus, string> = {
+  [JournalEntryStatus.DRAFT]: 'Draft',
+  [JournalEntryStatus.POSTED]: 'Posted',
+  [JournalEntryStatus.VOID]: 'Void',
 };
 
 export const JournalEntryDetail: React.FC<JournalEntryDetailProps> = ({
@@ -105,17 +89,9 @@ export const JournalEntryDetail: React.FC<JournalEntryDetailProps> = ({
     return { totalDebits, totalCredits };
   };
 
-  const getStatusBadge = (status: JournalEntryStatus) => {
-    const config = statusConfig[status];
-    const Icon = config.icon;
-    
-    return (
-      <Badge variant={config.variant} className="flex items-center gap-1">
-        <Icon className="h-3 w-3" />
-        {config.label}
-      </Badge>
-    );
-  };
+  const getStatusText = (status: JournalEntryStatus) => (
+    <span className="text-sm text-gray-700">{statusLabels[status]}</span>
+  );
 
   if (loading) {
     return (
@@ -157,7 +133,7 @@ export const JournalEntryDetail: React.FC<JournalEntryDetailProps> = ({
         </div>
         
         <div className="flex items-center space-x-2">
-          {getStatusBadge(journalEntry.status)}
+          {getStatusText(journalEntry.status)}
           {journalEntry.status === JournalEntryStatus.DRAFT && (
             <>
               <Button onClick={() => onEdit?.(journalEntry)}>
@@ -300,7 +276,7 @@ export const JournalEntryDetail: React.FC<JournalEntryDetailProps> = ({
               </div>
               <div className="text-right">
                 <div className="text-sm text-gray-600">Total Credits</div>
-                <div className={`text-lg font-mono ${isBalanced ? 'text-green-600' : 'text-red-600'}`}>
+                <div className="text-lg font-mono font-bold text-black">
                   {formatCurrency(totalCredits)}
                 </div>
               </div>

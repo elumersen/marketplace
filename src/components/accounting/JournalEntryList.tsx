@@ -10,7 +10,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -60,6 +59,7 @@ import {
   RotateCcw,
   X,
   Check,
+  Edit,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -90,22 +90,10 @@ interface JournalEntryLineForm {
   credit: number;
 }
 
-const statusConfig = {
-  [JournalEntryStatus.DRAFT]: {
-    label: "Draft",
-    variant: "secondary" as const,
-    icon: FileText,
-  },
-  [JournalEntryStatus.POSTED]: {
-    label: "Posted",
-    variant: "default" as const,
-    icon: CheckCircle,
-  },
-  [JournalEntryStatus.VOID]: {
-    label: "Void",
-    variant: "destructive" as const,
-    icon: XCircle,
-  },
+const statusLabels: Record<JournalEntryStatus, string> = {
+  [JournalEntryStatus.DRAFT]: "Draft",
+  [JournalEntryStatus.POSTED]: "Posted",
+  [JournalEntryStatus.VOID]: "Void",
 };
 
 export const JournalEntryList: React.FC<JournalEntryListProps> = ({
@@ -138,7 +126,8 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   >(null);
   
   const [showInlineForm, setShowInlineForm] = useState(false);
-  const [, setInlineFormData] = useState({
+  const [inlineFormData, setInlineFormData] = useState({
+    entryNumber: '',
     entryDate: new Date().toISOString().split('T')[0],
     description: '',
     status: JournalEntryStatus.DRAFT,
@@ -300,10 +289,6 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
         }
       } else {
         newSet.add(entryId);
-        const entry = journalEntries.find(e => e.id === entryId);
-        if (entry && entry.status === JournalEntryStatus.DRAFT && !editingEntryId) {
-          handleStartEdit(entry);
-        }
       }
       return newSet;
     });
@@ -312,6 +297,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   const handleCreateNewInline = () => {
     setShowInlineForm(true);
     setInlineFormData({
+      entryNumber: '',
       entryDate: new Date().toISOString().split('T')[0],
       description: '',
       status: JournalEntryStatus.DRAFT,
@@ -327,6 +313,19 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   const handleCancelInlineForm = () => {
     setShowInlineForm(false);
     setInlineFormErrors({});
+  };
+
+  const addInlineFormLine = () => {
+    setInlineFormLines([
+      ...inlineFormLines,
+      { accountId: '', description: '', debit: 0, credit: 0 },
+    ]);
+  };
+
+  const removeInlineFormLine = (index: number) => {
+    if (inlineFormLines.length > 2) {
+      setInlineFormLines(inlineFormLines.filter((_, i) => i !== index));
+    }
   };
 
   const updateInlineFormLine = (index: number, field: keyof JournalEntryLineForm, value: string | number) => {
@@ -363,6 +362,27 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     return { totalDebits, totalCredits };
   };
 
+  const isInlineFormValid = () => {
+    if (inlineFormLines.length < 2) return false;
+
+    const hasDebit = inlineFormLines.some((line) => (line.debit || 0) > 0);
+    const hasCredit = inlineFormLines.some((line) => (line.credit || 0) > 0);
+    if (!hasDebit || !hasCredit) return false;
+
+    const { totalDebits, totalCredits } = calculateInlineFormTotals();
+    if (Math.abs(totalDebits - totalCredits) > 0.01) return false;
+
+    const hasMissingAccount = inlineFormLines.some((line) => !line.accountId);
+    if (hasMissingAccount) return false;
+
+    const hasZeroAmount = inlineFormLines.some(
+      (line) => (line.debit || 0) === 0 && (line.credit || 0) === 0
+    );
+    if (hasZeroAmount) return false;
+
+    return true;
+  };
+
   const validateInlineForm = () => {
     const newErrors: Record<string, string> = {};
 
@@ -396,9 +416,10 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     setInlineFormLoading(true);
     try {
       const submitData: CreateJournalEntryData = {
-        entryDate: new Date().toISOString().split('T')[0],
-        description: undefined,
-        status: JournalEntryStatus.DRAFT,
+        entryNumber: inlineFormData.entryNumber || undefined,
+        entryDate: inlineFormData.entryDate,
+        description: inlineFormData.description || undefined,
+        status: inlineFormData.status,
         lines: inlineFormLines.map(line => ({
           accountId: line.accountId,
           description: line.description || undefined,
@@ -462,12 +483,35 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     setEditingFormErrors({});
   };
 
+  const handleEdit = (entry: JournalEntry) => {
+    if (entry.status !== JournalEntryStatus.DRAFT) return;
+    setExpandedEntries(prev => {
+      const next = new Set(prev);
+      next.add(entry.id);
+      return next;
+    });
+    handleStartEdit(entry);
+  };
+
   const handleCancelEdit = () => {
     setEditingEntryId(null);
     setEditingFormData(null);
     setEditingFormDate(undefined);
     setEditingFormLines([]);
     setEditingFormErrors({});
+  };
+
+  const addEditingFormLine = () => {
+    setEditingFormLines([
+      ...editingFormLines,
+      { accountId: '', description: '', debit: 0, credit: 0 },
+    ]);
+  };
+
+  const removeEditingFormLine = (index: number) => {
+    if (editingFormLines.length > 2) {
+      setEditingFormLines(editingFormLines.filter((_, i) => i !== index));
+    }
   };
 
   const updateEditingFormLine = (index: number, field: keyof JournalEntryLineForm, value: string | number) => {
@@ -502,6 +546,27 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     const totalDebits = editingFormLines.reduce((sum, line) => sum + (line.debit || 0), 0);
     const totalCredits = editingFormLines.reduce((sum, line) => sum + (line.credit || 0), 0);
     return { totalDebits, totalCredits };
+  };
+
+  const isEditingFormValid = () => {
+    if (editingFormLines.length < 2) return false;
+
+    const hasDebit = editingFormLines.some((line) => (line.debit || 0) > 0);
+    const hasCredit = editingFormLines.some((line) => (line.credit || 0) > 0);
+    if (!hasDebit || !hasCredit) return false;
+
+    const { totalDebits, totalCredits } = calculateEditingFormTotals();
+    if (Math.abs(totalDebits - totalCredits) > 0.01) return false;
+
+    const hasMissingAccount = editingFormLines.some((line) => !line.accountId);
+    if (hasMissingAccount) return false;
+
+    const hasZeroAmount = editingFormLines.some(
+      (line) => (line.debit || 0) === 0 && (line.credit || 0) === 0
+    );
+    if (hasZeroAmount) return false;
+
+    return true;
   };
 
   const validateEditingForm = () => {
@@ -621,17 +686,9 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     return false;
   });
 
-  const getStatusBadge = (status: JournalEntryStatus) => {
-    const config = statusConfig[status];
-    const Icon = config.icon;
-
-    return (
-      <Badge variant={config.variant} className="flex items-center gap-1">
-        <Icon className="h-3 w-3" />
-        {config.label}
-      </Badge>
-    );
-  };
+  const getStatusText = (status: JournalEntryStatus) => (
+    <span className="text-base text-black">{statusLabels[status]}</span>
+  );
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -838,13 +895,79 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                           >
                             <X className="h-4 w-4" />
                           </Button>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                            <div className="space-y-1">
+                              <Label>Entry Number</Label>
+                              <Input
+                                value={inlineFormData.entryNumber}
+                                onChange={(e) =>
+                                  setInlineFormData({ ...inlineFormData, entryNumber: e.target.value })
+                                }
+                                placeholder="Auto-generated if empty"
+                                className="h-8"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Entry Date *</Label>
+                              <DatePicker
+                                date={inlineFormDate}
+                                setDate={setInlineFormDate}
+                                className="w-full"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                            <div className="space-y-1">
+                              <Label>Entry Description</Label>
+                              <Input
+                                value={inlineFormData.description}
+                                onChange={(e) =>
+                                  setInlineFormData({ ...inlineFormData, description: e.target.value })
+                                }
+                                placeholder="Entry description"
+                                className="h-8"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Status</Label>
+                              <Select
+                                value={inlineFormData.status}
+                                onValueChange={(value) =>
+                                  setInlineFormData({
+                                    ...inlineFormData,
+                                    status: value as JournalEntryStatus,
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="h-8">
+                                  <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value={JournalEntryStatus.DRAFT}>Draft</SelectItem>
+                                  <SelectItem value={JournalEntryStatus.POSTED}>Posted</SelectItem>
+                                  <SelectItem value={JournalEntryStatus.VOID}>Void</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between mb-2">
+                            <Label className="text-sm">Journal Entry Lines</Label>
+                            <Button type="button" onClick={addInlineFormLine} size="sm" variant="outline">
+                              <Plus className="h-4 w-4 mr-2" />
+                              Add Line
+                            </Button>
+                          </div>
+
                           <Table className="relative">
                             <TableHeader>
                               <TableRow>
                                 <TableHead className="text-black text-base">Account</TableHead>
+                                <TableHead className="text-black text-base">Description</TableHead>
                                 <TableHead className="text-right text-black text-base">Debit</TableHead>
                                 <TableHead className="text-right text-black text-base">Credit</TableHead>
-                                <TableHead className="text-black text-base">Description</TableHead>
                                 <TableHead className="w-24"></TableHead>
                               </TableRow>
                             </TableHeader>
@@ -914,6 +1037,14 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                       </div>
                                     </TableCell>
                                     <TableCell>
+                                      <Input
+                                        value={line.description}
+                                        onChange={(e) => updateInlineFormLine(index, 'description', e.target.value)}
+                                        placeholder="Line description"
+                                        className="w-full h-8"
+                                      />
+                                    </TableCell>
+                                    <TableCell>
                                       <div className="space-y-1">
                                         <Input
                                           type="number"
@@ -946,24 +1077,27 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                         )}
                                       />
                                     </TableCell>
-                                    <TableCell>
-                                      <Input
-                                        value={line.description}
-                                        onChange={(e) => updateInlineFormLine(index, 'description', e.target.value)}
-                                        placeholder="Memo"
-                                        className="w-full h-8"
-                                      />
-                                    </TableCell>
                                     <TableCell className="text-right">
-                                      {index === inlineFormLines.length - 1 && (
+                                      <div className="flex items-center justify-end gap-2">
+                                        <Button
+                                          type="button"
+                                          onClick={() => removeInlineFormLine(index)}
+                                          size="icon"
+                                          variant="outline"
+                                          disabled={inlineFormLines.length <= 2}
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                        {index === inlineFormLines.length - 1 && (
                                         <Button
                                           onClick={handleInlineFormSubmit}
-                                          disabled={inlineFormLoading}
+                                          disabled={inlineFormLoading || !isInlineFormValid()}
                                           size="sm"
                                         >
-                                          {inlineFormLoading ? 'Saving...' : 'Save'}
-                                        </Button>
-                                      )}
+                                            {inlineFormLoading ? 'Saving...' : 'Save'}
+                                          </Button>
+                                        )}
+                                      </div>
                                     </TableCell>
                                   </TableRow>
                                   {index === inlineFormLines.length - 1 && inlineFormErrors.balance && (
@@ -977,14 +1111,12 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                               ))}
                               <TableRow>
                                 <TableCell></TableCell>
-                                <TableCell className="text-right font-mono text-green-600 font-medium">
+                                <TableCell className="font-medium text-black text-base">Total</TableCell>
+                                <TableCell className="text-right font-mono text-green-600 text-base">
                                   {formatCurrency(calculateInlineFormTotals().totalDebits)}
                                 </TableCell>
-                                <TableCell className="text-right font-mono text-green-600 font-medium">
+                                <TableCell className="text-right font-mono text-green-600 text-base">
                                   {formatCurrency(calculateInlineFormTotals().totalCredits)}
-                                </TableCell>
-                                <TableCell className="font-medium">
-                                  Total
                                 </TableCell>
                                 <TableCell></TableCell>
                               </TableRow>
@@ -997,6 +1129,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
 
                   {filteredEntries.map((entry) => {
                     const isExpanded = expandedEntries.has(entry.id);
+                    const isEditing = editingEntryId === entry.id;
                     
                     return (
                       <React.Fragment key={entry.id}>
@@ -1028,7 +1161,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                             {entry.description || "No description"}
                           </TableCell>
                           <TableCell className="whitespace-nowrap">
-                            {getStatusBadge(entry.status)}
+                            {getStatusText(entry.status)}
                           </TableCell>
                           <TableCell className="text-right font-mono whitespace-nowrap">
                             {formatCurrency(calculateTotalAmount(entry))}
@@ -1053,6 +1186,10 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                               <DropdownMenuContent align="end">
                                 {entry.status === JournalEntryStatus.DRAFT && (
                                   <>
+                                    <DropdownMenuItem onClick={() => handleEdit(entry)}>
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem
                                       onClick={() =>
                                         handleStatusUpdate(
@@ -1147,15 +1284,69 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                         {isExpanded && (
                           <TableRow className="bg-blue-50 hover:bg-blue-50">
                             <TableCell colSpan={8} className="p-4">
-                              {entry.status === JournalEntryStatus.DRAFT ? (
+                              {isEditing ? (
                                 <div className="bg-white border rounded-lg p-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                                    <div className="space-y-1">
+                                      <Label>Entry Description</Label>
+                                      <Input
+                                        value={editingFormData?.description || ''}
+                                        onChange={(e) =>
+                                          setEditingFormData(prev => ({
+                                            ...prev!,
+                                            description: e.target.value,
+                                          }))
+                                        }
+                                        className="h-8"
+                                        placeholder="Entry description"
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label>Entry Date *</Label>
+                                      <DatePicker
+                                        date={editingFormDate}
+                                        setDate={setEditingFormDate}
+                                        className="w-full"
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label>Status</Label>
+                                      <Select
+                                        value={editingFormData?.status || JournalEntryStatus.DRAFT}
+                                        onValueChange={(value) =>
+                                          setEditingFormData(prev => ({
+                                            ...prev!,
+                                            status: value as JournalEntryStatus,
+                                          }))
+                                        }
+                                      >
+                                        <SelectTrigger className="h-8">
+                                          <SelectValue placeholder="Select status" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value={JournalEntryStatus.DRAFT}>Draft</SelectItem>
+                                          <SelectItem value={JournalEntryStatus.POSTED}>Posted</SelectItem>
+                                          <SelectItem value={JournalEntryStatus.VOID}>Void</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center justify-between mb-2">
+                                    <Label className="text-sm text-base">Journal Entry Lines</Label>
+                                    <Button type="button" onClick={addEditingFormLine} size="sm" variant="outline">
+                                      <Plus className="h-4 w-4 mr-2" />
+                                      Add Line
+                                    </Button>
+                                  </div>
+
                                   <Table>
                                     <TableHeader>
                                       <TableRow>
                                         <TableHead className="text-black text-base">Account</TableHead>
+                                        <TableHead className="text-black text-base">Description</TableHead>
                                         <TableHead className="text-right text-black text-base">Debit</TableHead>
                                         <TableHead className="text-right text-black text-base">Credit</TableHead>
-                                        <TableHead className="text-black text-base">Description</TableHead>
                                         <TableHead className="w-24"></TableHead>
                                       </TableRow>
                                     </TableHeader>
@@ -1225,6 +1416,14 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                               </div>
                                             </TableCell>
                                             <TableCell>
+                                              <Input
+                                                value={line.description}
+                                                onChange={(e) => updateEditingFormLine(index, 'description', e.target.value)}
+                                                placeholder="Line description"
+                                                className="w-full h-8"
+                                              />
+                                            </TableCell>
+                                            <TableCell>
                                               <div className="space-y-1">
                                                 <Input
                                                   type="number"
@@ -1244,37 +1443,56 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                               </div>
                                             </TableCell>
                                             <TableCell>
-                                              <Input
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                value={line.credit || ''}
-                                                onChange={(e) => updateEditingFormLine(index, 'credit', parseFloat(e.target.value) || 0)}
-                                                placeholder="0.00"
-                                                className={cn(
-                                                  "text-right h-8",
-                                                  editingFormErrors[`line_${index}_amount`] && "border-destructive"
+                                              <div className="space-y-1">
+                                                <Input
+                                                  type="number"
+                                                  step="0.01"
+                                                  min="0"
+                                                  value={line.credit || ''}
+                                                  onChange={(e) => updateEditingFormLine(index, 'credit', parseFloat(e.target.value) || 0)}
+                                                  placeholder="0.00"
+                                                  className={cn(
+                                                    "text-right h-8",
+                                                    editingFormErrors[`line_${index}_amount`] && "border-destructive"
+                                                  )}
+                                                />
+                                                {editingFormErrors[`line_${index}_amount`] && (
+                                                  <p className="text-xs text-destructive">{editingFormErrors[`line_${index}_amount`]}</p>
                                                 )}
-                                              />
-                                            </TableCell>
-                                            <TableCell>
-                                              <Input
-                                                value={line.description}
-                                                onChange={(e) => updateEditingFormLine(index, 'description', e.target.value)}
-                                                placeholder="Memo"
-                                                className="w-full h-8"
-                                              />
+                                              </div>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                              {index === editingFormLines.length - 1 && (
+                                              <div className="flex items-center justify-end gap-2">
                                                 <Button
-                                                  onClick={handleSaveEdit}
-                                                  disabled={editingFormLoading}
-                                                  size="sm"
+                                                  type="button"
+                                                  onClick={() => removeEditingFormLine(index)}
+                                                  size="icon"
+                                                  variant="outline"
+                                                  disabled={editingFormLines.length <= 2}
                                                 >
-                                                  {editingFormLoading ? 'Saving...' : 'Save'}
+                                                  <Trash2 className="h-4 w-4" />
                                                 </Button>
-                                              )}
+                                                {index === editingFormLines.length - 1 && (
+                                                  <>
+                                                    <Button
+                                                      type="button"
+                                                      variant="outline"
+                                                      size="sm"
+                                                      onClick={handleCancelEdit}
+                                                      disabled={editingFormLoading}
+                                                    >
+                                                      Cancel
+                                                    </Button>
+                                                    <Button
+                                                      onClick={handleSaveEdit}
+                                                      disabled={editingFormLoading || !isEditingFormValid()}
+                                                      size="sm"
+                                                    >
+                                                      {editingFormLoading ? 'Saving...' : 'Save'}
+                                                    </Button>
+                                                  </>
+                                                )}
+                                              </div>
                                             </TableCell>
                                           </TableRow>
                                           {index === editingFormLines.length - 1 && editingFormErrors.balance && (
@@ -1288,14 +1506,12 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                       ))}
                                       <TableRow>
                                         <TableCell></TableCell>
-                                        <TableCell className="text-right font-mono text-green-600 font-medium">
+                                        <TableCell className="font-medium text-black text-base">Total</TableCell>
+                                        <TableCell className="text-right font-mono text-green-600 font-medium text-base">
                                           {formatCurrency(calculateEditingFormTotals().totalDebits)}
                                         </TableCell>
-                                        <TableCell className="text-right font-mono text-green-600 font-medium">
+                                        <TableCell className="text-right font-mono text-green-600 font-medium text-base">
                                           {formatCurrency(calculateEditingFormTotals().totalCredits)}
-                                        </TableCell>
-                                        <TableCell className="font-medium">
-                                          Total
                                         </TableCell>
                                         <TableCell></TableCell>
                                       </TableRow>
@@ -1334,13 +1550,13 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                       ))}
                                       <TableRow>
                                         <TableCell></TableCell>
-                                        <TableCell className="font-medium">
+                                        <TableCell className="font-medium text-base">
                                           Total
                                         </TableCell>
-                                        <TableCell className="text-right font-mono text-green-600 font-medium">
+                                        <TableCell className="text-right font-mono text-green-600 font-medium text-base">
                                           {formatCurrency(entry.lines?.reduce((sum, line) => sum + line.debit, 0) || 0)}
                                         </TableCell>
-                                        <TableCell className="text-right font-mono text-green-600 font-medium">
+                                        <TableCell className="text-right font-mono text-green-600 font-medium text-base">
                                           {formatCurrency(entry.lines?.reduce((sum, line) => sum + line.credit, 0) || 0)}
                                         </TableCell>
                                       </TableRow>
