@@ -57,7 +57,6 @@ import {
   ChevronDown,
   ChevronUp,
   RotateCcw,
-  X,
   Check,
   Edit,
 } from "lucide-react";
@@ -74,7 +73,7 @@ import {
   Account,
   CreateJournalEntryData,
 } from "@/types/api.types";
-import { journalEntryAPI, accountAPI, getErrorMessage } from "@/lib/api";
+import { journalEntryAPI, accountAPI, companySettingsAPI, getErrorMessage } from "@/lib/api";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -141,11 +140,13 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   const [inlineFormErrors, setInlineFormErrors] = useState<Record<string, string>>({});
   const [inlineFormAccountPopovers, setInlineFormAccountPopovers] = useState<Record<number, boolean>>({});
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [journalEntryPrefix, setJournalEntryPrefix] = useState<string>('');
   
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
   
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editingFormData, setEditingFormData] = useState<{
+    entryNumber: string;
     entryDate: string;
     description: string;
     status: JournalEntryStatus;
@@ -170,7 +171,18 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
 
   useEffect(() => {
     loadAccounts();
+    loadCompanySettings();
   }, []);
+
+  const loadCompanySettings = async () => {
+    try {
+      const response = await companySettingsAPI.getSettings();
+      const prefix = response.settings.journalEntryPrefix || '';
+      setJournalEntryPrefix(prefix);
+    } catch (error) {
+      console.error('Failed to load company settings:', error);
+    }
+  };
 
   useEffect(() => {
     if (inlineFormDate) {
@@ -297,7 +309,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   const handleCreateNewInline = () => {
     setShowInlineForm(true);
     setInlineFormData({
-      entryNumber: '',
+      entryNumber: journalEntryPrefix || '',
       entryDate: new Date().toISOString().split('T')[0],
       description: '',
       status: JournalEntryStatus.DRAFT,
@@ -467,6 +479,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     const date = new Date(year, month - 1, day);
     
     setEditingFormData({
+      entryNumber: entry.entryNumber,
       entryDate: entry.entryDate,
       description: entry.description || '',
       status: entry.status,
@@ -607,6 +620,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     setEditingFormLoading(true);
     try {
       const submitData = {
+        entryNumber: editingFormData.entryNumber || journalEntryPrefix || undefined,
         entryDate: editingFormData.entryDate,
         description: editingFormData.description || undefined,
         status: editingFormData.status,
@@ -628,9 +642,16 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
       
       if (response.journalEntry) {
         setJournalEntries(prevEntries => 
-          prevEntries.map(entry => 
-            entry.id === editingEntryId ? response.journalEntry : entry
-          )
+          prevEntries.map(entry => {
+            if (entry.id === editingEntryId) {
+              return {
+                ...response.journalEntry,
+                createdByUser: entry.createdByUser,
+                updatedByUser: entry.updatedByUser,
+              };
+            }
+            return entry;
+          })
         );
       }
       
@@ -878,25 +899,9 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                   {showInlineForm && (
                     <TableRow className="bg-blue-50 hover:bg-blue-50">
                       <TableCell colSpan={8} className="p-4">
-                        <div className="bg-white border rounded-lg p-4 relative">
-                          <div className="absolute top-0 right-0 w-12 h-12 z-[5]" />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute top-2 right-2 h-6 w-6 z-10"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCancelInlineForm();
-                            }}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onMouseUp={(e) => e.stopPropagation()}
-                            onMouseEnter={(e) => e.stopPropagation()}
-                            onMouseLeave={(e) => e.stopPropagation()}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
+                        <div className="bg-white border rounded-lg p-4">
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                             <div className="space-y-1">
                               <Label>Entry Number</Label>
                               <Input
@@ -909,18 +914,15 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                               />
                             </div>
                             <div className="space-y-1">
-                              <Label>Entry Date *</Label>
+                              <Label>Date</Label>
                               <DatePicker
                                 date={inlineFormDate}
                                 setDate={setInlineFormDate}
                                 className="w-full"
                               />
                             </div>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                             <div className="space-y-1">
-                              <Label>Entry Description</Label>
+                              <Label>Description</Label>
                               <Input
                                 value={inlineFormData.description}
                                 onChange={(e) =>
@@ -953,12 +955,8 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                             </div>
                           </div>
 
-                          <div className="flex items-center justify-between mb-2">
+                          <div className="mb-2">
                             <Label className="text-sm">Journal Entry Lines</Label>
-                            <Button type="button" onClick={addInlineFormLine} size="sm" variant="outline">
-                              <Plus className="h-4 w-4 mr-2" />
-                              Add Line
-                            </Button>
                           </div>
 
                           <Table className="relative">
@@ -1078,26 +1076,15 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                       />
                                     </TableCell>
                                     <TableCell className="text-right">
-                                      <div className="flex items-center justify-end gap-2">
-                                        <Button
-                                          type="button"
-                                          onClick={() => removeInlineFormLine(index)}
-                                          size="icon"
-                                          variant="outline"
-                                          disabled={inlineFormLines.length <= 2}
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                        {index === inlineFormLines.length - 1 && (
-                                        <Button
-                                          onClick={handleInlineFormSubmit}
-                                          disabled={inlineFormLoading || !isInlineFormValid()}
-                                          size="sm"
-                                        >
-                                            {inlineFormLoading ? 'Saving...' : 'Save'}
-                                          </Button>
-                                        )}
-                                      </div>
+                                      <Button
+                                        type="button"
+                                        onClick={() => removeInlineFormLine(index)}
+                                        size="icon"
+                                        variant="outline"
+                                        disabled={inlineFormLines.length <= 2}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
                                     </TableCell>
                                   </TableRow>
                                   {index === inlineFormLines.length - 1 && inlineFormErrors.balance && (
@@ -1122,6 +1109,35 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                               </TableRow>
                             </TableBody>
                           </Table>
+                          <div className="flex items-center justify-between mt-3 pl-2 pr-2">
+                            <Button 
+                              type="button" 
+                              onClick={addInlineFormLine} 
+                              size="sm" 
+                              variant="outline"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Add Line
+                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                onClick={handleInlineFormSubmit}
+                                disabled={inlineFormLoading || !isInlineFormValid()}
+                                size="sm"
+                              >
+                                {inlineFormLoading ? 'Saving...' : 'Save'}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={handleCancelInlineForm}
+                                size="sm"
+                                disabled={inlineFormLoading}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1286,9 +1302,31 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                             <TableCell colSpan={8} className="p-4">
                               {isEditing ? (
                                 <div className="bg-white border rounded-lg p-4">
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                                     <div className="space-y-1">
-                                      <Label>Entry Description</Label>
+                                      <Label>Entry Number</Label>
+                                      <Input
+                                        value={editingFormData?.entryNumber || ''}
+                                        onChange={(e) =>
+                                          setEditingFormData(prev => ({
+                                            ...prev!,
+                                            entryNumber: e.target.value,
+                                          }))
+                                        }
+                                        className="h-8"
+                                        placeholder="Auto-generated if empty"
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label>Date</Label>
+                                      <DatePicker
+                                        date={editingFormDate}
+                                        setDate={setEditingFormDate}
+                                        className="w-full"
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label>Description</Label>
                                       <Input
                                         value={editingFormData?.description || ''}
                                         onChange={(e) =>
@@ -1298,15 +1336,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                           }))
                                         }
                                         className="h-8"
-                                        placeholder="Entry description"
-                                      />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <Label>Entry Date *</Label>
-                                      <DatePicker
-                                        date={editingFormDate}
-                                        setDate={setEditingFormDate}
-                                        className="w-full"
+                                        placeholder="Description"
                                       />
                                     </div>
                                     <div className="space-y-1">
@@ -1332,12 +1362,8 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center justify-between mb-2">
+                                  <div className="mb-2">
                                     <Label className="text-sm text-base">Journal Entry Lines</Label>
-                                    <Button type="button" onClick={addEditingFormLine} size="sm" variant="outline">
-                                      <Plus className="h-4 w-4 mr-2" />
-                                      Add Line
-                                    </Button>
                                   </div>
 
                                   <Table>
@@ -1462,37 +1488,15 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                               </div>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                              <div className="flex items-center justify-end gap-2">
-                                                <Button
-                                                  type="button"
-                                                  onClick={() => removeEditingFormLine(index)}
-                                                  size="icon"
-                                                  variant="outline"
-                                                  disabled={editingFormLines.length <= 2}
-                                                >
-                                                  <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                                {index === editingFormLines.length - 1 && (
-                                                  <>
-                                                    <Button
-                                                      type="button"
-                                                      variant="outline"
-                                                      size="sm"
-                                                      onClick={handleCancelEdit}
-                                                      disabled={editingFormLoading}
-                                                    >
-                                                      Cancel
-                                                    </Button>
-                                                    <Button
-                                                      onClick={handleSaveEdit}
-                                                      disabled={editingFormLoading || !isEditingFormValid()}
-                                                      size="sm"
-                                                    >
-                                                      {editingFormLoading ? 'Saving...' : 'Save'}
-                                                    </Button>
-                                                  </>
-                                                )}
-                                              </div>
+                                              <Button
+                                                type="button"
+                                                onClick={() => removeEditingFormLine(index)}
+                                                size="icon"
+                                                variant="outline"
+                                                disabled={editingFormLines.length <= 2}
+                                              >
+                                                <Trash2 className="h-4 w-4" />
+                                              </Button>
                                             </TableCell>
                                           </TableRow>
                                           {index === editingFormLines.length - 1 && editingFormErrors.balance && (
@@ -1517,6 +1521,35 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                       </TableRow>
                                     </TableBody>
                                   </Table>
+                                  <div className="flex items-center justify-between mt-3 pl-2 pr-2">
+                                    <Button 
+                                      type="button" 
+                                      onClick={addEditingFormLine} 
+                                      size="sm" 
+                                      variant="outline"
+                                    >
+                                      <Plus className="h-4 w-4 mr-2" />
+                                      Add Line
+                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        onClick={handleSaveEdit}
+                                        disabled={editingFormLoading || !isEditingFormValid()}
+                                        size="sm"
+                                      >
+                                        {editingFormLoading ? 'Saving...' : 'Save'}
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={handleCancelEdit}
+                                        size="sm"
+                                        disabled={editingFormLoading}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  </div>
                                 </div>
                               ) : (
                                 <div className="bg-white border rounded-lg p-4">
