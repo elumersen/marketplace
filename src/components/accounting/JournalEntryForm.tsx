@@ -2,14 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Trash2, Plus, Calculator, ArrowLeft } from 'lucide-react';
 import { Account, CreateJournalEntryData, JournalEntryStatus } from '@/types/api.types';
-import { accountAPI, journalEntryAPI, getErrorMessage } from '@/lib/api';
+import { accountAPI, journalEntryAPI, companySettingsAPI, getErrorMessage } from '@/lib/api';
 
 interface JournalEntryFormProps {
   initialData?: CreateJournalEntryData;
@@ -60,9 +59,11 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [journalEntryPrefix, setJournalEntryPrefix] = useState<string>('');
 
   useEffect(() => {
     loadAccounts();
+    loadCompanySettings();
     if (initialData) {
       setFormData({
         entryNumber: initialData.entryNumber || '',
@@ -79,6 +80,31 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
       })));
     }
   }, [initialData]);
+
+  useEffect(() => {
+    if (!initialData && journalEntryPrefix) {
+      setFormData(prev => ({
+        ...prev,
+        entryNumber: journalEntryPrefix,
+      }));
+    }
+  }, [journalEntryPrefix, initialData]);
+
+  const loadCompanySettings = async () => {
+    try {
+      const response = await companySettingsAPI.getSettings();
+      const prefix = response.settings.journalEntryPrefix || '';
+      setJournalEntryPrefix(prefix);
+      if (!initialData) {
+        setFormData(prev => ({
+          ...prev,
+          entryNumber: prefix || '',
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to load company settings:', error);
+    }
+  };
 
   const loadAccounts = async () => {
     try {
@@ -164,7 +190,7 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
     setLoading(true);
     try {
       const submitData: CreateJournalEntryData = {
-        entryNumber: formData.entryNumber || undefined,
+        entryNumber: formData.entryNumber || journalEntryPrefix || undefined,
         entryDate: formData.entryDate,
         description: formData.description || undefined,
         status: formData.status,
@@ -214,7 +240,7 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label htmlFor="entryNumber">Entry Number</Label>
               <Input
@@ -226,7 +252,7 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="entryDate">Entry Date *</Label>
+              <Label htmlFor="entryDate">Date</Label>
               <DatePicker
                 date={entryDate}
                 setDate={setEntryDate}
@@ -236,46 +262,39 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
                 <p className="text-sm text-red-600">{errors.entryDate}</p>
               )}
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Enter journal entry description..."
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
-            <Select
-              value={formData.status}
-              onValueChange={(value) => setFormData({ ...formData, status: value as JournalEntryStatus })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={JournalEntryStatus.DRAFT}>Draft</SelectItem>
-                <SelectItem value={JournalEntryStatus.POSTED}>Posted</SelectItem>
-                <SelectItem value={JournalEntryStatus.VOID}>Void</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Input
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Description"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) => setFormData({ ...formData, status: value as JournalEntryStatus })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={JournalEntryStatus.DRAFT}>Draft</SelectItem>
+                  <SelectItem value={JournalEntryStatus.POSTED}>Posted</SelectItem>
+                  <SelectItem value={JournalEntryStatus.VOID}>Void</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
+          <CardTitle>
             Journal Entry Lines
-            <Button type="button" onClick={addLine} size="sm" variant="outline">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Line
-            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -371,7 +390,7 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
 
       <Card>
         <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <Calculator className="h-4 w-4" />
@@ -387,15 +406,26 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
                 </span>
               </div>
             </div>
+          </div>
+          <div className="flex items-center justify-between pl-2 pr-2">
+            <Button 
+              type="button" 
+              onClick={addLine} 
+              size="sm" 
+              variant="outline"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Line
+            </Button>
             <div className="flex space-x-2">
+              <Button type="submit" disabled={loading || !isBalanced}>
+                {loading ? 'Saving...' : isEditing ? 'Update Entry' : 'Create Entry'}
+              </Button>
               {onCancel && (
                 <Button type="button" variant="outline" onClick={onCancel}>
                   Cancel
                 </Button>
               )}
-              <Button type="submit" disabled={loading || !isBalanced}>
-                {loading ? 'Saving...' : isEditing ? 'Update Entry' : 'Create Entry'}
-              </Button>
             </div>
           </div>
         </CardContent>
