@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,12 +7,24 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Trash2, Plus, Calculator, ArrowLeft } from 'lucide-react';
-import { Account, CreateJournalEntryData, JournalEntryStatus } from '@/types/api.types';
+import { Account, CreateJournalEntryData, JournalEntry, JournalEntryStatus } from '@/types/api.types';
 import { accountAPI, journalEntryAPI, companySettingsAPI, getErrorMessage } from '@/lib/api';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 interface JournalEntryFormProps {
   initialData?: CreateJournalEntryData;
-  onSuccess?: (journalEntry: any) => void;
+  onSuccess?: (journalEntry: JournalEntry) => void;
   onCancel?: () => void;
   isEditing?: boolean;
   journalEntryId?: string;
@@ -33,16 +45,22 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
   isEditing = false,
   journalEntryId,
 }) => {
+  const { toast } = useToast();
+  const draftReminderResolvedRef = useRef(false);
   const [formData, setFormData] = useState({
     entryNumber: '',
     entryDate: new Date().toISOString().split('T')[0],
     description: '',
     status: JournalEntryStatus.DRAFT,
+    isAdjusting: false,
   });
   const [entryDate, setEntryDate] = useState<Date | undefined>(new Date());
+  const [draftReminderOpen, setDraftReminderOpen] = useState(false);
+  const [draftReminderEntryId, setDraftReminderEntryId] = useState<string | null>(null);
+  const [draftReminderBusy, setDraftReminderBusy] = useState(false);
+  const [draftReminderJournalEntry, setDraftReminderJournalEntry] = useState<JournalEntry | null>(null);
 
   useEffect(() => {
-    // Update formData when entryDate changes
     if (entryDate) {
       setFormData(prev => ({
         ...prev,
@@ -70,6 +88,7 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
         entryDate: initialData.entryDate,
         description: initialData.description || '',
         status: initialData.status || JournalEntryStatus.DRAFT,
+        isAdjusting: Boolean(initialData.isAdjusting),
       });
       setEntryDate(new Date(initialData.entryDate));
       setLines(initialData.lines.map(line => ({
@@ -129,7 +148,6 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
     const newLines = [...lines];
     newLines[index] = { ...newLines[index], [field]: value };
     
-    // If debit is entered, clear credit and vice versa
     if (field === 'debit' && typeof value === 'number' && value > 0) {
       newLines[index].credit = 0;
     } else if (field === 'credit' && typeof value === 'number' && value > 0) {
@@ -194,6 +212,7 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
         entryDate: formData.entryDate,
         description: formData.description || undefined,
         status: formData.status,
+        isAdjusting: formData.isAdjusting,
         lines: lines.map(line => ({
           accountId: line.accountId,
           description: line.description || undefined,
@@ -209,12 +228,76 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
         response = await journalEntryAPI.create(submitData);
       }
 
-      console.log('Journal entry saved successfully:', response.message);
-      onSuccess?.(response.journalEntry);
+      if (response.journalEntry?.status === JournalEntryStatus.DRAFT) {
+        draftReminderResolvedRef.current = false;
+        setDraftReminderEntryId(response.journalEntry.id);
+        setDraftReminderJournalEntry(response.journalEntry);
+        setDraftReminderOpen(true);
+      } else {
+        toast({
+          variant: 'success',
+          title: 'Success',
+          description: isEditing ? 'Journal entry updated successfully' : 'Journal entry created successfully',
+        });
+        onSuccess?.(response.journalEntry);
+      }
     } catch (error) {
       console.error('Failed to save journal entry:', getErrorMessage(error));
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: getErrorMessage(error),
+      });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDraftReminderNo = () => {
+    if (draftReminderBusy) return;
+    if (!draftReminderJournalEntry) {
+      setDraftReminderOpen(false);
+      setDraftReminderEntryId(null);
+      return;
+    }
+
+    draftReminderResolvedRef.current = true;
+    toast({
+      variant: 'success',
+      title: 'Success',
+      description: isEditing ? 'Journal entry updated as Draft' : 'Journal entry created as Draft',
+    });
+    const je = draftReminderJournalEntry;
+    setDraftReminderOpen(false);
+    setDraftReminderEntryId(null);
+    setDraftReminderJournalEntry(null);
+    onSuccess?.(je);
+  };
+
+  const handleDraftReminderPost = async () => {
+    if (!draftReminderEntryId) return;
+    try {
+      setDraftReminderBusy(true);
+      draftReminderResolvedRef.current = true;
+      const response = await journalEntryAPI.updateStatus(draftReminderEntryId, JournalEntryStatus.POSTED);
+      toast({
+        variant: 'success',
+        title: 'Success',
+        description: 'Journal entry posted successfully',
+      });
+      setDraftReminderOpen(false);
+      setDraftReminderEntryId(null);
+      setDraftReminderJournalEntry(null);
+      onSuccess?.(response.journalEntry);
+    } catch (error) {
+      console.error('Failed to post journal entry:', getErrorMessage(error));
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: getErrorMessage(error),
+      });
+    } finally {
+      setDraftReminderBusy(false);
     }
   };
 
@@ -222,7 +305,8 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
   const isBalanced = Math.abs(totalDebits - totalCredits) < 0.01;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <>
+      <form onSubmit={handleSubmit} className="space-y-6">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -240,7 +324,7 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="space-y-2">
               <Label htmlFor="entryNumber">Entry Number</Label>
               <Input
@@ -261,6 +345,20 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
               {errors.entryDate && (
                 <p className="text-sm text-red-600">{errors.entryDate}</p>
               )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="isAdjusting">Adjusting</Label>
+              <div className="flex h-10 items-center rounded-md border border-input bg-background px-3">
+                <Checkbox
+                  id="isAdjusting"
+                  checked={formData.isAdjusting}
+                  className="scale-125"
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, isAdjusting: checked === true })
+                  }
+                />
+                <span className="ml-2 text-sm text-foreground">Adjusting</span>
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
@@ -430,6 +528,44 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
           </div>
         </CardContent>
       </Card>
-    </form>
+      </form>
+
+      <AlertDialog
+        open={draftReminderOpen}
+        onOpenChange={(open) => {
+          if (
+            !open &&
+            !draftReminderResolvedRef.current &&
+            draftReminderJournalEntry &&
+            !draftReminderBusy
+          ) {
+            handleDraftReminderNo();
+          }
+          setDraftReminderOpen(open);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Journal Entry Drafted</AlertDialogTitle>
+            <AlertDialogDescription>
+              This Journal Entry is now Drafted. Do you want to post now?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={draftReminderBusy}
+              onClick={() => {
+                handleDraftReminderNo();
+              }}
+            >
+              No
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDraftReminderPost} disabled={draftReminderBusy}>
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };

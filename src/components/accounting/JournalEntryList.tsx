@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,6 +45,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Search,
   Plus,
@@ -130,6 +131,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     entryDate: new Date().toISOString().split('T')[0],
     description: '',
     status: JournalEntryStatus.DRAFT,
+    isAdjusting: false,
   });
   const [inlineFormDate, setInlineFormDate] = useState<Date | undefined>(new Date());
   const [inlineFormLines, setInlineFormLines] = useState<JournalEntryLineForm[]>([
@@ -150,12 +152,20 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     entryDate: string;
     description: string;
     status: JournalEntryStatus;
+    isAdjusting: boolean;
   } | null>(null);
   const [editingFormDate, setEditingFormDate] = useState<Date | undefined>(undefined);
   const [editingFormLines, setEditingFormLines] = useState<JournalEntryLineForm[]>([]);
   const [editingFormLoading, setEditingFormLoading] = useState(false);
   const [editingFormErrors, setEditingFormErrors] = useState<Record<string, string>>({});
   const [editingFormAccountPopovers, setEditingFormAccountPopovers] = useState<Record<number, boolean>>({});
+
+  const [draftReminderOpen, setDraftReminderOpen] = useState(false);
+  const [draftReminderEntryId, setDraftReminderEntryId] = useState<string | null>(null);
+  const [draftReminderBusy, setDraftReminderBusy] = useState(false);
+  const [draftReminderMode, setDraftReminderMode] = useState<"create" | "update" | null>(null);
+  const draftReminderResolvedRef = useRef(false);
+  const [adjustingUpdatingIds, setAdjustingUpdatingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setFilters((prev) => ({
@@ -313,6 +323,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
       entryDate: new Date().toISOString().split('T')[0],
       description: '',
       status: JournalEntryStatus.DRAFT,
+      isAdjusting: false,
     });
     setInlineFormDate(new Date());
     setInlineFormLines([
@@ -432,6 +443,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
         entryDate: inlineFormData.entryDate,
         description: inlineFormData.description || undefined,
         status: inlineFormData.status,
+        isAdjusting: inlineFormData.isAdjusting,
         lines: inlineFormLines.map(line => ({
           accountId: line.accountId,
           description: line.description || undefined,
@@ -441,12 +453,6 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
       };
 
       const response = await journalEntryAPI.create(submitData);
-      
-      toast({
-        variant: "success",
-        title: "Success",
-        description: "Journal entry created successfully",
-      });
       
       if (response.journalEntry) {
         setJournalEntries(prevEntries => [response.journalEntry, ...prevEntries]);
@@ -458,6 +464,19 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
       ]);
       setInlineFormAccountPopovers({});
       setShowInlineForm(false);
+
+      if (response.journalEntry?.status === JournalEntryStatus.DRAFT) {
+        draftReminderResolvedRef.current = false;
+        setDraftReminderEntryId(response.journalEntry.id);
+        setDraftReminderMode("create");
+        setDraftReminderOpen(true);
+      } else {
+        toast({
+          variant: "success",
+          title: "Success",
+          description: "Journal entry created successfully",
+        });
+      }
     } catch (error) {
       console.error('Failed to create journal entry:', getErrorMessage(error));
       toast({
@@ -483,6 +502,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
       entryDate: entry.entryDate,
       description: entry.description || '',
       status: entry.status,
+      isAdjusting: Boolean(entry.isAdjusting),
     });
     setEditingFormDate(date);
     setEditingFormLines(
@@ -624,6 +644,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
         entryDate: editingFormData.entryDate,
         description: editingFormData.description || undefined,
         status: editingFormData.status,
+        isAdjusting: editingFormData.isAdjusting,
         lines: editingFormLines.map(line => ({
           accountId: line.accountId,
           description: line.description || undefined,
@@ -633,12 +654,6 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
       };
 
       const response = await journalEntryAPI.update(editingEntryId, submitData);
-      
-      toast({
-        variant: "success",
-        title: "Success",
-        description: "Journal entry updated successfully",
-      });
       
       if (response.journalEntry) {
         setJournalEntries(prevEntries => 
@@ -662,6 +677,19 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
       });
       
       handleCancelEdit();
+
+      if (response.journalEntry?.status === JournalEntryStatus.DRAFT) {
+        draftReminderResolvedRef.current = false;
+        setDraftReminderEntryId(response.journalEntry.id);
+        setDraftReminderMode("update");
+        setDraftReminderOpen(true);
+      } else {
+        toast({
+          variant: "success",
+          title: "Success",
+          description: "Journal entry updated successfully",
+        });
+      }
     } catch (error) {
       console.error('Failed to update journal entry:', getErrorMessage(error));
       toast({
@@ -721,6 +749,91 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   const calculateTotalAmount = (entry: JournalEntry) => {
     if (!entry.lines) return 0;
     return entry.lines.reduce((sum, line) => sum + line.debit, 0);
+  };
+
+  const handleToggleAdjusting = async (entry: JournalEntry, next: boolean) => {
+    if (!entry?.id) return;
+    if (adjustingUpdatingIds.has(entry.id)) return;
+
+    setAdjustingUpdatingIds((prev) => {
+      const s = new Set(prev);
+      s.add(entry.id);
+      return s;
+    });
+
+    setJournalEntries((prevEntries) =>
+      prevEntries.map((e) => (e.id === entry.id ? { ...e, isAdjusting: next } : e))
+    );
+
+    try {
+      const response = await journalEntryAPI.update(entry.id, { isAdjusting: next });
+
+      if (response.journalEntry) {
+        setJournalEntries((prevEntries) =>
+          prevEntries.map((e) => {
+            if (e.id !== entry.id) return e;
+            return {
+              ...e,
+              ...response.journalEntry,
+              createdByUser: e.createdByUser,
+              updatedByUser: e.updatedByUser,
+            };
+          })
+        );
+      }
+    } catch (error) {
+      setJournalEntries((prevEntries) =>
+        prevEntries.map((e) => (e.id === entry.id ? { ...e, isAdjusting: entry.isAdjusting } : e))
+      );
+
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: getErrorMessage(error),
+      });
+    } finally {
+      setAdjustingUpdatingIds((prev) => {
+        const s = new Set(prev);
+        s.delete(entry.id);
+        return s;
+      });
+    }
+  };
+
+  const handleDraftReminderPost = async () => {
+    if (!draftReminderEntryId) return;
+    try {
+      setDraftReminderBusy(true);
+      draftReminderResolvedRef.current = true;
+      await handleStatusUpdate(draftReminderEntryId, JournalEntryStatus.POSTED);
+      setDraftReminderOpen(false);
+      setDraftReminderEntryId(null);
+      setDraftReminderMode(null);
+    } finally {
+      setDraftReminderBusy(false);
+    }
+  };
+
+  const handleDraftReminderNo = () => {
+    if (draftReminderBusy) return;
+    if (!draftReminderEntryId) {
+      setDraftReminderOpen(false);
+      setDraftReminderMode(null);
+      return;
+    }
+
+    draftReminderResolvedRef.current = true;
+    toast({
+      variant: "success",
+      title: "Success",
+      description:
+        draftReminderMode === "update"
+          ? "Journal entry updated as Draft"
+          : "Journal entry created as Draft",
+    });
+    setDraftReminderOpen(false);
+    setDraftReminderEntryId(null);
+    setDraftReminderMode(null);
   };
 
   return (
@@ -819,6 +932,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                       Entry Number
                     </TableHead>
                     <TableHead className="whitespace-nowrap">Date</TableHead>
+                    <TableHead className="whitespace-nowrap w-16 text-center">Adjusting</TableHead>
                     <TableHead className="whitespace-nowrap">
                       Description
                     </TableHead>
@@ -842,6 +956,9 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                       </TableCell>
                       <TableCell>
                         <Skeleton className="h-5 w-28" />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Skeleton className="h-5 w-6 mx-auto" />
                       </TableCell>
                       <TableCell>
                         <Skeleton className="h-5 w-48" />
@@ -880,7 +997,8 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                       Entry Number
                     </TableHead>
                     <TableHead className="whitespace-nowrap">Date</TableHead>
-                    <TableHead className="whitespace-nowrap">
+                    <TableHead className="whitespace-nowrap w-16 text-center">Adjusting</TableHead>
+                    <TableHead className="whitespace-nowrap"> 
                       Description
                     </TableHead>
                     <TableHead className="whitespace-nowrap">Status</TableHead>
@@ -901,7 +1019,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                       <TableCell colSpan={8} className="p-4">
                         <div className="bg-white border rounded-lg p-4">
 
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
+                          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
                             <div className="space-y-1">
                               <Label>Entry Number</Label>
                               <Input
@@ -910,7 +1028,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                   setInlineFormData({ ...inlineFormData, entryNumber: e.target.value })
                                 }
                                 placeholder="Auto-generated if empty"
-                                className="h-8"
+                                className="h-10"
                               />
                             </div>
                             <div className="space-y-1">
@@ -918,8 +1036,25 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                               <DatePicker
                                 date={inlineFormDate}
                                 setDate={setInlineFormDate}
-                                className="w-full"
+                                className="w-full h-10"
                               />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Adjusting</Label>
+                              <div className="flex h-10 items-center rounded-md border border-input bg-background px-3 py-2">
+                                <Checkbox
+                                  id="inline-isAdjusting"
+                                  checked={inlineFormData.isAdjusting}
+                                  className="scale-125"
+                                  onCheckedChange={(checked) =>
+                                    setInlineFormData({
+                                      ...inlineFormData,
+                                      isAdjusting: checked === true,
+                                    })
+                                  }
+                                />
+                                <span className="ml-2 text-sm text-foreground">Adjusting</span>
+                              </div>
                             </div>
                             <div className="space-y-1">
                               <Label>Description</Label>
@@ -929,7 +1064,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                   setInlineFormData({ ...inlineFormData, description: e.target.value })
                                 }
                                 placeholder="Entry description"
-                                className="h-8"
+                                className="h-10"
                               />
                             </div>
                             <div className="space-y-1">
@@ -943,7 +1078,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                   })
                                 }
                               >
-                                <SelectTrigger className="h-8">
+                                <SelectTrigger className="h-10">
                                   <SelectValue placeholder="Select status" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1173,6 +1308,21 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                               return format(date, "MMM dd, yyyy");
                             })()}
                           </TableCell>
+                          <TableCell
+                            className="text-center whitespace-nowrap"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex justify-center">
+                              <Checkbox
+                                checked={Boolean(entry.isAdjusting)}
+                                className="scale-125"
+                                onCheckedChange={(checked) =>
+                                  handleToggleAdjusting(entry, checked === true)
+                                }
+                                aria-label="Mark journal entry as adjusting"
+                              />
+                            </div>
+                          </TableCell>
                           <TableCell className="max-w-xs truncate">
                             {entry.description || "No description"}
                           </TableCell>
@@ -1302,7 +1452,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                             <TableCell colSpan={8} className="p-4">
                               {isEditing ? (
                                 <div className="bg-white border rounded-lg p-4">
-                                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
+                                  <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
                                     <div className="space-y-1">
                                       <Label>Entry Number</Label>
                                       <Input
@@ -1313,7 +1463,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                             entryNumber: e.target.value,
                                           }))
                                         }
-                                        className="h-8"
+                                        className="h-10"
                                         placeholder="Auto-generated if empty"
                                       />
                                     </div>
@@ -1322,8 +1472,25 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                       <DatePicker
                                         date={editingFormDate}
                                         setDate={setEditingFormDate}
-                                        className="w-full"
+                                        className="w-full h-10"
                                       />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label>Adjusting</Label>
+                                      <div className="flex h-10 items-center rounded-md border border-input bg-background px-3 py-2">
+                                        <Checkbox
+                                          id="edit-isAdjusting"
+                                          checked={editingFormData?.isAdjusting || false}
+                                          className="scale-125"
+                                          onCheckedChange={(checked) =>
+                                            setEditingFormData((prev) => ({
+                                              ...prev!,
+                                              isAdjusting: checked === true,
+                                            }))
+                                          }
+                                        />
+                                        <span className="ml-2 text-sm text-foreground">Adjusting</span>
+                                      </div>
                                     </div>
                                     <div className="space-y-1">
                                       <Label>Description</Label>
@@ -1335,7 +1502,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                             description: e.target.value,
                                           }))
                                         }
-                                        className="h-8"
+                                        className="h-10"
                                         placeholder="Description"
                                       />
                                     </div>
@@ -1350,7 +1517,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                           }))
                                         }
                                       >
-                                        <SelectTrigger className="h-8">
+                                        <SelectTrigger className="h-10">
                                           <SelectValue placeholder="Select status" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -1625,6 +1792,34 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
               className="bg-red-600 hover:bg-red-700"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={draftReminderOpen}
+        onOpenChange={(open) => {
+          if (!open && !draftReminderResolvedRef.current) {
+            handleDraftReminderNo();
+            return;
+          }
+          setDraftReminderOpen(open);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Journal Entry Drafted</AlertDialogTitle>
+            <AlertDialogDescription>
+              This Journal Entry is now Drafted. Do you want to post now?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={draftReminderBusy} onClick={handleDraftReminderNo}>
+              No
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDraftReminderPost} disabled={draftReminderBusy}>
+              Yes
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
