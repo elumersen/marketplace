@@ -761,7 +761,6 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
       return s;
     });
 
-    // Optimistic UI update
     setJournalEntries((prevEntries) =>
       prevEntries.map((e) => (e.id === entry.id ? { ...e, isAdjusting: next } : e))
     );
@@ -773,7 +772,6 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
         setJournalEntries((prevEntries) =>
           prevEntries.map((e) => {
             if (e.id !== entry.id) return e;
-            // Preserve user objects that backend may not include on update
             return {
               ...e,
               ...response.journalEntry,

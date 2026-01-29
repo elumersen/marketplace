@@ -61,7 +61,6 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
   const [draftReminderJournalEntry, setDraftReminderJournalEntry] = useState<JournalEntry | null>(null);
 
   useEffect(() => {
-    // Update formData when entryDate changes
     if (entryDate) {
       setFormData(prev => ({
         ...prev,
@@ -149,7 +148,6 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
     const newLines = [...lines];
     newLines[index] = { ...newLines[index], [field]: value };
     
-    // If debit is entered, clear credit and vice versa
     if (field === 'debit' && typeof value === 'number' && value > 0) {
       newLines[index].credit = 0;
     } else if (field === 'credit' && typeof value === 'number' && value > 0) {
@@ -541,7 +539,6 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
             draftReminderJournalEntry &&
             !draftReminderBusy
           ) {
-            // Treat closing the dialog (ESC / click outside) as "No" (keep Draft)
             handleDraftReminderNo();
           }
           setDraftReminderOpen(open);
