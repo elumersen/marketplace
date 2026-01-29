@@ -1,6 +1,6 @@
 // Common API response types
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   message?: string;
   data?: T;
 }
@@ -677,6 +677,7 @@ export interface JournalEntry {
   description: string | null;
   status: JournalEntryStatus;
   isActive: boolean;
+  isAdjusting: boolean;
   transactionType?: TransactionType;
   payee?: string | null;
   createdAt: string;
@@ -715,6 +716,7 @@ export interface CreateJournalEntryData {
   entryDate: string;
   description?: string;
   status?: JournalEntryStatus;
+  isAdjusting?: boolean;
   transactionType?: TransactionType;
   payee?: string;
   lines: Array<{
@@ -729,6 +731,7 @@ export interface UpdateJournalEntryData {
   entryDate?: string;
   description?: string;
   status?: JournalEntryStatus;
+  isAdjusting?: boolean;
   transactionType?: TransactionType;
   payee?: string;
   lines?: Array<{
