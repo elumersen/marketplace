@@ -150,14 +150,20 @@ export const JournalEntryDetail: React.FC<JournalEntryDetailProps> = ({
             </>
           )}
           {journalEntry.status === JournalEntryStatus.POSTED && (
-            <Button 
-              variant="destructive"
-              onClick={() => handleStatusUpdate(JournalEntryStatus.VOID)}
-              disabled={updatingStatus}
-            >
-              <XCircle className="h-4 w-4 mr-2" />
-              Void
-            </Button>
+            <>
+              <Button onClick={() => onEdit?.(journalEntry)}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={() => handleStatusUpdate(JournalEntryStatus.VOID)}
+                disabled={updatingStatus}
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Void
+              </Button>
+            </>
           )}
         </div>
       </div>
