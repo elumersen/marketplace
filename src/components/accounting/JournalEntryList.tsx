@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,7 +78,12 @@ import {
   UpdateJournalEntryData,
   CompanySettings,
 } from "@/types/api.types";
-import { journalEntryAPI, accountAPI, companySettingsAPI, getErrorMessage } from "@/lib/api";
+import {
+  journalEntryAPI,
+  accountAPI,
+  companySettingsAPI,
+  getErrorMessage,
+} from "@/lib/api";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -116,8 +122,8 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
 
   useEffect(() => {
     const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
@@ -127,28 +133,38 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   const [journalEntryToDelete, setJournalEntryToDelete] = useState<
     string | null
   >(null);
-  
+
   const [showInlineForm, setShowInlineForm] = useState(false);
   const [inlineFormData, setInlineFormData] = useState({
-    entryNumber: '',
-    entryDate: new Date().toISOString().split('T')[0],
-    description: '',
+    entryNumber: "",
+    entryDate: new Date().toISOString().split("T")[0],
+    description: "",
     status: JournalEntryStatus.DRAFT,
     isAdjusting: false,
   });
-  const [inlineFormDate, setInlineFormDate] = useState<Date | undefined>(new Date());
-  const [inlineFormLines, setInlineFormLines] = useState<JournalEntryLineForm[]>([
-    { accountId: '', description: '', debit: 0, credit: 0 },
-    { accountId: '', description: '', debit: 0, credit: 0 },
+  const [inlineFormDate, setInlineFormDate] = useState<Date | undefined>(
+    new Date(),
+  );
+  const [inlineFormLines, setInlineFormLines] = useState<
+    JournalEntryLineForm[]
+  >([
+    { accountId: "", description: "", debit: 0, credit: 0 },
+    { accountId: "", description: "", debit: 0, credit: 0 },
   ]);
   const [inlineFormLoading, setInlineFormLoading] = useState(false);
-  const [inlineFormErrors, setInlineFormErrors] = useState<Record<string, string>>({});
-  const [inlineFormAccountPopovers, setInlineFormAccountPopovers] = useState<Record<number, boolean>>({});
+  const [inlineFormErrors, setInlineFormErrors] = useState<
+    Record<string, string>
+  >({});
+  const [inlineFormAccountPopovers, setInlineFormAccountPopovers] = useState<
+    Record<number, boolean>
+  >({});
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [journalEntryPrefix, setJournalEntryPrefix] = useState<string>('');
-  
-  const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
-  
+  const [journalEntryPrefix, setJournalEntryPrefix] = useState<string>("");
+
+  const [expandedEntries, setExpandedEntries] = useState<Set<string>>(
+    new Set(),
+  );
+
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editingFormData, setEditingFormData] = useState<{
     entryNumber: string;
@@ -157,23 +173,37 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     status: JournalEntryStatus;
     isAdjusting: boolean;
   } | null>(null);
-  const [editingFormDate, setEditingFormDate] = useState<Date | undefined>(undefined);
-  const [editingFormLines, setEditingFormLines] = useState<JournalEntryLineForm[]>([]);
+  const [editingFormDate, setEditingFormDate] = useState<Date | undefined>(
+    undefined,
+  );
+  const [editingFormLines, setEditingFormLines] = useState<
+    JournalEntryLineForm[]
+  >([]);
   const [editingFormLoading, setEditingFormLoading] = useState(false);
-  const [editingFormErrors, setEditingFormErrors] = useState<Record<string, string>>({});
-  const [editingFormAccountPopovers, setEditingFormAccountPopovers] = useState<Record<number, boolean>>({});
-  const [editingOriginalStatus, setEditingOriginalStatus] = useState<JournalEntryStatus | null>(null);
+  const [editingFormErrors, setEditingFormErrors] = useState<
+    Record<string, string>
+  >({});
+  const [editingFormAccountPopovers, setEditingFormAccountPopovers] = useState<
+    Record<number, boolean>
+  >({});
 
   const [draftReminderOpen, setDraftReminderOpen] = useState(false);
-  const [draftReminderEntryId, setDraftReminderEntryId] = useState<string | null>(null);
+  const [draftReminderEntryId, setDraftReminderEntryId] = useState<
+    string | null
+  >(null);
   const [draftReminderBusy, setDraftReminderBusy] = useState(false);
-  const [draftReminderMode, setDraftReminderMode] = useState<"create" | "update" | null>(null);
+  const [draftReminderMode, setDraftReminderMode] = useState<
+    "create" | "update" | null
+  >(null);
   const draftReminderResolvedRef = useRef(false);
 
-  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
+  const [companySettings, setCompanySettings] =
+    useState<CompanySettings | null>(null);
   const [lockAuthDialogOpen, setLockAuthDialogOpen] = useState(false);
   const [lockDate, setLockDate] = useState<string | undefined>(undefined);
-  const [pendingSaveMode, setPendingSaveMode] = useState<"create" | "update" | null>(null);
+  const [pendingSaveMode, setPendingSaveMode] = useState<
+    "create" | "update" | null
+  >(null);
 
   useEffect(() => {
     setFilters((prev) => ({
@@ -196,18 +226,18 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     try {
       const response = await companySettingsAPI.getSettings();
       setCompanySettings(response.settings);
-      const prefix = response.settings.journalEntryPrefix || '';
+      const prefix = response.settings.journalEntryPrefix || "";
       setJournalEntryPrefix(prefix);
     } catch (error) {
-      console.error('Failed to load company settings:', error);
+      console.error("Failed to load company settings:", error);
     }
   };
 
   useEffect(() => {
     if (inlineFormDate) {
-      setInlineFormData(prev => ({
+      setInlineFormData((prev) => ({
         ...prev,
-        entryDate: inlineFormDate.toISOString().split('T')[0]
+        entryDate: inlineFormDate.toISOString().split("T")[0],
       }));
     }
   }, [inlineFormDate]);
@@ -228,37 +258,37 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
 
   const loadAccounts = async () => {
     try {
-      const response = await accountAPI.getAll({ isActive: true, all: 'true' });
+      const response = await accountAPI.getAll({ isActive: true, all: "true" });
       setAccounts(response.data || []);
     } catch (error) {
-      console.error('Failed to load accounts:', error);
+      console.error("Failed to load accounts:", error);
     }
   };
 
   const handleStatusUpdate = async (
     id: string,
-    newStatus: JournalEntryStatus
+    newStatus: JournalEntryStatus,
   ) => {
     try {
       const response = await journalEntryAPI.updateStatus(id, newStatus);
-      
+
       const statusLabels: Record<JournalEntryStatus, string> = {
         [JournalEntryStatus.DRAFT]: "reverted to draft",
         [JournalEntryStatus.POSTED]: "posted",
         [JournalEntryStatus.VOID]: "voided",
       };
-      
+
       toast({
         variant: "success",
         title: "Success",
         description: `Journal entry ${statusLabels[newStatus]} successfully`,
       });
-      
+
       if (response.journalEntry) {
-        setJournalEntries(prevEntries => 
-          prevEntries.map(entry => 
-            entry.id === id ? response.journalEntry : entry
-          )
+        setJournalEntries((prevEntries) =>
+          prevEntries.map((entry) =>
+            entry.id === id ? response.journalEntry : entry,
+          ),
         );
       }
     } catch (error) {
@@ -281,18 +311,18 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
 
     try {
       await journalEntryAPI.delete(journalEntryToDelete);
-      
+
       toast({
         variant: "success",
         title: "Success",
         description: "Journal entry deleted successfully",
       });
-      
-      setJournalEntries(prevEntries => 
-        prevEntries.filter(entry => entry.id !== journalEntryToDelete)
+
+      setJournalEntries((prevEntries) =>
+        prevEntries.filter((entry) => entry.id !== journalEntryToDelete),
       );
-      
-      setExpandedEntries(prev => {
+
+      setExpandedEntries((prev) => {
         const newSet = new Set(prev);
         newSet.delete(journalEntryToDelete);
         return newSet;
@@ -311,7 +341,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   };
 
   const toggleExpanded = (entryId: string) => {
-    setExpandedEntries(prev => {
+    setExpandedEntries((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(entryId)) {
         newSet.delete(entryId);
@@ -328,16 +358,16 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   const handleCreateNewInline = () => {
     setShowInlineForm(true);
     setInlineFormData({
-      entryNumber: journalEntryPrefix || '',
-      entryDate: new Date().toISOString().split('T')[0],
-      description: '',
+      entryNumber: journalEntryPrefix || "",
+      entryDate: new Date().toISOString().split("T")[0],
+      description: "",
       status: JournalEntryStatus.DRAFT,
       isAdjusting: false,
     });
     setInlineFormDate(new Date());
     setInlineFormLines([
-      { accountId: '', description: '', debit: 0, credit: 0 },
-      { accountId: '', description: '', debit: 0, credit: 0 },
+      { accountId: "", description: "", debit: 0, credit: 0 },
+      { accountId: "", description: "", debit: 0, credit: 0 },
     ]);
     setInlineFormErrors({});
   };
@@ -350,7 +380,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   const addInlineFormLine = () => {
     setInlineFormLines([
       ...inlineFormLines,
-      { accountId: '', description: '', debit: 0, credit: 0 },
+      { accountId: "", description: "", debit: 0, credit: 0 },
     ]);
   };
 
@@ -360,26 +390,30 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     }
   };
 
-  const updateInlineFormLine = (index: number, field: keyof JournalEntryLineForm, value: string | number) => {
+  const updateInlineFormLine = (
+    index: number,
+    field: keyof JournalEntryLineForm,
+    value: string | number,
+  ) => {
     const newLines = [...inlineFormLines];
     newLines[index] = { ...newLines[index], [field]: value };
-    
-    if (field === 'debit' && typeof value === 'number' && value > 0) {
+
+    if (field === "debit" && typeof value === "number" && value > 0) {
       newLines[index].credit = 0;
-    } else if (field === 'credit' && typeof value === 'number' && value > 0) {
+    } else if (field === "credit" && typeof value === "number" && value > 0) {
       newLines[index].debit = 0;
     }
-    
+
     setInlineFormLines(newLines);
-    
-    if (field === 'accountId') {
-      setInlineFormErrors(prev => {
+
+    if (field === "accountId") {
+      setInlineFormErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors[`line_${index}_account`];
         return newErrors;
       });
-    } else if (field === 'debit' || field === 'credit') {
-      setInlineFormErrors(prev => {
+    } else if (field === "debit" || field === "credit") {
+      setInlineFormErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors[`line_${index}_amount`];
         delete newErrors.balance;
@@ -389,8 +423,14 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   };
 
   const calculateInlineFormTotals = () => {
-    const totalDebits = inlineFormLines.reduce((sum, line) => sum + (line.debit || 0), 0);
-    const totalCredits = inlineFormLines.reduce((sum, line) => sum + (line.credit || 0), 0);
+    const totalDebits = inlineFormLines.reduce(
+      (sum, line) => sum + (line.debit || 0),
+      0,
+    );
+    const totalCredits = inlineFormLines.reduce(
+      (sum, line) => sum + (line.credit || 0),
+      0,
+    );
     return { totalDebits, totalCredits };
   };
 
@@ -408,7 +448,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     if (hasMissingAccount) return false;
 
     const hasZeroAmount = inlineFormLines.some(
-      (line) => (line.debit || 0) === 0 && (line.credit || 0) === 0
+      (line) => (line.debit || 0) === 0 && (line.credit || 0) === 0,
     );
     if (hasZeroAmount) return false;
 
@@ -419,35 +459,40 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (inlineFormLines.length < 2) {
-      newErrors.lines = 'At least two line items are required';
+      newErrors.lines = "At least two line items are required";
     }
 
     inlineFormLines.forEach((line, index) => {
       if (!line.accountId) {
-        newErrors[`line_${index}_account`] = 'Account is required';
+        newErrors[`line_${index}_account`] = "Account is required";
       }
       if (line.debit === 0 && line.credit === 0) {
-        newErrors[`line_${index}_amount`] = 'Either debit or credit amount is required';
+        newErrors[`line_${index}_amount`] =
+          "Either debit or credit amount is required";
       }
     });
 
     const { totalDebits, totalCredits } = calculateInlineFormTotals();
     if (Math.abs(totalDebits - totalCredits) > 0.01) {
-      newErrors.balance = 'Total debits and credits must be equal';
+      newErrors.balance = "Total debits and credits must be equal";
     }
 
     setInlineFormErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleInlineFormSubmit = async (authPassword?: string, authPIN?: string) => {
+  const handleInlineFormSubmit = async (
+    authPassword?: string,
+    authPIN?: string,
+    options?: { fromLockDialog?: boolean },
+  ): Promise<{ ok: boolean; error?: string }> => {
     if (!validateInlineForm()) {
-      return;
+      return { ok: false };
     }
 
     const dateStr = inlineFormData.entryDate?.split("T")[0];
     const requiresLockAuth = Boolean(
-      companySettings?.hasLockBooksPassword || companySettings?.hasLockBooksPIN
+      companySettings?.hasLockBooksPassword || companySettings?.hasLockBooksPIN,
     );
 
     if (dateStr && requiresLockAuth) {
@@ -457,7 +502,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
           setPendingSaveMode("create");
           setLockDate(lockCheck.lockDate);
           setLockAuthDialogOpen(true);
-          return;
+          return { ok: false };
         }
       } catch {
         // If lock check fails, proceed (backend will still enforce when applicable)
@@ -474,7 +519,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
         isAdjusting: inlineFormData.isAdjusting,
         ...(authPassword ? { authPassword } : {}),
         ...(authPIN ? { authPIN } : {}),
-        lines: inlineFormLines.map(line => ({
+        lines: inlineFormLines.map((line) => ({
           accountId: line.accountId,
           description: line.description || undefined,
           debit: line.debit,
@@ -483,14 +528,17 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
       };
 
       const response = await journalEntryAPI.create(submitData);
-      
+
       if (response.journalEntry) {
-        setJournalEntries(prevEntries => [response.journalEntry, ...prevEntries]);
+        setJournalEntries((prevEntries) => [
+          response.journalEntry,
+          ...prevEntries,
+        ]);
       }
-      
+
       setInlineFormLines([
-        { accountId: '', description: '', debit: 0, credit: 0 },
-        { accountId: '', description: '', debit: 0, credit: 0 },
+        { accountId: "", description: "", debit: 0, credit: 0 },
+        { accountId: "", description: "", debit: 0, credit: 0 },
       ]);
       setInlineFormAccountPopovers({});
       setShowInlineForm(false);
@@ -507,27 +555,45 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
           description: "Journal entry created successfully",
         });
       }
+      return { ok: true };
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       // If backend requires lock auth, prompt and retry
-      if (
-        (companySettings?.hasLockBooksPassword || companySettings?.hasLockBooksPIN) &&
-        (errorMessage.includes("Authentication required") ||
-          errorMessage.includes("Invalid authentication") ||
-          errorMessage.includes("credentials") ||
-          errorMessage.includes("403"))
-      ) {
+      const requiresLockAuth = Boolean(
+        companySettings?.hasLockBooksPassword ||
+        companySettings?.hasLockBooksPIN,
+      );
+      const isLockAuthError =
+        requiresLockAuth &&
+        (axios.isAxiosError(error)
+          ? error.response?.status === 403
+          : errorMessage.includes("Authentication required") ||
+            errorMessage.includes("Invalid authentication") ||
+            errorMessage.toLowerCase().includes("credentials") ||
+            errorMessage.includes("403"));
+
+      if (isLockAuthError) {
+        // If credentials were provided (dialog), keep dialog open and show inline error.
+        if (authPassword || authPIN) {
+          return {
+            ok: false,
+            error: "Incorrect PIN/password. Please try again.",
+          };
+        }
         setPendingSaveMode("create");
         setLockAuthDialogOpen(true);
-        return;
+        return { ok: false };
       }
 
-      console.error('Failed to create journal entry:', errorMessage);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: errorMessage,
-      });
+      console.error("Failed to create journal entry:", errorMessage);
+      if (!options?.fromLockDialog) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: errorMessage,
+        });
+      }
+      return { ok: false, error: errorMessage };
     } finally {
       setInlineFormLoading(false);
     }
@@ -535,35 +601,34 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
 
   const handleStartEdit = (entry: JournalEntry) => {
     if (entry.status === JournalEntryStatus.VOID) return;
-    
+
     setEditingEntryId(entry.id);
-    setEditingOriginalStatus(entry.status);
     const dateOnly = entry.entryDate.split("T")[0];
     const [year, month, day] = dateOnly.split("-").map(Number);
     const date = new Date(year, month - 1, day);
-    
+
     setEditingFormData({
       entryNumber: entry.entryNumber,
       entryDate: entry.entryDate,
-      description: entry.description || '',
+      description: entry.description || "",
       status: entry.status,
       isAdjusting: Boolean(entry.isAdjusting),
     });
     setEditingFormDate(date);
     setEditingFormLines(
-      entry.lines?.map(line => ({
+      entry.lines?.map((line) => ({
         accountId: line.accountId,
-        description: line.description || '',
+        description: line.description || "",
         debit: line.debit,
         credit: line.credit,
-      })) || []
+      })) || [],
     );
     setEditingFormErrors({});
   };
 
   const handleEdit = (entry: JournalEntry) => {
     if (entry.status === JournalEntryStatus.VOID) return;
-    setExpandedEntries(prev => {
+    setExpandedEntries((prev) => {
       const next = new Set(prev);
       next.add(entry.id);
       return next;
@@ -577,13 +642,12 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     setEditingFormDate(undefined);
     setEditingFormLines([]);
     setEditingFormErrors({});
-    setEditingOriginalStatus(null);
   };
 
   const addEditingFormLine = () => {
     setEditingFormLines([
       ...editingFormLines,
-      { accountId: '', description: '', debit: 0, credit: 0 },
+      { accountId: "", description: "", debit: 0, credit: 0 },
     ]);
   };
 
@@ -593,26 +657,30 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     }
   };
 
-  const updateEditingFormLine = (index: number, field: keyof JournalEntryLineForm, value: string | number) => {
+  const updateEditingFormLine = (
+    index: number,
+    field: keyof JournalEntryLineForm,
+    value: string | number,
+  ) => {
     const newLines = [...editingFormLines];
     newLines[index] = { ...newLines[index], [field]: value };
-    
-    if (field === 'debit' && typeof value === 'number' && value > 0) {
+
+    if (field === "debit" && typeof value === "number" && value > 0) {
       newLines[index].credit = 0;
-    } else if (field === 'credit' && typeof value === 'number' && value > 0) {
+    } else if (field === "credit" && typeof value === "number" && value > 0) {
       newLines[index].debit = 0;
     }
-    
+
     setEditingFormLines(newLines);
-    
-    if (field === 'accountId') {
-      setEditingFormErrors(prev => {
+
+    if (field === "accountId") {
+      setEditingFormErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors[`line_${index}_account`];
         return newErrors;
       });
-    } else if (field === 'debit' || field === 'credit') {
-      setEditingFormErrors(prev => {
+    } else if (field === "debit" || field === "credit") {
+      setEditingFormErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors[`line_${index}_amount`];
         delete newErrors.balance;
@@ -622,8 +690,14 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   };
 
   const calculateEditingFormTotals = () => {
-    const totalDebits = editingFormLines.reduce((sum, line) => sum + (line.debit || 0), 0);
-    const totalCredits = editingFormLines.reduce((sum, line) => sum + (line.credit || 0), 0);
+    const totalDebits = editingFormLines.reduce(
+      (sum, line) => sum + (line.debit || 0),
+      0,
+    );
+    const totalCredits = editingFormLines.reduce(
+      (sum, line) => sum + (line.credit || 0),
+      0,
+    );
     return { totalDebits, totalCredits };
   };
 
@@ -641,7 +715,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     if (hasMissingAccount) return false;
 
     const hasZeroAmount = editingFormLines.some(
-      (line) => (line.debit || 0) === 0 && (line.credit || 0) === 0
+      (line) => (line.debit || 0) === 0 && (line.credit || 0) === 0,
     );
     if (hasZeroAmount) return false;
 
@@ -652,40 +726,45 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!editingFormData?.entryDate) {
-      newErrors.entryDate = 'Entry date is required';
+      newErrors.entryDate = "Entry date is required";
     }
 
     if (editingFormLines.length < 2) {
-      newErrors.lines = 'At least two line items are required';
+      newErrors.lines = "At least two line items are required";
     }
 
     editingFormLines.forEach((line, index) => {
       if (!line.accountId) {
-        newErrors[`line_${index}_account`] = 'Account is required';
+        newErrors[`line_${index}_account`] = "Account is required";
       }
       if (line.debit === 0 && line.credit === 0) {
-        newErrors[`line_${index}_amount`] = 'Either debit or credit amount is required';
+        newErrors[`line_${index}_amount`] =
+          "Either debit or credit amount is required";
       }
     });
 
     const { totalDebits, totalCredits } = calculateEditingFormTotals();
     if (Math.abs(totalDebits - totalCredits) > 0.01) {
-      newErrors.balance = 'Total debits and credits must be equal';
+      newErrors.balance = "Total debits and credits must be equal";
     }
 
     setEditingFormErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSaveEdit = async (authPassword?: string, authPIN?: string) => {
-    if (!editingEntryId || !editingFormData) return;
+  const handleSaveEdit = async (
+    authPassword?: string,
+    authPIN?: string,
+    options?: { fromLockDialog?: boolean },
+  ): Promise<{ ok: boolean; error?: string }> => {
+    if (!editingEntryId || !editingFormData) return { ok: false };
     if (!validateEditingForm()) {
-      return;
+      return { ok: false };
     }
 
     const dateStr = editingFormData.entryDate?.split("T")[0];
     const requiresLockAuth = Boolean(
-      companySettings?.hasLockBooksPassword || companySettings?.hasLockBooksPIN
+      companySettings?.hasLockBooksPassword || companySettings?.hasLockBooksPIN,
     );
 
     if (dateStr && requiresLockAuth) {
@@ -695,7 +774,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
           setPendingSaveMode("update");
           setLockDate(lockCheck.lockDate);
           setLockAuthDialogOpen(true);
-          return;
+          return { ok: false };
         }
       } catch {
         // If lock check fails, proceed (backend will still enforce when applicable)
@@ -705,17 +784,15 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     setEditingFormLoading(true);
     try {
       const submitData: UpdateJournalEntryData = {
-        entryNumber: editingFormData.entryNumber || journalEntryPrefix || undefined,
+        entryNumber:
+          editingFormData.entryNumber || journalEntryPrefix || undefined,
         entryDate: editingFormData.entryDate,
         description: editingFormData.description || undefined,
-        status:
-          editingOriginalStatus === JournalEntryStatus.POSTED
-            ? JournalEntryStatus.POSTED
-            : editingFormData.status,
+        status: editingFormData.status,
         isAdjusting: editingFormData.isAdjusting,
         ...(authPassword ? { authPassword } : {}),
         ...(authPIN ? { authPIN } : {}),
-        lines: editingFormLines.map(line => ({
+        lines: editingFormLines.map((line) => ({
           accountId: line.accountId,
           description: line.description || undefined,
           debit: line.debit,
@@ -724,10 +801,10 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
       };
 
       const response = await journalEntryAPI.update(editingEntryId, submitData);
-      
+
       if (response.journalEntry) {
-        setJournalEntries(prevEntries => 
-          prevEntries.map(entry => {
+        setJournalEntries((prevEntries) =>
+          prevEntries.map((entry) => {
             if (entry.id === editingEntryId) {
               return {
                 ...response.journalEntry,
@@ -736,16 +813,16 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
               };
             }
             return entry;
-          })
+          }),
         );
       }
-      
-      setExpandedEntries(prev => {
+
+      setExpandedEntries((prev) => {
         const newSet = new Set(prev);
         newSet.delete(editingEntryId);
         return newSet;
       });
-      
+
       handleCancelEdit();
 
       if (response.journalEntry?.status === JournalEntryStatus.DRAFT) {
@@ -760,26 +837,43 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
           description: "Journal entry updated successfully",
         });
       }
+      return { ok: true };
     } catch (error) {
       const errorMessage = getErrorMessage(error);
-      if (
-        (companySettings?.hasLockBooksPassword || companySettings?.hasLockBooksPIN) &&
-        (errorMessage.includes("Authentication required") ||
-          errorMessage.includes("Invalid authentication") ||
-          errorMessage.includes("credentials") ||
-          errorMessage.includes("403"))
-      ) {
+      const requiresLockAuth = Boolean(
+        companySettings?.hasLockBooksPassword ||
+        companySettings?.hasLockBooksPIN,
+      );
+      const isLockAuthError =
+        requiresLockAuth &&
+        (axios.isAxiosError(error)
+          ? error.response?.status === 403
+          : errorMessage.includes("Authentication required") ||
+            errorMessage.includes("Invalid authentication") ||
+            errorMessage.toLowerCase().includes("credentials") ||
+            errorMessage.includes("403"));
+
+      if (isLockAuthError) {
+        if (authPassword || authPIN) {
+          return {
+            ok: false,
+            error: "Incorrect PIN/password. Please try again.",
+          };
+        }
         setPendingSaveMode("update");
         setLockAuthDialogOpen(true);
-        return;
+        return { ok: false };
       }
 
-      console.error('Failed to update journal entry:', errorMessage);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: errorMessage,
-      });
+      console.error("Failed to update journal entry:", errorMessage);
+      if (!options?.fromLockDialog) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: errorMessage,
+        });
+      }
+      return { ok: false, error: errorMessage };
     } finally {
       setEditingFormLoading(false);
     }
@@ -787,34 +881,38 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
 
   useEffect(() => {
     if (editingFormDate && editingFormData) {
-      setEditingFormData(prev => ({
+      setEditingFormData((prev) => ({
         ...prev!,
-        entryDate: editingFormDate.toISOString().split('T')[0]
+        entryDate: editingFormDate.toISOString().split("T")[0],
       }));
     }
   }, [editingFormDate]);
 
   const filteredEntries = journalEntries.filter((entry) => {
     if (!searchTerm) return true;
-    
+
     const searchLower = searchTerm.toLowerCase();
-    
+
     if (entry.entryNumber.toLowerCase().includes(searchLower)) return true;
-    
-    if (entry.description && entry.description.toLowerCase().includes(searchLower)) return true;
-    
+
+    if (
+      entry.description &&
+      entry.description.toLowerCase().includes(searchLower)
+    )
+      return true;
+
     if (entry.lines) {
       const accountNames = entry.lines
-        .map(line => {
-          const account = accounts.find(acc => acc.id === line.accountId);
-          return account ? `${account.code} ${account.name}` : '';
+        .map((line) => {
+          const account = accounts.find((acc) => acc.id === line.accountId);
+          return account ? `${account.code} ${account.name}` : "";
         })
-        .join(' ')
+        .join(" ")
         .toLowerCase();
-      
+
       if (accountNames.includes(searchLower)) return true;
     }
-    
+
     return false;
   });
 
@@ -870,16 +968,20 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     setDraftReminderMode(null);
   };
 
-  const handleLockAuthDialogAuthenticate = (password?: string, pin?: string) => {
+  const handleLockAuthDialogAuthenticate = async (
+    password?: string,
+    pin?: string,
+  ) => {
     const mode = pendingSaveMode;
-    setLockAuthDialogOpen(false);
-    setPendingSaveMode(null);
-
     if (mode === "create") {
-      handleInlineFormSubmit(password, pin);
-    } else if (mode === "update") {
-      handleSaveEdit(password, pin);
+      return await handleInlineFormSubmit(password, pin, {
+        fromLockDialog: true,
+      });
     }
+    if (mode === "update") {
+      return await handleSaveEdit(password, pin, { fromLockDialog: true });
+    }
+    return { ok: false };
   };
 
   return (
@@ -891,7 +993,10 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
               <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
               Journal Entries
             </CardTitle>
-            <Button onClick={onCreateNew || handleCreateNewInline} className="w-full sm:w-auto">
+            <Button
+              onClick={onCreateNew || handleCreateNewInline}
+              className="w-full sm:w-auto"
+            >
               <Plus className="h-4 w-4 mr-2" />
               New Entry
             </Button>
@@ -905,7 +1010,11 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   id="search"
-                  placeholder={isDesktop ? "Search by entry number, description, or accounts..." : "Search entries..."}
+                  placeholder={
+                    isDesktop
+                      ? "Search by entry number, description, or accounts..."
+                      : "Search entries..."
+                  }
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 text-xs sm:text-sm placeholder:text-xs sm:placeholder:text-sm"
@@ -978,7 +1087,9 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                       Entry Number
                     </TableHead>
                     <TableHead className="whitespace-nowrap">Date</TableHead>
-                    <TableHead className="whitespace-nowrap w-16 text-center">Adjusting</TableHead>
+                    <TableHead className="whitespace-nowrap w-16 text-center">
+                      Adjusting
+                    </TableHead>
                     <TableHead className="whitespace-nowrap">
                       Description
                     </TableHead>
@@ -1043,8 +1154,10 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                       Entry Number
                     </TableHead>
                     <TableHead className="whitespace-nowrap">Date</TableHead>
-                    <TableHead className="whitespace-nowrap w-16 text-center">Adjusting</TableHead>
-                    <TableHead className="whitespace-nowrap"> 
+                    <TableHead className="whitespace-nowrap w-16 text-center">
+                      Adjusting
+                    </TableHead>
+                    <TableHead className="whitespace-nowrap">
                       Description
                     </TableHead>
                     <TableHead className="whitespace-nowrap">Status</TableHead>
@@ -1064,14 +1177,16 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                     <TableRow className="bg-blue-50 hover:bg-blue-50">
                       <TableCell colSpan={8} className="p-4">
                         <div className="bg-white border rounded-lg p-4">
-
                           <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
                             <div className="space-y-1">
                               <Label>Entry Number</Label>
                               <Input
                                 value={inlineFormData.entryNumber}
                                 onChange={(e) =>
-                                  setInlineFormData({ ...inlineFormData, entryNumber: e.target.value })
+                                  setInlineFormData({
+                                    ...inlineFormData,
+                                    entryNumber: e.target.value,
+                                  })
                                 }
                                 placeholder="Auto-generated if empty"
                                 className="h-10"
@@ -1099,7 +1214,9 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                     })
                                   }
                                 />
-                                <span className="ml-2 text-sm text-foreground">Adjusting</span>
+                                <span className="ml-2 text-sm text-foreground">
+                                  Adjusting
+                                </span>
                               </div>
                             </div>
                             <div className="space-y-1">
@@ -1107,7 +1224,10 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                               <Input
                                 value={inlineFormData.description}
                                 onChange={(e) =>
-                                  setInlineFormData({ ...inlineFormData, description: e.target.value })
+                                  setInlineFormData({
+                                    ...inlineFormData,
+                                    description: e.target.value,
+                                  })
                                 }
                                 placeholder="Entry description"
                                 className="h-10"
@@ -1128,25 +1248,41 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                   <SelectValue placeholder="Select status" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value={JournalEntryStatus.DRAFT}>Draft</SelectItem>
-                                  <SelectItem value={JournalEntryStatus.POSTED}>Posted</SelectItem>
-                                  <SelectItem value={JournalEntryStatus.VOID}>Void</SelectItem>
+                                  <SelectItem value={JournalEntryStatus.DRAFT}>
+                                    Draft
+                                  </SelectItem>
+                                  <SelectItem value={JournalEntryStatus.POSTED}>
+                                    Posted
+                                  </SelectItem>
+                                  <SelectItem value={JournalEntryStatus.VOID}>
+                                    Void
+                                  </SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
                           </div>
 
                           <div className="mb-2">
-                            <Label className="text-sm">Journal Entry Lines</Label>
+                            <Label className="text-sm">
+                              Journal Entry Lines
+                            </Label>
                           </div>
 
                           <Table className="relative">
                             <TableHeader>
                               <TableRow>
-                                <TableHead className="text-black text-base">Account</TableHead>
-                                <TableHead className="text-black text-base">Description</TableHead>
-                                <TableHead className="text-right text-black text-base">Debit</TableHead>
-                                <TableHead className="text-right text-black text-base">Credit</TableHead>
+                                <TableHead className="text-black text-base">
+                                  Account
+                                </TableHead>
+                                <TableHead className="text-black text-base">
+                                  Description
+                                </TableHead>
+                                <TableHead className="text-right text-black text-base">
+                                  Debit
+                                </TableHead>
+                                <TableHead className="text-right text-black text-base">
+                                  Credit
+                                </TableHead>
                                 <TableHead className="w-24"></TableHead>
                               </TableRow>
                             </TableHeader>
@@ -1157,8 +1293,16 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                     <TableCell>
                                       <div className="space-y-1">
                                         <Popover
-                                          open={inlineFormAccountPopovers[index] || false}
-                                          onOpenChange={(open) => setInlineFormAccountPopovers({ ...inlineFormAccountPopovers, [index]: open })}
+                                          open={
+                                            inlineFormAccountPopovers[index] ||
+                                            false
+                                          }
+                                          onOpenChange={(open) =>
+                                            setInlineFormAccountPopovers({
+                                              ...inlineFormAccountPopovers,
+                                              [index]: open,
+                                            })
+                                          }
                                         >
                                           <PopoverTrigger asChild>
                                             <Button
@@ -1166,43 +1310,74 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                               role="combobox"
                                               className={cn(
                                                 "h-8 w-full justify-between",
-                                                !line.accountId && "text-muted-foreground",
-                                                inlineFormErrors[`line_${index}_account`] && "border-destructive"
+                                                !line.accountId &&
+                                                  "text-muted-foreground",
+                                                inlineFormErrors[
+                                                  `line_${index}_account`
+                                                ] && "border-destructive",
                                               )}
                                             >
                                               {(() => {
-                                                const selectedAccount = line.accountId ? accounts.find((account) => account.id === line.accountId) : null;
-                                                return selectedAccount ? `${selectedAccount.code} - ${selectedAccount.name}` : "Select account...";
+                                                const selectedAccount =
+                                                  line.accountId
+                                                    ? accounts.find(
+                                                        (account) =>
+                                                          account.id ===
+                                                          line.accountId,
+                                                      )
+                                                    : null;
+                                                return selectedAccount
+                                                  ? `${selectedAccount.code} - ${selectedAccount.name}`
+                                                  : "Select account...";
                                               })()}
                                               <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
                                           </PopoverTrigger>
-                                          <PopoverContent className="w-[400px] p-0" align="start">
+                                          <PopoverContent
+                                            className="w-[400px] p-0"
+                                            align="start"
+                                          >
                                             <Command>
                                               <CommandInput placeholder="Search accounts..." />
                                               <CommandList>
-                                                <CommandEmpty>No accounts found.</CommandEmpty>
+                                                <CommandEmpty>
+                                                  No accounts found.
+                                                </CommandEmpty>
                                                 <CommandGroup>
                                                   {accounts.map((account) => (
                                                     <CommandItem
                                                       key={account.id}
                                                       value={`${account.code} ${account.name}`}
                                                       onSelect={() => {
-                                                        updateInlineFormLine(index, 'accountId', account.id);
-                                                        setInlineFormAccountPopovers({ ...inlineFormAccountPopovers, [index]: false });
+                                                        updateInlineFormLine(
+                                                          index,
+                                                          "accountId",
+                                                          account.id,
+                                                        );
+                                                        setInlineFormAccountPopovers(
+                                                          {
+                                                            ...inlineFormAccountPopovers,
+                                                            [index]: false,
+                                                          },
+                                                        );
                                                       }}
                                                       className="cursor-pointer"
                                                     >
                                                       <Check
                                                         className={cn(
                                                           "mr-2 h-4 w-4",
-                                                          line.accountId === account.id
+                                                          line.accountId ===
+                                                            account.id
                                                             ? "opacity-100"
-                                                            : "opacity-0"
+                                                            : "opacity-0",
                                                         )}
                                                       />
-                                                      <span className="font-medium">{account.code}</span>
-                                                      <span className="ml-2">{account.name}</span>
+                                                      <span className="font-medium">
+                                                        {account.code}
+                                                      </span>
+                                                      <span className="ml-2">
+                                                        {account.name}
+                                                      </span>
                                                     </CommandItem>
                                                   ))}
                                                 </CommandGroup>
@@ -1210,15 +1385,29 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                             </Command>
                                           </PopoverContent>
                                         </Popover>
-                                        {inlineFormErrors[`line_${index}_account`] && (
-                                          <p className="text-xs text-destructive">{inlineFormErrors[`line_${index}_account`]}</p>
+                                        {inlineFormErrors[
+                                          `line_${index}_account`
+                                        ] && (
+                                          <p className="text-xs text-destructive">
+                                            {
+                                              inlineFormErrors[
+                                                `line_${index}_account`
+                                              ]
+                                            }
+                                          </p>
                                         )}
                                       </div>
                                     </TableCell>
                                     <TableCell>
                                       <Input
                                         value={line.description}
-                                        onChange={(e) => updateInlineFormLine(index, 'description', e.target.value)}
+                                        onChange={(e) =>
+                                          updateInlineFormLine(
+                                            index,
+                                            "description",
+                                            e.target.value,
+                                          )
+                                        }
                                         placeholder="Line description"
                                         className="w-full h-8"
                                       />
@@ -1229,16 +1418,32 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                           type="number"
                                           step="0.01"
                                           min="0"
-                                          value={line.debit || ''}
-                                          onChange={(e) => updateInlineFormLine(index, 'debit', parseFloat(e.target.value) || 0)}
+                                          value={line.debit || ""}
+                                          onChange={(e) =>
+                                            updateInlineFormLine(
+                                              index,
+                                              "debit",
+                                              parseFloat(e.target.value) || 0,
+                                            )
+                                          }
                                           placeholder="0.00"
                                           className={cn(
                                             "text-right h-8",
-                                            inlineFormErrors[`line_${index}_amount`] && "border-destructive"
+                                            inlineFormErrors[
+                                              `line_${index}_amount`
+                                            ] && "border-destructive",
                                           )}
                                         />
-                                        {inlineFormErrors[`line_${index}_amount`] && (
-                                          <p className="text-xs text-destructive">{inlineFormErrors[`line_${index}_amount`]}</p>
+                                        {inlineFormErrors[
+                                          `line_${index}_amount`
+                                        ] && (
+                                          <p className="text-xs text-destructive">
+                                            {
+                                              inlineFormErrors[
+                                                `line_${index}_amount`
+                                              ]
+                                            }
+                                          </p>
                                         )}
                                       </div>
                                     </TableCell>
@@ -1247,19 +1452,29 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                         type="number"
                                         step="0.01"
                                         min="0"
-                                        value={line.credit || ''}
-                                        onChange={(e) => updateInlineFormLine(index, 'credit', parseFloat(e.target.value) || 0)}
+                                        value={line.credit || ""}
+                                        onChange={(e) =>
+                                          updateInlineFormLine(
+                                            index,
+                                            "credit",
+                                            parseFloat(e.target.value) || 0,
+                                          )
+                                        }
                                         placeholder="0.00"
                                         className={cn(
                                           "text-right h-8",
-                                          inlineFormErrors[`line_${index}_amount`] && "border-destructive"
+                                          inlineFormErrors[
+                                            `line_${index}_amount`
+                                          ] && "border-destructive",
                                         )}
                                       />
                                     </TableCell>
                                     <TableCell className="text-right">
                                       <Button
                                         type="button"
-                                        onClick={() => removeInlineFormLine(index)}
+                                        onClick={() =>
+                                          removeInlineFormLine(index)
+                                        }
                                         size="icon"
                                         variant="outline"
                                         disabled={inlineFormLines.length <= 2}
@@ -1268,33 +1483,45 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                       </Button>
                                     </TableCell>
                                   </TableRow>
-                                  {index === inlineFormLines.length - 1 && inlineFormErrors.balance && (
-                                    <TableRow>
-                                      <TableCell colSpan={5} className="text-center">
-                                        <p className="text-sm text-destructive">{inlineFormErrors.balance}</p>
-                                      </TableCell>
-                                    </TableRow>
-                                  )}
+                                  {index === inlineFormLines.length - 1 &&
+                                    inlineFormErrors.balance && (
+                                      <TableRow>
+                                        <TableCell
+                                          colSpan={5}
+                                          className="text-center"
+                                        >
+                                          <p className="text-sm text-destructive">
+                                            {inlineFormErrors.balance}
+                                          </p>
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
                                 </React.Fragment>
                               ))}
                               <TableRow>
                                 <TableCell></TableCell>
-                                <TableCell className="font-medium text-black text-base">Total</TableCell>
-                                <TableCell className="text-right font-mono text-green-600 text-base">
-                                  {formatCurrency(calculateInlineFormTotals().totalDebits)}
+                                <TableCell className="font-medium text-black text-base">
+                                  Total
                                 </TableCell>
                                 <TableCell className="text-right font-mono text-green-600 text-base">
-                                  {formatCurrency(calculateInlineFormTotals().totalCredits)}
+                                  {formatCurrency(
+                                    calculateInlineFormTotals().totalDebits,
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-green-600 text-base">
+                                  {formatCurrency(
+                                    calculateInlineFormTotals().totalCredits,
+                                  )}
                                 </TableCell>
                                 <TableCell></TableCell>
                               </TableRow>
                             </TableBody>
                           </Table>
                           <div className="flex items-center justify-between mt-3 pl-2 pr-2">
-                            <Button 
-                              type="button" 
-                              onClick={addInlineFormLine} 
-                              size="sm" 
+                            <Button
+                              type="button"
+                              onClick={addInlineFormLine}
+                              size="sm"
                               variant="outline"
                             >
                               <Plus className="h-4 w-4 mr-2" />
@@ -1303,10 +1530,12 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                             <div className="flex items-center gap-2">
                               <Button
                                 onClick={() => handleInlineFormSubmit()}
-                                disabled={inlineFormLoading || !isInlineFormValid()}
+                                disabled={
+                                  inlineFormLoading || !isInlineFormValid()
+                                }
                                 size="sm"
                               >
-                                {inlineFormLoading ? 'Saving...' : 'Save'}
+                                {inlineFormLoading ? "Saving..." : "Save"}
                               </Button>
                               <Button
                                 type="button"
@@ -1327,7 +1556,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                   {filteredEntries.map((entry) => {
                     const isExpanded = expandedEntries.has(entry.id);
                     const isEditing = editingEntryId === entry.id;
-                    
+
                     return (
                       <React.Fragment key={entry.id}>
                         <TableRow
@@ -1382,7 +1611,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                 }`.trim() || entry.createdByUser.email
                               : "Unknown"}
                           </TableCell>
-                          <TableCell 
+                          <TableCell
                             className="text-right whitespace-nowrap"
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -1395,7 +1624,9 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                               <DropdownMenuContent align="end">
                                 {entry.status === JournalEntryStatus.DRAFT && (
                                   <>
-                                    <DropdownMenuItem onClick={() => handleEdit(entry)}>
+                                    <DropdownMenuItem
+                                      onClick={() => handleEdit(entry)}
+                                    >
                                       <Edit className="h-4 w-4 mr-2" />
                                       Edit
                                     </DropdownMenuItem>
@@ -1403,7 +1634,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                       onClick={() =>
                                         handleStatusUpdate(
                                           entry.id,
-                                          JournalEntryStatus.POSTED
+                                          JournalEntryStatus.POSTED,
                                         )
                                       }
                                     >
@@ -1414,7 +1645,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                       onClick={() =>
                                         handleStatusUpdate(
                                           entry.id,
-                                          JournalEntryStatus.VOID
+                                          JournalEntryStatus.VOID,
                                         )
                                       }
                                     >
@@ -1432,7 +1663,9 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                 )}
                                 {entry.status === JournalEntryStatus.POSTED && (
                                   <>
-                                    <DropdownMenuItem onClick={() => handleEdit(entry)}>
+                                    <DropdownMenuItem
+                                      onClick={() => handleEdit(entry)}
+                                    >
                                       <Edit className="h-4 w-4 mr-2" />
                                       Edit
                                     </DropdownMenuItem>
@@ -1440,7 +1673,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                       onClick={() =>
                                         handleStatusUpdate(
                                           entry.id,
-                                          JournalEntryStatus.DRAFT
+                                          JournalEntryStatus.DRAFT,
                                         )
                                       }
                                     >
@@ -1451,7 +1684,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                       onClick={() =>
                                         handleStatusUpdate(
                                           entry.id,
-                                          JournalEntryStatus.VOID
+                                          JournalEntryStatus.VOID,
                                         )
                                       }
                                     >
@@ -1473,7 +1706,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                       onClick={() =>
                                         handleStatusUpdate(
                                           entry.id,
-                                          JournalEntryStatus.DRAFT
+                                          JournalEntryStatus.DRAFT,
                                         )
                                       }
                                     >
@@ -1503,9 +1736,11 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                     <div className="space-y-1">
                                       <Label>Entry Number</Label>
                                       <Input
-                                        value={editingFormData?.entryNumber || ''}
+                                        value={
+                                          editingFormData?.entryNumber || ""
+                                        }
                                         onChange={(e) =>
-                                          setEditingFormData(prev => ({
+                                          setEditingFormData((prev) => ({
                                             ...prev!,
                                             entryNumber: e.target.value,
                                           }))
@@ -1527,7 +1762,10 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                       <div className="flex h-10 items-center rounded-md border border-input bg-background px-3 py-2">
                                         <Checkbox
                                           id="edit-isAdjusting"
-                                          checked={editingFormData?.isAdjusting || false}
+                                          checked={
+                                            editingFormData?.isAdjusting ||
+                                            false
+                                          }
                                           className="scale-125"
                                           onCheckedChange={(checked) =>
                                             setEditingFormData((prev) => ({
@@ -1536,15 +1774,19 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                             }))
                                           }
                                         />
-                                        <span className="ml-2 text-sm text-foreground">Adjusting</span>
+                                        <span className="ml-2 text-sm text-foreground">
+                                          Adjusting
+                                        </span>
                                       </div>
                                     </div>
                                     <div className="space-y-1">
                                       <Label>Description</Label>
                                       <Input
-                                        value={editingFormData?.description || ''}
+                                        value={
+                                          editingFormData?.description || ""
+                                        }
                                         onChange={(e) =>
-                                          setEditingFormData(prev => ({
+                                          setEditingFormData((prev) => ({
                                             ...prev!,
                                             description: e.target.value,
                                           }))
@@ -1556,10 +1798,12 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                     <div className="space-y-1">
                                       <Label>Status</Label>
                                       <Select
-                                        disabled={editingOriginalStatus === JournalEntryStatus.POSTED}
-                                        value={editingFormData?.status || JournalEntryStatus.DRAFT}
+                                        value={
+                                          editingFormData?.status ||
+                                          JournalEntryStatus.DRAFT
+                                        }
                                         onValueChange={(value) =>
-                                          setEditingFormData(prev => ({
+                                          setEditingFormData((prev) => ({
                                             ...prev!,
                                             status: value as JournalEntryStatus,
                                           }))
@@ -1569,25 +1813,47 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                           <SelectValue placeholder="Select status" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                          <SelectItem value={JournalEntryStatus.DRAFT}>Draft</SelectItem>
-                                          <SelectItem value={JournalEntryStatus.POSTED}>Posted</SelectItem>
-                                          <SelectItem value={JournalEntryStatus.VOID}>Void</SelectItem>
+                                          <SelectItem
+                                            value={JournalEntryStatus.DRAFT}
+                                          >
+                                            Draft
+                                          </SelectItem>
+                                          <SelectItem
+                                            value={JournalEntryStatus.POSTED}
+                                          >
+                                            Posted
+                                          </SelectItem>
+                                          <SelectItem
+                                            value={JournalEntryStatus.VOID}
+                                          >
+                                            Void
+                                          </SelectItem>
                                         </SelectContent>
                                       </Select>
                                     </div>
                                   </div>
 
                                   <div className="mb-2">
-                                    <Label className="text-sm text-base">Journal Entry Lines</Label>
+                                    <Label className="text-sm text-base">
+                                      Journal Entry Lines
+                                    </Label>
                                   </div>
 
                                   <Table>
                                     <TableHeader>
                                       <TableRow>
-                                        <TableHead className="text-black text-base">Account</TableHead>
-                                        <TableHead className="text-black text-base">Description</TableHead>
-                                        <TableHead className="text-right text-black text-base">Debit</TableHead>
-                                        <TableHead className="text-right text-black text-base">Credit</TableHead>
+                                        <TableHead className="text-black text-base">
+                                          Account
+                                        </TableHead>
+                                        <TableHead className="text-black text-base">
+                                          Description
+                                        </TableHead>
+                                        <TableHead className="text-right text-black text-base">
+                                          Debit
+                                        </TableHead>
+                                        <TableHead className="text-right text-black text-base">
+                                          Credit
+                                        </TableHead>
                                         <TableHead className="w-24"></TableHead>
                                       </TableRow>
                                     </TableHeader>
@@ -1598,8 +1864,19 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                             <TableCell>
                                               <div className="space-y-1">
                                                 <Popover
-                                                  open={editingFormAccountPopovers[index] || false}
-                                                  onOpenChange={(open) => setEditingFormAccountPopovers({ ...editingFormAccountPopovers, [index]: open })}
+                                                  open={
+                                                    editingFormAccountPopovers[
+                                                      index
+                                                    ] || false
+                                                  }
+                                                  onOpenChange={(open) =>
+                                                    setEditingFormAccountPopovers(
+                                                      {
+                                                        ...editingFormAccountPopovers,
+                                                        [index]: open,
+                                                      },
+                                                    )
+                                                  }
                                                 >
                                                   <PopoverTrigger asChild>
                                                     <Button
@@ -1607,59 +1884,107 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                                       role="combobox"
                                                       className={cn(
                                                         "h-8 w-full justify-between",
-                                                        !line.accountId && "text-muted-foreground",
-                                                        editingFormErrors[`line_${index}_account`] && "border-destructive"
+                                                        !line.accountId &&
+                                                          "text-muted-foreground",
+                                                        editingFormErrors[
+                                                          `line_${index}_account`
+                                                        ] &&
+                                                          "border-destructive",
                                                       )}
                                                     >
                                                       {(() => {
-                                                        const selectedAccount = line.accountId ? accounts.find((account) => account.id === line.accountId) : null;
-                                                        return selectedAccount ? `${selectedAccount.code} - ${selectedAccount.name}` : "Select account...";
+                                                        const selectedAccount =
+                                                          line.accountId
+                                                            ? accounts.find(
+                                                                (account) =>
+                                                                  account.id ===
+                                                                  line.accountId,
+                                                              )
+                                                            : null;
+                                                        return selectedAccount
+                                                          ? `${selectedAccount.code} - ${selectedAccount.name}`
+                                                          : "Select account...";
                                                       })()}
                                                       <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                     </Button>
                                                   </PopoverTrigger>
-                                                  <PopoverContent className="w-[400px] p-0" align="start">
+                                                  <PopoverContent
+                                                    className="w-[400px] p-0"
+                                                    align="start"
+                                                  >
                                                     <Command>
                                                       <CommandInput placeholder="Search accounts..." />
                                                       <CommandList>
-                                                        <CommandEmpty>No accounts found.</CommandEmpty>
+                                                        <CommandEmpty>
+                                                          No accounts found.
+                                                        </CommandEmpty>
                                                         <CommandGroup>
-                                                          {accounts.map((account) => (
-                                                            <CommandItem
-                                                              key={account.id}
-                                                              value={`${account.code} ${account.name}`}
-                                                              onSelect={() => {
-                                                                updateEditingFormLine(index, 'accountId', account.id);
-                                                                setEditingFormAccountPopovers({ ...editingFormAccountPopovers, [index]: false });
-                                                              }}
-                                                              className="cursor-pointer"
-                                                            >
-                                                              <Check
-                                                                className={cn(
-                                                                  "mr-2 h-4 w-4",
-                                                                  line.accountId === account.id
-                                                                    ? "opacity-100"
-                                                                    : "opacity-0"
-                                                                )}
-                                                              />
-                                                              <span className="font-medium">{account.code}</span>
-                                                              <span className="ml-2">{account.name}</span>
-                                                            </CommandItem>
-                                                          ))}
+                                                          {accounts.map(
+                                                            (account) => (
+                                                              <CommandItem
+                                                                key={account.id}
+                                                                value={`${account.code} ${account.name}`}
+                                                                onSelect={() => {
+                                                                  updateEditingFormLine(
+                                                                    index,
+                                                                    "accountId",
+                                                                    account.id,
+                                                                  );
+                                                                  setEditingFormAccountPopovers(
+                                                                    {
+                                                                      ...editingFormAccountPopovers,
+                                                                      [index]: false,
+                                                                    },
+                                                                  );
+                                                                }}
+                                                                className="cursor-pointer"
+                                                              >
+                                                                <Check
+                                                                  className={cn(
+                                                                    "mr-2 h-4 w-4",
+                                                                    line.accountId ===
+                                                                      account.id
+                                                                      ? "opacity-100"
+                                                                      : "opacity-0",
+                                                                  )}
+                                                                />
+                                                                <span className="font-medium">
+                                                                  {account.code}
+                                                                </span>
+                                                                <span className="ml-2">
+                                                                  {account.name}
+                                                                </span>
+                                                              </CommandItem>
+                                                            ),
+                                                          )}
                                                         </CommandGroup>
                                                       </CommandList>
                                                     </Command>
                                                   </PopoverContent>
                                                 </Popover>
-                                                {editingFormErrors[`line_${index}_account`] && (
-                                                  <p className="text-xs text-destructive">{editingFormErrors[`line_${index}_account`]}</p>
+                                                {editingFormErrors[
+                                                  `line_${index}_account`
+                                                ] && (
+                                                  <p className="text-xs text-destructive">
+                                                    {
+                                                      editingFormErrors[
+                                                        `line_${index}_account`
+                                                      ]
+                                                    }
+                                                  </p>
                                                 )}
                                               </div>
                                             </TableCell>
                                             <TableCell>
                                               <Input
                                                 value={line.description}
-                                                onChange={(e) => updateEditingFormLine(index, 'description', e.target.value)}
+                                                onChange={(e) =>
+                                                  updateEditingFormLine(
+                                                    index,
+                                                    "description",
+                                                    e.target.value,
+                                                  )
+                                                }
                                                 placeholder="Line description"
                                                 className="w-full h-8"
                                               />
@@ -1670,16 +1995,34 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                                   type="number"
                                                   step="0.01"
                                                   min="0"
-                                                  value={line.debit || ''}
-                                                  onChange={(e) => updateEditingFormLine(index, 'debit', parseFloat(e.target.value) || 0)}
+                                                  value={line.debit || ""}
+                                                  onChange={(e) =>
+                                                    updateEditingFormLine(
+                                                      index,
+                                                      "debit",
+                                                      parseFloat(
+                                                        e.target.value,
+                                                      ) || 0,
+                                                    )
+                                                  }
                                                   placeholder="0.00"
                                                   className={cn(
                                                     "text-right h-8",
-                                                    editingFormErrors[`line_${index}_amount`] && "border-destructive"
+                                                    editingFormErrors[
+                                                      `line_${index}_amount`
+                                                    ] && "border-destructive",
                                                   )}
                                                 />
-                                                {editingFormErrors[`line_${index}_amount`] && (
-                                                  <p className="text-xs text-destructive">{editingFormErrors[`line_${index}_amount`]}</p>
+                                                {editingFormErrors[
+                                                  `line_${index}_amount`
+                                                ] && (
+                                                  <p className="text-xs text-destructive">
+                                                    {
+                                                      editingFormErrors[
+                                                        `line_${index}_amount`
+                                                      ]
+                                                    }
+                                                  </p>
                                                 )}
                                               </div>
                                             </TableCell>
@@ -1689,58 +2032,95 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                                   type="number"
                                                   step="0.01"
                                                   min="0"
-                                                  value={line.credit || ''}
-                                                  onChange={(e) => updateEditingFormLine(index, 'credit', parseFloat(e.target.value) || 0)}
+                                                  value={line.credit || ""}
+                                                  onChange={(e) =>
+                                                    updateEditingFormLine(
+                                                      index,
+                                                      "credit",
+                                                      parseFloat(
+                                                        e.target.value,
+                                                      ) || 0,
+                                                    )
+                                                  }
                                                   placeholder="0.00"
                                                   className={cn(
                                                     "text-right h-8",
-                                                    editingFormErrors[`line_${index}_amount`] && "border-destructive"
+                                                    editingFormErrors[
+                                                      `line_${index}_amount`
+                                                    ] && "border-destructive",
                                                   )}
                                                 />
-                                                {editingFormErrors[`line_${index}_amount`] && (
-                                                  <p className="text-xs text-destructive">{editingFormErrors[`line_${index}_amount`]}</p>
+                                                {editingFormErrors[
+                                                  `line_${index}_amount`
+                                                ] && (
+                                                  <p className="text-xs text-destructive">
+                                                    {
+                                                      editingFormErrors[
+                                                        `line_${index}_amount`
+                                                      ]
+                                                    }
+                                                  </p>
                                                 )}
                                               </div>
                                             </TableCell>
                                             <TableCell className="text-right">
                                               <Button
                                                 type="button"
-                                                onClick={() => removeEditingFormLine(index)}
+                                                onClick={() =>
+                                                  removeEditingFormLine(index)
+                                                }
                                                 size="icon"
                                                 variant="outline"
-                                                disabled={editingFormLines.length <= 2}
+                                                disabled={
+                                                  editingFormLines.length <= 2
+                                                }
                                               >
                                                 <Trash2 className="h-4 w-4" />
                                               </Button>
                                             </TableCell>
                                           </TableRow>
-                                          {index === editingFormLines.length - 1 && editingFormErrors.balance && (
-                                            <TableRow>
-                                              <TableCell colSpan={5} className="text-center">
-                                                <p className="text-sm text-destructive">{editingFormErrors.balance}</p>
-                                              </TableCell>
-                                            </TableRow>
-                                          )}
+                                          {index ===
+                                            editingFormLines.length - 1 &&
+                                            editingFormErrors.balance && (
+                                              <TableRow>
+                                                <TableCell
+                                                  colSpan={5}
+                                                  className="text-center"
+                                                >
+                                                  <p className="text-sm text-destructive">
+                                                    {editingFormErrors.balance}
+                                                  </p>
+                                                </TableCell>
+                                              </TableRow>
+                                            )}
                                         </React.Fragment>
                                       ))}
                                       <TableRow>
                                         <TableCell></TableCell>
-                                        <TableCell className="font-medium text-black text-base">Total</TableCell>
-                                        <TableCell className="text-right font-mono text-green-600 font-medium text-base">
-                                          {formatCurrency(calculateEditingFormTotals().totalDebits)}
+                                        <TableCell className="font-medium text-black text-base">
+                                          Total
                                         </TableCell>
                                         <TableCell className="text-right font-mono text-green-600 font-medium text-base">
-                                          {formatCurrency(calculateEditingFormTotals().totalCredits)}
+                                          {formatCurrency(
+                                            calculateEditingFormTotals()
+                                              .totalDebits,
+                                          )}
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-green-600 font-medium text-base">
+                                          {formatCurrency(
+                                            calculateEditingFormTotals()
+                                              .totalCredits,
+                                          )}
                                         </TableCell>
                                         <TableCell></TableCell>
                                       </TableRow>
                                     </TableBody>
                                   </Table>
                                   <div className="flex items-center justify-between mt-3 pl-2 pr-2">
-                                    <Button 
-                                      type="button" 
-                                      onClick={addEditingFormLine} 
-                                      size="sm" 
+                                    <Button
+                                      type="button"
+                                      onClick={addEditingFormLine}
+                                      size="sm"
                                       variant="outline"
                                     >
                                       <Plus className="h-4 w-4 mr-2" />
@@ -1749,10 +2129,15 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                     <div className="flex items-center gap-2">
                                       <Button
                                         onClick={() => handleSaveEdit()}
-                                        disabled={editingFormLoading || !isEditingFormValid()}
+                                        disabled={
+                                          editingFormLoading ||
+                                          !isEditingFormValid()
+                                        }
                                         size="sm"
                                       >
-                                        {editingFormLoading ? 'Saving...' : 'Save'}
+                                        {editingFormLoading
+                                          ? "Saving..."
+                                          : "Save"}
                                       </Button>
                                       <Button
                                         type="button"
@@ -1771,10 +2156,18 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                   <Table>
                                     <TableHeader>
                                       <TableRow>
-                                        <TableHead className="text-black text-base">Account</TableHead>
-                                        <TableHead className="text-black text-base">Description</TableHead>
-                                        <TableHead className="text-right text-black text-base">Debit</TableHead>
-                                        <TableHead className="text-right text-black text-base">Credit</TableHead>
+                                        <TableHead className="text-black text-base">
+                                          Account
+                                        </TableHead>
+                                        <TableHead className="text-black text-base">
+                                          Description
+                                        </TableHead>
+                                        <TableHead className="text-right text-black text-base">
+                                          Debit
+                                        </TableHead>
+                                        <TableHead className="text-right text-black text-base">
+                                          Credit
+                                        </TableHead>
                                       </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -1782,17 +2175,24 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                         <TableRow key={line.id || index}>
                                           <TableCell>
                                             <span className="text-sm">
-                                              {line.account?.code} - {line.account?.name}
+                                              {line.account?.code} -{" "}
+                                              {line.account?.name}
                                             </span>
                                           </TableCell>
                                           <TableCell>
-                                            <span className="text-sm">{line.description || "-"}</span>
+                                            <span className="text-sm">
+                                              {line.description || "-"}
+                                            </span>
                                           </TableCell>
                                           <TableCell className="text-right font-mono text-sm">
-                                            {line.debit > 0 ? formatCurrency(line.debit) : "-"}
+                                            {line.debit > 0
+                                              ? formatCurrency(line.debit)
+                                              : "-"}
                                           </TableCell>
                                           <TableCell className="text-right font-mono text-sm">
-                                            {line.credit > 0 ? formatCurrency(line.credit) : "-"}
+                                            {line.credit > 0
+                                              ? formatCurrency(line.credit)
+                                              : "-"}
                                           </TableCell>
                                         </TableRow>
                                       ))}
@@ -1802,10 +2202,20 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                           Total
                                         </TableCell>
                                         <TableCell className="text-right font-mono text-green-600 font-medium text-base">
-                                          {formatCurrency(entry.lines?.reduce((sum, line) => sum + line.debit, 0) || 0)}
+                                          {formatCurrency(
+                                            entry.lines?.reduce(
+                                              (sum, line) => sum + line.debit,
+                                              0,
+                                            ) || 0,
+                                          )}
                                         </TableCell>
                                         <TableCell className="text-right font-mono text-green-600 font-medium text-base">
-                                          {formatCurrency(entry.lines?.reduce((sum, line) => sum + line.credit, 0) || 0)}
+                                          {formatCurrency(
+                                            entry.lines?.reduce(
+                                              (sum, line) => sum + line.credit,
+                                              0,
+                                            ) || 0,
+                                          )}
                                         </TableCell>
                                       </TableRow>
                                     </TableBody>
@@ -1863,10 +2273,16 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={draftReminderBusy} onClick={handleDraftReminderNo}>
+            <AlertDialogCancel
+              disabled={draftReminderBusy}
+              onClick={handleDraftReminderNo}
+            >
               No
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleDraftReminderPost} disabled={draftReminderBusy}>
+            <AlertDialogAction
+              onClick={handleDraftReminderPost}
+              disabled={draftReminderBusy}
+            >
               Yes
             </AlertDialogAction>
           </AlertDialogFooter>

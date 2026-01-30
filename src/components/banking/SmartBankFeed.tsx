@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { usePlaidLink } from "react-plaid-link";
+import axios from "axios";
 import {
   plaidAPI,
   bankAccountAPI,
@@ -70,7 +71,7 @@ export const SmartBankFeed = () => {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState<string | null>(null);
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [selectedBankItem, setSelectedBankItem] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -151,7 +152,7 @@ export const SmartBankFeed = () => {
         setLoading(false);
       }
     },
-    [toast, fetchData]
+    [toast, fetchData],
   );
 
   const config = {
@@ -256,8 +257,9 @@ export const SmartBankFeed = () => {
     id: string,
     updates: Partial<Transaction>,
     authPassword?: string,
-    authPIN?: string
-  ) => {
+    authPIN?: string,
+    options?: { fromLockDialog?: boolean },
+  ): Promise<{ ok: boolean; error?: string }> => {
     try {
       // Find the transaction to check its date
       const transaction = transactions.find((t) => t.id === id);
@@ -279,7 +281,7 @@ export const SmartBankFeed = () => {
             setPendingUpdate({ id, updates });
             setLockDate(lockCheck.lockDate);
             setAuthDialogOpen(true);
-            return;
+            return { ok: false };
           }
         }
       } catch (error) {
@@ -304,49 +306,74 @@ export const SmartBankFeed = () => {
       }
 
       await transactionAPI.update(id, updateData);
-      toast({
-        title: "Success",
-        description: "Transaction updated successfully",
-      });
+      if (!options?.fromLockDialog) {
+        toast({
+          title: "Success",
+          description: "Transaction updated successfully",
+        });
+      }
       await fetchData();
       setPendingUpdate(null);
       setAuthDialogOpen(false);
+      return { ok: true };
     } catch (error: any) {
       const errorMessage = getErrorMessage(error);
-      if (
-        errorMessage.includes("401") ||
-        errorMessage.includes("authentication") ||
-        errorMessage.includes("credentials")
-      ) {
-        // Authentication failed, show dialog again
+      const status = axios.isAxiosError(error)
+        ? error.response?.status
+        : undefined;
+      const isAuthError =
+        status === 401 ||
+        status === 403 ||
+        errorMessage.toLowerCase().includes("authentication") ||
+        errorMessage.toLowerCase().includes("credentials");
+
+      if (isAuthError) {
+        // If credentials were provided (dialog submission), return an inline error
+        if (authPassword || authPIN) {
+          return {
+            ok: false,
+            error: "Incorrect PIN/password. Please try again.",
+          };
+        }
+        // Otherwise prompt for authentication.
         if (pendingUpdate) {
           setAuthDialogOpen(true);
         }
+        return { ok: false };
       }
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
+
+      if (!options?.fromLockDialog) {
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
+      return { ok: false, error: errorMessage };
     }
   };
 
-  const handleAuthDialogAuthenticate = (password?: string, pin?: string) => {
+  const handleAuthDialogAuthenticate = async (
+    password?: string,
+    pin?: string,
+  ): Promise<{ ok: boolean; error?: string }> => {
     if (pendingUpdate) {
-      handleUpdateTransaction(
+      return await handleUpdateTransaction(
         pendingUpdate.id,
         pendingUpdate.updates,
         password,
-        pin
+        pin,
+        { fromLockDialog: true },
       );
     }
+    return { ok: false };
   };
 
   // Categorize handler - creates journal entry with debit/credit
   const handleCategorize = async (
     id: string,
     type: TransactionType,
-    accountId?: string
+    accountId?: string,
   ) => {
     try {
       const transaction = transactions.find((t) => t.id === id);
@@ -386,7 +413,7 @@ export const SmartBankFeed = () => {
       // Find the selected account and bank account
       const selectedAccount = accounts.find((a) => a.id === accountId);
       const bankAccount = bankAccounts.find(
-        (ba) => ba.id === transaction.bankAccountId
+        (ba) => ba.id === transaction.bankAccountId,
       );
 
       if (!bankAccount) {
@@ -404,14 +431,15 @@ export const SmartBankFeed = () => {
         (a) =>
           a.name.toLowerCase() === bankAccount.name.toLowerCase() ||
           (a.subType === "Credit_Card" &&
-            bankAccount.accountType?.toLowerCase().includes("credit"))
+            bankAccount.accountType?.toLowerCase().includes("credit")),
       );
 
       // If not found, try to find a Cash or Credit Card account
       if (!bankAccountChartAccount) {
         bankAccountChartAccount = accounts.find(
           (a) =>
-            a.subType === "Credit_Card" || a.subType === "Cash_Cash_Equivalents"
+            a.subType === "Credit_Card" ||
+            a.subType === "Cash_Cash_Equivalents",
         );
       }
 
@@ -521,7 +549,7 @@ export const SmartBankFeed = () => {
   const handleBulkCategorize = async (type: TransactionType) => {
     try {
       const promises = Array.from(selectedTransactions).map((id) =>
-        transactionAPI.update(id, { type })
+        transactionAPI.update(id, { type }),
       );
       await Promise.all(promises);
       toast({
@@ -564,7 +592,7 @@ export const SmartBankFeed = () => {
     // Filter by selected bank item
     if (selectedBankAccountIds) {
       filtered = filtered.filter((t) =>
-        selectedBankAccountIds.has(t.bankAccountId)
+        selectedBankAccountIds.has(t.bankAccountId),
       );
     }
 
@@ -596,7 +624,7 @@ export const SmartBankFeed = () => {
     // Status filter
     if (filterStatus !== "all") {
       filtered = filtered.filter((t) =>
-        filterStatus === "reconciled" ? t.isReconciled : !t.isReconciled
+        filterStatus === "reconciled" ? t.isReconciled : !t.isReconciled,
       );
     }
 
@@ -656,14 +684,14 @@ export const SmartBankFeed = () => {
           startDate = new Date(0);
       }
       filtered = filtered.filter(
-        (t) => new Date(t.transactionDate) >= startDate
+        (t) => new Date(t.transactionDate) >= startDate,
       );
     }
 
     return filtered.sort(
       (a, b) =>
         new Date(b.transactionDate).getTime() -
-        new Date(a.transactionDate).getTime()
+        new Date(a.transactionDate).getTime(),
     );
   }, [
     transactions,
@@ -691,7 +719,7 @@ export const SmartBankFeed = () => {
         }
         return !t.type || t.type === TransactionTypeEnum.JOURNAL_ENTRY;
       }).length,
-    [filteredTransactions]
+    [filteredTransactions],
   );
 
   const allSelected =
@@ -751,18 +779,18 @@ export const SmartBankFeed = () => {
             {items.map((item) => {
               const isSelected = selectedBankItem === item.id;
               const linkedAccountsCount = item.plaidAccounts.filter(
-                (acc) => acc.bankAccountId
+                (acc) => acc.bankAccountId,
               ).length;
 
               const itemBankAccountIds = new Set(
                 item.plaidAccounts
                   .filter((pa) => pa.bankAccountId)
-                  .map((pa) => pa.bankAccountId!)
+                  .map((pa) => pa.bankAccountId!),
               );
               const transactionCount = isSelected
                 ? filteredTransactions.length
                 : transactions.filter((t) =>
-                    itemBankAccountIds.has(t.bankAccountId)
+                    itemBankAccountIds.has(t.bankAccountId),
                   ).length;
 
               return (
@@ -770,7 +798,7 @@ export const SmartBankFeed = () => {
                   key={item.id}
                   className={cn(
                     "cursor-pointer transition-all hover:shadow-md",
-                    isSelected && "ring-2 ring-primary shadow-md"
+                    isSelected && "ring-2 ring-primary shadow-md",
                   )}
                   onClick={() =>
                     setSelectedBankItem(isSelected ? null : item.id)
@@ -1084,7 +1112,7 @@ export const SmartBankFeed = () => {
         description={
           lockDate
             ? `This transaction is dated on or before ${new Date(
-                lockDate
+                lockDate,
               ).toLocaleDateString()}, which is locked. Please authenticate to make changes.`
             : undefined
         }
