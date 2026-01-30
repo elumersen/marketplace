@@ -1,16 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
-import { format } from 'date-fns';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
-import { DatePicker } from '@/components/ui/date-picker';
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { format } from "date-fns";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -18,18 +18,18 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { useToast } from '@/hooks/use-toast';
-import { reportAPI, getErrorMessage } from '@/lib/api';
+} from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import { reportAPI, getErrorMessage } from "@/lib/api";
 import {
   Account,
   AccountType,
   ProfitLossReportResponse,
   ProfitLossTransaction,
   ReportDisplayBy,
-} from '@/types/api.types';
-import { getSubTypeOrder } from '@/lib/accountOrdering';
-import { ChevronDown, ChevronRight, Download, TrendingUp } from 'lucide-react';
+} from "@/types/api.types";
+import { getSubTypeOrder } from "@/lib/accountOrdering";
+import { ChevronDown, ChevronRight, Download, TrendingUp } from "lucide-react";
 
 interface SubTypeGroup {
   subType: string;
@@ -38,7 +38,7 @@ interface SubTypeGroup {
 
 interface ReportRow {
   id: string;
-  type: 'section' | 'subtype' | 'account' | 'total' | 'summary';
+  type: "section" | "subtype" | "account" | "total" | "summary";
   label: string;
   level: number;
   account?: Account;
@@ -54,40 +54,40 @@ const PROFIT_LOSS_TYPES: AccountType[] = [
 ];
 
 const PRESET_OPTIONS = [
-  { value: 'custom', label: 'Custom dates' },
-  { value: 'today', label: 'Today' },
-  { value: 'this_week', label: 'This week' },
-  { value: 'this_week_to_date', label: 'This week to date' },
-  { value: 'this_month', label: 'This month' },
-  { value: 'this_month_to_date', label: 'This month to date' },
-  { value: 'this_quarter', label: 'This quarter' },
-  { value: 'this_quarter_to_date', label: 'This quarter to date' },
-  { value: 'this_year', label: 'This year' },
-  { value: 'this_year_to_date', label: 'This year to date' },
-  { value: 'yesterday', label: 'Yesterday' },
-  { value: 'last_week', label: 'Last week' },
-  { value: 'last_month', label: 'Last month' },
-  { value: 'last_quarter', label: 'Last quarter' },
-  { value: 'last_year', label: 'Last year' },
+  { value: "custom", label: "Custom dates" },
+  { value: "today", label: "Today" },
+  { value: "this_week", label: "This week" },
+  { value: "this_week_to_date", label: "This week to date" },
+  { value: "this_month", label: "This month" },
+  { value: "this_month_to_date", label: "This month to date" },
+  { value: "this_quarter", label: "This quarter" },
+  { value: "this_quarter_to_date", label: "This quarter to date" },
+  { value: "this_year", label: "This year" },
+  { value: "this_year_to_date", label: "This year to date" },
+  { value: "yesterday", label: "Yesterday" },
+  { value: "last_week", label: "Last week" },
+  { value: "last_month", label: "Last month" },
+  { value: "last_quarter", label: "Last quarter" },
+  { value: "last_year", label: "Last year" },
 ];
 
 const DISPLAY_BY_OPTIONS: { value: ReportDisplayBy; label: string }[] = [
-  { value: 'total', label: 'Total' },
-  { value: 'months', label: 'Months' },
-  { value: 'quarters', label: 'Quarters' },
-  { value: 'years', label: 'Years' },
+  { value: "total", label: "Total" },
+  { value: "months", label: "Months" },
+  { value: "quarters", label: "Quarters" },
+  { value: "years", label: "Years" },
 ];
 
 const COMPARISON_OPTIONS = [
-  { value: 'none', label: 'None' },
-  { value: 'previous_period', label: 'Previous period' },
-  { value: 'custom_period', label: 'Custom period' },
+  { value: "none", label: "None" },
+  { value: "previous_period", label: "Previous period" },
+  { value: "custom_period", label: "Custom period" },
 ];
 
 const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
@@ -95,10 +95,10 @@ const formatCurrency = (amount: number) =>
 const formatPercent = (value: number) => `${value.toFixed(2)}%`;
 
 const formatAccountType = (type: string) =>
-  type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+  type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 
 const formatDateParam = (date?: Date) =>
-  date ? format(date, 'yyyy-MM-dd') : undefined;
+  date ? format(date, "yyyy-MM-dd") : undefined;
 
 const parseDate = (value?: string | null) =>
   value ? new Date(value) : undefined;
@@ -107,7 +107,7 @@ const buildSubTypeGroups = (accounts: Account[]): SubTypeGroup[] => {
   const subTypeMap = new Map<string, Account[]>();
 
   accounts.forEach((acc) => {
-    const subType = acc.subType || 'Other';
+    const subType = acc.subType || "Other";
     if (!subTypeMap.has(subType)) {
       subTypeMap.set(subType, []);
     }
@@ -133,29 +133,44 @@ export const ProfitLoss = () => {
   const { toast } = useToast();
   const [report, setReport] = useState<ProfitLossReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [preset, setPreset] = useState('this_year_to_date');
+  const [preset, setPreset] = useState("this_year_to_date");
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
-  const [displayBy, setDisplayBy] = useState<ReportDisplayBy>('total');
-  const [comparisonType, setComparisonType] = useState('none');
-  const [comparisonStartDate, setComparisonStartDate] = useState<Date | undefined>();
-  const [comparisonEndDate, setComparisonEndDate] = useState<Date | undefined>();
-  const [comparisonMode, setComparisonMode] = useState<'amount' | 'percent'>('amount');
-  const [expandedTypes, setExpandedTypes] = useState<Set<AccountType>>(new Set(PROFIT_LOSS_TYPES));
-  const [expandedSubTypes, setExpandedSubTypes] = useState<Set<string>>(new Set());
+  const [displayBy, setDisplayBy] = useState<ReportDisplayBy>("total");
+  const [comparisonType, setComparisonType] = useState("none");
+  const [comparisonStartDate, setComparisonStartDate] = useState<
+    Date | undefined
+  >();
+  const [comparisonEndDate, setComparisonEndDate] = useState<
+    Date | undefined
+  >();
+  const [comparisonMode, setComparisonMode] = useState<"amount" | "percent">(
+    "amount",
+  );
+  const [expandedTypes, setExpandedTypes] = useState<Set<AccountType>>(
+    new Set(PROFIT_LOSS_TYPES),
+  );
+  const [expandedSubTypes, setExpandedSubTypes] = useState<Set<string>>(
+    new Set(),
+  );
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
-  const [detailTransactions, setDetailTransactions] = useState<ProfitLossTransaction[]>([]);
+  const [detailTransactions, setDetailTransactions] = useState<
+    ProfitLossTransaction[]
+  >([]);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [detailPreset, setDetailPreset] = useState('custom');
+  const [detailPreset, setDetailPreset] = useState("custom");
   const [detailStartDate, setDetailStartDate] = useState<Date | undefined>();
   const [detailEndDate, setDetailEndDate] = useState<Date | undefined>();
 
   const loadReport = async () => {
-    if (preset === 'custom' && (!startDate || !endDate)) {
+    if (preset === "custom" && (!startDate || !endDate)) {
       return;
     }
 
-    if (comparisonType === 'custom_period' && (!comparisonStartDate || !comparisonEndDate)) {
+    if (
+      comparisonType === "custom_period" &&
+      (!comparisonStartDate || !comparisonEndDate)
+    ) {
       return;
     }
 
@@ -163,27 +178,35 @@ export const ProfitLoss = () => {
       setLoading(true);
 
       const params: Record<string, string> = {};
-      if (preset && preset !== 'custom') {
+      if (preset && preset !== "custom") {
         params.preset = preset;
       }
-      if (preset === 'custom' && startDate && endDate) {
+      if (preset === "custom" && startDate && endDate) {
         params.startDate = formatDateParam(startDate) as string;
         params.endDate = formatDateParam(endDate) as string;
       }
       if (displayBy) {
         params.displayBy = displayBy;
       }
-      if (comparisonType !== 'none') {
+      if (comparisonType !== "none") {
         params.comparison = comparisonType;
       }
-      if (comparisonType === 'custom_period' && comparisonStartDate && comparisonEndDate) {
-        params.comparisonStartDate = formatDateParam(comparisonStartDate) as string;
+      if (
+        comparisonType === "custom_period" &&
+        comparisonStartDate &&
+        comparisonEndDate
+      ) {
+        params.comparisonStartDate = formatDateParam(
+          comparisonStartDate,
+        ) as string;
         params.comparisonEndDate = formatDateParam(comparisonEndDate) as string;
       }
 
-      const data = (await reportAPI.getProfitLoss(params)) as ProfitLossReportResponse;
+      const data = (await reportAPI.getProfitLoss(
+        params,
+      )) as ProfitLossReportResponse;
       setReport(data);
-      if (preset !== 'custom' && data.startDate && data.endDate) {
+      if (preset !== "custom" && data.startDate && data.endDate) {
         const nextStart = parseDate(data.startDate);
         const nextEnd = parseDate(data.endDate);
         setStartDate((prev) => {
@@ -199,8 +222,8 @@ export const ProfitLoss = () => {
       }
     } catch (err) {
       toast({
-        variant: 'destructive',
-        title: 'Error',
+        variant: "destructive",
+        title: "Error",
         description: getErrorMessage(err),
       });
     } finally {
@@ -208,35 +231,51 @@ export const ProfitLoss = () => {
     }
   };
 
-  const loadDetailTransactions = async (account: Account, signal?: AbortSignal) => {
-    if (detailPreset === 'custom' && (!detailStartDate || !detailEndDate)) {
+  const loadDetailTransactions = async (
+    account: Account,
+    signal?: AbortSignal,
+  ) => {
+    if (detailPreset === "custom" && (!detailStartDate || !detailEndDate)) {
       return;
     }
 
     try {
       setDetailLoading(true);
       const params: Record<string, string> = { accountId: account.id };
-      if (detailPreset !== 'custom') {
+      if (detailPreset !== "custom") {
         params.preset = detailPreset;
       } else if (detailStartDate && detailEndDate) {
         params.startDate = formatDateParam(detailStartDate) as string;
         params.endDate = formatDateParam(detailEndDate) as string;
       }
 
-      const response = await reportAPI.getProfitLoss(params, signal ? { signal } : undefined);
-      const data = response as { transactions?: ProfitLossTransaction[]; startDate: string; endDate: string };
+      const response = await reportAPI.getProfitLoss(
+        params,
+        signal ? { signal } : undefined,
+      );
+      const data = response as {
+        transactions?: ProfitLossTransaction[];
+        startDate: string;
+        endDate: string;
+      };
       setDetailTransactions(data.transactions || []);
       // Only update date state when value actually changed to avoid re-triggering the effect (and a refetch/blink)
       const nextStart = parseDate(data.startDate);
       const nextEnd = parseDate(data.endDate);
-      setDetailStartDate((prev) => (prev?.getTime() !== nextStart?.getTime() ? nextStart : prev));
-      setDetailEndDate((prev) => (prev?.getTime() !== nextEnd?.getTime() ? nextEnd : prev));
+      setDetailStartDate((prev) =>
+        prev?.getTime() !== nextStart?.getTime() ? nextStart : prev,
+      );
+      setDetailEndDate((prev) =>
+        prev?.getTime() !== nextEnd?.getTime() ? nextEnd : prev,
+      );
     } catch (err) {
-      const isAbort = (err as { name?: string })?.name === 'CanceledError' || (err as { code?: string })?.code === 'ERR_CANCELED';
+      const isAbort =
+        (err as { name?: string })?.name === "CanceledError" ||
+        (err as { code?: string })?.code === "ERR_CANCELED";
       if (!isAbort) {
         toast({
-          variant: 'destructive',
-          title: 'Error',
+          variant: "destructive",
+          title: "Error",
           description: getErrorMessage(err),
         });
       }
@@ -247,7 +286,6 @@ export const ProfitLoss = () => {
 
   // Only depend on startDate/endDate when preset is 'custom' to avoid refetch when we sync dates from report response
   useEffect(() => {
-    if (selectedAccount) return;
     loadReport();
   }, [
     preset,
@@ -255,8 +293,7 @@ export const ProfitLoss = () => {
     comparisonType,
     comparisonStartDate,
     comparisonEndDate,
-    selectedAccount,
-    ...(preset === 'custom' ? [startDate, endDate] : []),
+    ...(preset === "custom" ? [startDate, endDate] : []),
   ]);
 
   useEffect(() => {
@@ -268,35 +305,18 @@ export const ProfitLoss = () => {
 
   const handlePresetChange = (value: string) => {
     setPreset(value);
-    if (value !== 'custom') {
+    if (value !== "custom") {
       setStartDate(undefined);
       setEndDate(undefined);
     }
   };
 
-  const handleDateChange = (type: 'start' | 'end', date?: Date) => {
-    setPreset('custom');
-    if (type === 'start') {
+  const handleDateChange = (type: "start" | "end", date?: Date) => {
+    setPreset("custom");
+    if (type === "start") {
       setStartDate(date);
     } else {
       setEndDate(date);
-    }
-  };
-
-  const handleDetailPresetChange = (value: string) => {
-    setDetailPreset(value);
-    if (value !== 'custom') {
-      setDetailStartDate(undefined);
-      setDetailEndDate(undefined);
-    }
-  };
-
-  const handleDetailDateChange = (type: 'start' | 'end', date?: Date) => {
-    setDetailPreset('custom');
-    if (type === 'start') {
-      setDetailStartDate(date);
-    } else {
-      setDetailEndDate(date);
     }
   };
 
@@ -326,39 +346,42 @@ export const ProfitLoss = () => {
   const periodGroups = useMemo(() => {
     if (!report) return [];
     const groups: Array<{ key: string; label: string; index: number }> = [];
-    if (displayBy !== 'total' && report.periodBreakdown) {
+    if (displayBy !== "total" && report.periodBreakdown) {
       report.periodBreakdown.forEach((period, index) => {
         groups.push({ key: period.label, label: period.label, index });
       });
-      groups.push({ key: 'total', label: 'Total', index: -1 });
+      groups.push({ key: "total", label: "Total", index: -1 });
       return groups;
     }
-    return [{ key: 'total', label: 'Total', index: -1 }];
+    return [{ key: "total", label: "Total", index: -1 }];
   }, [report, displayBy]);
 
   const getAccountValue = (accountId: string, groupKey: string) => {
     if (!report) return 0;
-    if (groupKey === 'total') {
+    if (groupKey === "total") {
       return report.accountBalances?.[accountId] ?? 0;
     }
     return report.periodBalances?.[accountId]?.[groupKey] ?? 0;
   };
 
   const getComparisonValue = (accountId: string, groupKey: string) => {
-    if (!report || comparisonType === 'none') return null;
+    if (!report || comparisonType === "none") return null;
 
-    if (groupKey === 'total') {
+    if (groupKey === "total") {
       return report.comparisonBalances?.[accountId] ?? null;
     }
 
     return report.comparisonPeriodBalances?.[accountId]?.[groupKey] ?? null;
   };
 
-  const formatValue = (value: number | null, mode: 'currency' | 'percent' = 'currency') => {
+  const formatValue = (
+    value: number | null,
+    mode: "currency" | "percent" = "currency",
+  ) => {
     if (value === null || Number.isNaN(value)) {
-      return '—';
+      return "—";
     }
-    if (mode === 'percent') {
+    if (mode === "percent") {
       return formatPercent(value);
     }
     return formatCurrency(value);
@@ -366,17 +389,21 @@ export const ProfitLoss = () => {
 
   const getChangeValue = (current: number, previous: number | null) => {
     if (previous === null) return null;
-    if (comparisonMode === 'percent') {
+    if (comparisonMode === "percent") {
       if (previous === 0) return null;
       return ((current - previous) / Math.abs(previous)) * 100;
     }
     return current - previous;
   };
 
-  const sumAccounts = (accounts: Account[] = [], groupKey: string, useComparison = false) =>
+  const sumAccounts = (
+    accounts: Account[] = [],
+    groupKey: string,
+    useComparison = false,
+  ) =>
     accounts.reduce((sum, account) => {
       const value = useComparison
-        ? getComparisonValue(account.id, groupKey) ?? 0
+        ? (getComparisonValue(account.id, groupKey) ?? 0)
         : getAccountValue(account.id, groupKey);
       return sum + value;
     }, 0);
@@ -412,7 +439,7 @@ export const ProfitLoss = () => {
       const sectionLabel = formatAccountType(type);
       rows.push({
         id: `section-${type}`,
-        type: 'section',
+        type: "section",
         label: sectionLabel,
         level: 0,
         accounts,
@@ -426,7 +453,7 @@ export const ProfitLoss = () => {
         if (!isRedundantSubtype) {
           rows.push({
             id: `subtype-${subKey}`,
-            type: 'subtype',
+            type: "subtype",
             label: subtypeLabel,
             level: 1,
             accounts: subGroup.accounts,
@@ -436,8 +463,10 @@ export const ProfitLoss = () => {
         subGroup.accounts.forEach((account) => {
           rows.push({
             id: account.id,
-            type: 'account',
-            label: account.code ? `${account.code} - ${account.name}` : account.name,
+            type: "account",
+            label: account.code
+              ? `${account.code} - ${account.name}`
+              : account.name,
             level: isRedundantSubtype ? 1 : 2,
             account,
           });
@@ -448,26 +477,26 @@ export const ProfitLoss = () => {
     // Order per requirements: Income → COGS → Gross Profit → Expenses → Other Income → Other Expense → Net Income
     addTypeSection(AccountType.Income);
     rows.push({
-      id: 'total-income',
-      type: 'total',
-      label: 'Total Income',
+      id: "total-income",
+      type: "total",
+      label: "Total Income",
       level: 0,
       accounts: accountsByType[AccountType.Income],
     });
 
     addTypeSection(AccountType.Cost_of_Goods_Sold);
     rows.push({
-      id: 'total-cogs',
-      type: 'total',
-      label: 'Total Cost of Goods Sold',
+      id: "total-cogs",
+      type: "total",
+      label: "Total Cost of Goods Sold",
       level: 0,
       accounts: accountsByType[AccountType.Cost_of_Goods_Sold],
     });
 
     rows.push({
-      id: 'gross-profit',
-      type: 'summary',
-      label: 'Gross Profit',
+      id: "gross-profit",
+      type: "summary",
+      label: "Gross Profit",
       level: 0,
       accounts: [
         ...(accountsByType[AccountType.Income] || []),
@@ -477,35 +506,35 @@ export const ProfitLoss = () => {
 
     addTypeSection(AccountType.Expense);
     rows.push({
-      id: 'total-expense',
-      type: 'total',
-      label: 'Total Expenses',
+      id: "total-expense",
+      type: "total",
+      label: "Total Expenses",
       level: 0,
       accounts: accountsByType[AccountType.Expense],
     });
 
     addTypeSection(AccountType.Other_Income);
     rows.push({
-      id: 'total-other-income',
-      type: 'total',
-      label: 'Total Other Income',
+      id: "total-other-income",
+      type: "total",
+      label: "Total Other Income",
       level: 0,
       accounts: accountsByType[AccountType.Other_Income],
     });
 
     addTypeSection(AccountType.Other_Expense);
     rows.push({
-      id: 'total-other-expense',
-      type: 'total',
-      label: 'Total Other Expense',
+      id: "total-other-expense",
+      type: "total",
+      label: "Total Other Expense",
       level: 0,
       accounts: accountsByType[AccountType.Other_Expense],
     });
 
     rows.push({
-      id: 'net-income',
-      type: 'summary',
-      label: 'Net Income',
+      id: "net-income",
+      type: "summary",
+      label: "Net Income",
       level: 0,
       accounts: [
         ...(accountsByType[AccountType.Income] || []),
@@ -523,17 +552,23 @@ export const ProfitLoss = () => {
 
   const visibleRows = useMemo(() => {
     return rows.filter((row) => {
-      if (row.type === 'section') return true;
-      if (row.type === 'subtype') {
-        const parentType = row.id.replace('subtype-', '').split('-')[0] as AccountType;
+      if (row.type === "section") return true;
+      if (row.type === "subtype") {
+        const parentType = row.id
+          .replace("subtype-", "")
+          .split("-")[0] as AccountType;
         return expandedTypes.has(parentType);
       }
-      if (row.type === 'account') {
+      if (row.type === "account") {
         const parentType = row.account?.type;
         if (parentType && !expandedTypes.has(parentType)) return false;
         if (row.account?.subType && parentType) {
           const subKey = `${parentType}-${row.account.subType}`;
-          if (formatAccountType(row.account.subType) === formatAccountType(parentType)) return true;
+          if (
+            formatAccountType(row.account.subType) ===
+            formatAccountType(parentType)
+          )
+            return true;
           return expandedSubTypes.has(subKey);
         }
         return true;
@@ -546,64 +581,123 @@ export const ProfitLoss = () => {
     return periodGroups.map((group) => {
       const currentValue = row.account
         ? getAccountValue(row.account.id, group.key)
-        : row.type === 'summary'
+        : row.type === "summary"
           ? null
           : sumAccounts(row.accounts || [], group.key);
 
-      const comparisonValue = comparisonType === 'none'
-        ? null
-        : row.account
-          ? getComparisonValue(row.account.id, group.key)
-          : row.type === 'summary'
-            ? null
-            : sumAccounts(row.accounts || [], group.key, true);
+      const comparisonValue =
+        comparisonType === "none"
+          ? null
+          : row.account
+            ? getComparisonValue(row.account.id, group.key)
+            : row.type === "summary"
+              ? null
+              : sumAccounts(row.accounts || [], group.key, true);
 
       let computedCurrent = currentValue ?? 0;
       let computedComparison = comparisonValue;
 
-      if (row.id === 'gross-profit') {
-        const income = sumAccounts(accountsByType[AccountType.Income], group.key);
-        const cogs = sumAccounts(accountsByType[AccountType.Cost_of_Goods_Sold], group.key);
+      if (row.id === "gross-profit") {
+        const income = sumAccounts(
+          accountsByType[AccountType.Income],
+          group.key,
+        );
+        const cogs = sumAccounts(
+          accountsByType[AccountType.Cost_of_Goods_Sold],
+          group.key,
+        );
         computedCurrent = income - cogs;
-        if (comparisonType !== 'none') {
-          const incomeComp = sumAccounts(accountsByType[AccountType.Income], group.key, true);
-          const cogsComp = sumAccounts(accountsByType[AccountType.Cost_of_Goods_Sold], group.key, true);
+        if (comparisonType !== "none") {
+          const incomeComp = sumAccounts(
+            accountsByType[AccountType.Income],
+            group.key,
+            true,
+          );
+          const cogsComp = sumAccounts(
+            accountsByType[AccountType.Cost_of_Goods_Sold],
+            group.key,
+            true,
+          );
           computedComparison = incomeComp - cogsComp;
         }
       }
 
-      if (row.id === 'net-income') {
-        const income = sumAccounts(accountsByType[AccountType.Income], group.key);
-        const otherIncome = sumAccounts(accountsByType[AccountType.Other_Income], group.key);
-        const cogs = sumAccounts(accountsByType[AccountType.Cost_of_Goods_Sold], group.key);
-        const expense = sumAccounts(accountsByType[AccountType.Expense], group.key);
-        const otherExpense = sumAccounts(accountsByType[AccountType.Other_Expense], group.key);
+      if (row.id === "net-income") {
+        const income = sumAccounts(
+          accountsByType[AccountType.Income],
+          group.key,
+        );
+        const otherIncome = sumAccounts(
+          accountsByType[AccountType.Other_Income],
+          group.key,
+        );
+        const cogs = sumAccounts(
+          accountsByType[AccountType.Cost_of_Goods_Sold],
+          group.key,
+        );
+        const expense = sumAccounts(
+          accountsByType[AccountType.Expense],
+          group.key,
+        );
+        const otherExpense = sumAccounts(
+          accountsByType[AccountType.Other_Expense],
+          group.key,
+        );
         computedCurrent = income + otherIncome - cogs - expense - otherExpense;
 
-        if (comparisonType !== 'none') {
-          const incomeComp = sumAccounts(accountsByType[AccountType.Income], group.key, true);
-          const otherIncomeComp = sumAccounts(accountsByType[AccountType.Other_Income], group.key, true);
-          const cogsComp = sumAccounts(accountsByType[AccountType.Cost_of_Goods_Sold], group.key, true);
-          const expenseComp = sumAccounts(accountsByType[AccountType.Expense], group.key, true);
-          const otherExpenseComp = sumAccounts(accountsByType[AccountType.Other_Expense], group.key, true);
-          computedComparison = incomeComp + otherIncomeComp - cogsComp - expenseComp - otherExpenseComp;
+        if (comparisonType !== "none") {
+          const incomeComp = sumAccounts(
+            accountsByType[AccountType.Income],
+            group.key,
+            true,
+          );
+          const otherIncomeComp = sumAccounts(
+            accountsByType[AccountType.Other_Income],
+            group.key,
+            true,
+          );
+          const cogsComp = sumAccounts(
+            accountsByType[AccountType.Cost_of_Goods_Sold],
+            group.key,
+            true,
+          );
+          const expenseComp = sumAccounts(
+            accountsByType[AccountType.Expense],
+            group.key,
+            true,
+          );
+          const otherExpenseComp = sumAccounts(
+            accountsByType[AccountType.Other_Expense],
+            group.key,
+            true,
+          );
+          computedComparison =
+            incomeComp +
+            otherIncomeComp -
+            cogsComp -
+            expenseComp -
+            otherExpenseComp;
         }
       }
 
-      const changeValue = comparisonType === 'none'
-        ? null
-        : getChangeValue(computedCurrent, computedComparison);
+      const changeValue =
+        comparisonType === "none"
+          ? null
+          : getChangeValue(computedCurrent, computedComparison);
 
-      if (comparisonType === 'none') {
+      if (comparisonType === "none") {
         return (
-          <TableCell key={`${row.id}-${group.key}`} className="text-right font-mono text-sm">
+          <TableCell
+            key={`${row.id}-${group.key}`}
+            className="text-right font-mono text-sm"
+          >
             {formatValue(computedCurrent)}
           </TableCell>
         );
       }
 
       return (
-        <TableCell key={`${row.id}-${group.key}`} className="p-0">
+        <TableCell key={`${row.id}-${group.key}`} className="p-0" colSpan={3}>
           <div className="grid grid-cols-3">
             <div className="px-3 py-2 text-right font-mono text-sm">
               {formatValue(computedCurrent)}
@@ -612,7 +706,10 @@ export const ProfitLoss = () => {
               {formatValue(computedComparison)}
             </div>
             <div className="px-3 py-2 text-right font-mono text-sm">
-              {formatValue(changeValue, comparisonMode === 'percent' ? 'percent' : 'currency')}
+              {formatValue(
+                changeValue,
+                comparisonMode === "percent" ? "percent" : "currency",
+              )}
             </div>
           </div>
         </TableCell>
@@ -623,9 +720,9 @@ export const ProfitLoss = () => {
   const handleExportCsv = () => {
     if (!report) return;
 
-    const headers: string[] = ['Account'];
+    const headers: string[] = ["Account"];
     periodGroups.forEach((group) => {
-      if (comparisonType === 'none') {
+      if (comparisonType === "none") {
         headers.push(group.label);
       } else {
         headers.push(`${group.label} - Current`);
@@ -639,222 +736,162 @@ export const ProfitLoss = () => {
       periodGroups.forEach((group) => {
         const currentValue = row.account
           ? getAccountValue(row.account.id, group.key)
-          : row.type === 'summary'
+          : row.type === "summary"
             ? null
             : sumAccounts(row.accounts || [], group.key);
 
-        const comparisonValue = comparisonType === 'none'
-          ? null
-          : row.account
-            ? getComparisonValue(row.account.id, group.key)
-            : row.type === 'summary'
-              ? null
-              : sumAccounts(row.accounts || [], group.key, true);
+        const comparisonValue =
+          comparisonType === "none"
+            ? null
+            : row.account
+              ? getComparisonValue(row.account.id, group.key)
+              : row.type === "summary"
+                ? null
+                : sumAccounts(row.accounts || [], group.key, true);
 
         let computedCurrent = currentValue ?? 0;
         let computedComparison = comparisonValue;
 
-        if (row.id === 'gross-profit') {
-          const income = sumAccounts(accountsByType[AccountType.Income], group.key);
-          const cogs = sumAccounts(accountsByType[AccountType.Cost_of_Goods_Sold], group.key);
+        if (row.id === "gross-profit") {
+          const income = sumAccounts(
+            accountsByType[AccountType.Income],
+            group.key,
+          );
+          const cogs = sumAccounts(
+            accountsByType[AccountType.Cost_of_Goods_Sold],
+            group.key,
+          );
           computedCurrent = income - cogs;
-          if (comparisonType !== 'none') {
-            const incomeComp = sumAccounts(accountsByType[AccountType.Income], group.key, true);
-            const cogsComp = sumAccounts(accountsByType[AccountType.Cost_of_Goods_Sold], group.key, true);
+          if (comparisonType !== "none") {
+            const incomeComp = sumAccounts(
+              accountsByType[AccountType.Income],
+              group.key,
+              true,
+            );
+            const cogsComp = sumAccounts(
+              accountsByType[AccountType.Cost_of_Goods_Sold],
+              group.key,
+              true,
+            );
             computedComparison = incomeComp - cogsComp;
           }
         }
 
-        if (row.id === 'net-income') {
-          const income = sumAccounts(accountsByType[AccountType.Income], group.key);
-          const otherIncome = sumAccounts(accountsByType[AccountType.Other_Income], group.key);
-          const cogs = sumAccounts(accountsByType[AccountType.Cost_of_Goods_Sold], group.key);
-          const expense = sumAccounts(accountsByType[AccountType.Expense], group.key);
-          const otherExpense = sumAccounts(accountsByType[AccountType.Other_Expense], group.key);
-          computedCurrent = income + otherIncome - cogs - expense - otherExpense;
+        if (row.id === "net-income") {
+          const income = sumAccounts(
+            accountsByType[AccountType.Income],
+            group.key,
+          );
+          const otherIncome = sumAccounts(
+            accountsByType[AccountType.Other_Income],
+            group.key,
+          );
+          const cogs = sumAccounts(
+            accountsByType[AccountType.Cost_of_Goods_Sold],
+            group.key,
+          );
+          const expense = sumAccounts(
+            accountsByType[AccountType.Expense],
+            group.key,
+          );
+          const otherExpense = sumAccounts(
+            accountsByType[AccountType.Other_Expense],
+            group.key,
+          );
+          computedCurrent =
+            income + otherIncome - cogs - expense - otherExpense;
 
-          if (comparisonType !== 'none') {
-            const incomeComp = sumAccounts(accountsByType[AccountType.Income], group.key, true);
-            const otherIncomeComp = sumAccounts(accountsByType[AccountType.Other_Income], group.key, true);
-            const cogsComp = sumAccounts(accountsByType[AccountType.Cost_of_Goods_Sold], group.key, true);
-            const expenseComp = sumAccounts(accountsByType[AccountType.Expense], group.key, true);
-            const otherExpenseComp = sumAccounts(accountsByType[AccountType.Other_Expense], group.key, true);
-            computedComparison = incomeComp + otherIncomeComp - cogsComp - expenseComp - otherExpenseComp;
+          if (comparisonType !== "none") {
+            const incomeComp = sumAccounts(
+              accountsByType[AccountType.Income],
+              group.key,
+              true,
+            );
+            const otherIncomeComp = sumAccounts(
+              accountsByType[AccountType.Other_Income],
+              group.key,
+              true,
+            );
+            const cogsComp = sumAccounts(
+              accountsByType[AccountType.Cost_of_Goods_Sold],
+              group.key,
+              true,
+            );
+            const expenseComp = sumAccounts(
+              accountsByType[AccountType.Expense],
+              group.key,
+              true,
+            );
+            const otherExpenseComp = sumAccounts(
+              accountsByType[AccountType.Other_Expense],
+              group.key,
+              true,
+            );
+            computedComparison =
+              incomeComp +
+              otherIncomeComp -
+              cogsComp -
+              expenseComp -
+              otherExpenseComp;
           }
         }
 
-        if (comparisonType === 'none') {
+        if (comparisonType === "none") {
           values.push(computedCurrent.toFixed(2));
         } else {
-          const changeValue = getChangeValue(computedCurrent, computedComparison);
+          const changeValue = getChangeValue(
+            computedCurrent,
+            computedComparison,
+          );
           values.push(computedCurrent.toFixed(2));
           values.push((computedComparison ?? 0).toFixed(2));
-          values.push(changeValue === null ? '' : changeValue.toFixed(2));
+          values.push(changeValue === null ? "" : changeValue.toFixed(2));
         }
       });
       return values;
     });
 
     const csvContent = [headers, ...allRows]
-      .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
+      .map((row) =>
+        row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","),
+      )
+      .join("\n");
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = `profit-loss-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    link.download = `profit-loss-${format(new Date(), "yyyy-MM-dd")}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
 
   const handleAccountClick = (account: Account) => {
+    const isSameAccount = selectedAccount?.id === account.id;
+    if (isSameAccount) {
+      setSelectedAccount(null);
+      setDetailTransactions([]);
+      return;
+    }
+
     setSelectedAccount(account);
+    setDetailTransactions([]);
     setDetailPreset(preset);
     setDetailStartDate(reportStartDate);
     setDetailEndDate(reportEndDate);
   };
 
-  if (selectedAccount) {
-    const runningBalances = detailTransactions.reduce<number[]>((acc, txn, index) => {
+  const detailRunningBalances = useMemo(() => {
+    return detailTransactions.reduce<number[]>((acc, txn, index) => {
       const prev = index === 0 ? 0 : acc[index - 1];
       acc.push(prev + (txn.amount || 0));
       return acc;
     }, []);
+  }, [detailTransactions]);
 
-    return (
-      <div className="container mx-auto py-4 sm:py-6 px-4 sm:px-6 space-y-6 min-w-0">
-        <Card>
-          <CardHeader className="space-y-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:flex-wrap">
-              <div className="min-w-0">
-                <Button variant="ghost" className="px-0 text-sm -ml-1" onClick={() => setSelectedAccount(null)}>
-                  ← Back to summary report
-                </Button>
-                <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl break-words mt-1">
-                  <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 shrink-0" />
-                  {selectedAccount.name}
-                </CardTitle>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-start">
-              <div className="min-w-0 space-y-1.5">
-                <label className="text-sm font-medium block">Report period</label>
-                <Select value={detailPreset} onValueChange={handleDetailPresetChange}>
-                  <SelectTrigger className="w-full min-w-0 h-9">
-                    <SelectValue placeholder="Select period" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRESET_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="min-w-0 space-y-1.5">
-                <label className="text-sm font-medium block">From</label>
-                <div className="w-full min-w-0 [&_button]:h-9">
-                  <DatePicker date={detailStartDate} setDate={(date) => handleDetailDateChange('start', date)} />
-                </div>
-              </div>
-              <div className="min-w-0 space-y-1.5">
-                <label className="text-sm font-medium block">To</label>
-                <div className="w-full min-w-0 [&_button]:h-9">
-                  <DatePicker date={detailEndDate} setDate={(date) => handleDetailDateChange('end', date)} />
-                </div>
-              </div>
-            </div>
-
-            {detailLoading ? (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Entry #</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Debit</TableHead>
-                      <TableHead className="text-right">Credit</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {[...Array(6)].map((_, index) => (
-                      <TableRow key={index}>
-                        <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-40" /></TableCell>
-                        <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
-                        <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
-                        <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
-                        <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Entry #</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Debit</TableHead>
-                      <TableHead className="text-right">Credit</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {detailTransactions.map((txn, index) => (
-                      <TableRow key={txn.id}>
-                        <TableCell>{format(new Date(txn.date), 'MM/dd/yyyy')}</TableCell>
-                        <TableCell className="capitalize">{txn.type.replace(/_/g, ' ')}</TableCell>
-                        <TableCell>{txn.entryNumber || '—'}</TableCell>
-                        <TableCell>{txn.description || '—'}</TableCell>
-                        <TableCell className="text-right font-mono">{formatCurrency(txn.debit || 0)}</TableCell>
-                        <TableCell className="text-right font-mono">{formatCurrency(txn.credit || 0)}</TableCell>
-                        <TableCell className="text-right font-mono">{formatCurrency(txn.amount || 0)}</TableCell>
-                        <TableCell className="text-right font-mono">{formatCurrency(runningBalances[index] || 0)}</TableCell>
-                      </TableRow>
-                    ))}
-                    {detailTransactions.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center text-sm text-muted-foreground">
-                          No transactions for this period.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {detailTransactions.length > 0 && (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-right font-semibold">
-                          Total for {selectedAccount.name}
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-semibold">
-                          {formatCurrency(detailTransactions.reduce((sum, txn) => sum + (txn.amount || 0), 0))}
-                        </TableCell>
-                        <TableCell />
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const detailTotal = useMemo(() => {
+    return detailTransactions.reduce((sum, txn) => sum + (txn.amount || 0), 0);
+  }, [detailTransactions]);
 
   if (loading) {
     return (
@@ -903,8 +940,18 @@ export const ProfitLoss = () => {
                 <TableBody>
                   {[...Array(12)].map((_, index) => (
                     <TableRow key={index}>
-                      <TableCell className={index % 3 === 1 ? 'pl-6' : index % 3 === 2 ? 'pl-10' : undefined}>
-                        <Skeleton className={`h-5 ${index % 3 === 0 ? 'w-48' : index % 3 === 1 ? 'w-36' : 'w-32'}`} />
+                      <TableCell
+                        className={
+                          index % 3 === 1
+                            ? "pl-6"
+                            : index % 3 === 2
+                              ? "pl-10"
+                              : undefined
+                        }
+                      >
+                        <Skeleton
+                          className={`h-5 ${index % 3 === 0 ? "w-48" : index % 3 === 1 ? "w-36" : "w-32"}`}
+                        />
                       </TableCell>
                       <TableCell>
                         <Skeleton className="h-5 w-20 ml-auto" />
@@ -944,11 +991,16 @@ export const ProfitLoss = () => {
               </CardTitle>
               {reportStartDate && reportEndDate && (
                 <p className="text-sm text-muted-foreground mt-1 break-words">
-                  {format(reportStartDate, 'MMMM d, yyyy')} - {format(reportEndDate, 'MMMM d, yyyy')}
+                  {format(reportStartDate, "MMMM d, yyyy")} -{" "}
+                  {format(reportEndDate, "MMMM d, yyyy")}
                 </p>
               )}
             </div>
-            <Button variant="outline" onClick={handleExportCsv} className="gap-2 w-full sm:w-auto shrink-0">
+            <Button
+              variant="outline"
+              onClick={handleExportCsv}
+              className="gap-2 w-full sm:w-auto shrink-0"
+            >
               <Download className="h-4 w-4" />
               Export CSV
             </Button>
@@ -973,15 +1025,26 @@ export const ProfitLoss = () => {
             </div>
             <div className="min-w-0">
               <label className="text-sm font-medium">From</label>
-              <DatePicker date={startDate} setDate={(date) => handleDateChange('start', date)} />
+              <DatePicker
+                date={startDate}
+                setDate={(date) => handleDateChange("start", date)}
+              />
             </div>
             <div className="min-w-0">
               <label className="text-sm font-medium">To</label>
-              <DatePicker date={endDate} setDate={(date) => handleDateChange('end', date)} />
+              <DatePicker
+                date={endDate}
+                setDate={(date) => handleDateChange("end", date)}
+              />
             </div>
             <div className="min-w-0">
               <label className="text-sm font-medium">Display columns by</label>
-              <Select value={displayBy} onValueChange={(value) => setDisplayBy(value as ReportDisplayBy)}>
+              <Select
+                value={displayBy}
+                onValueChange={(value) =>
+                  setDisplayBy(value as ReportDisplayBy)
+                }
+              >
                 <SelectTrigger className="mt-1 w-full min-w-0">
                   <SelectValue placeholder="Display by" />
                 </SelectTrigger>
@@ -1009,10 +1072,15 @@ export const ProfitLoss = () => {
                 </SelectContent>
               </Select>
             </div>
-            {comparisonType !== 'none' && (
+            {comparisonType !== "none" && (
               <div className="min-w-0 sm:col-span-2 md:col-span-1">
                 <label className="text-sm font-medium">Change type</label>
-                <Select value={comparisonMode} onValueChange={(value) => setComparisonMode(value as 'amount' | 'percent')}>
+                <Select
+                  value={comparisonMode}
+                  onValueChange={(value) =>
+                    setComparisonMode(value as "amount" | "percent")
+                  }
+                >
                   <SelectTrigger className="mt-1 w-full min-w-0">
                     <SelectValue placeholder="Change type" />
                   </SelectTrigger>
@@ -1023,15 +1091,21 @@ export const ProfitLoss = () => {
                 </Select>
               </div>
             )}
-            {comparisonType === 'custom_period' && (
+            {comparisonType === "custom_period" && (
               <>
                 <div className="min-w-0 lg:col-start-3">
                   <label className="text-sm font-medium">Comparison from</label>
-                  <DatePicker date={comparisonStartDate} setDate={(date) => setComparisonStartDate(date)} />
+                  <DatePicker
+                    date={comparisonStartDate}
+                    setDate={(date) => setComparisonStartDate(date)}
+                  />
                 </div>
                 <div className="min-w-0 lg:col-start-4">
                   <label className="text-sm font-medium">Comparison to</label>
-                  <DatePicker date={comparisonEndDate} setDate={(date) => setComparisonEndDate(date)} />
+                  <DatePicker
+                    date={comparisonEndDate}
+                    setDate={(date) => setComparisonEndDate(date)}
+                  />
                 </div>
               </>
             )}
@@ -1040,7 +1114,7 @@ export const ProfitLoss = () => {
           <div className="rounded-md border overflow-auto">
             <Table>
               <TableHeader>
-                {comparisonType === 'none' ? (
+                {comparisonType === "none" ? (
                   <TableRow>
                     <TableHead className="min-w-[280px]">Account</TableHead>
                     {periodGroups.map((group) => (
@@ -1054,7 +1128,11 @@ export const ProfitLoss = () => {
                     <TableRow>
                       <TableHead className="min-w-[280px]">Account</TableHead>
                       {periodGroups.map((group) => (
-                        <TableHead key={group.key} colSpan={3} className="text-center">
+                        <TableHead
+                          key={group.key}
+                          colSpan={3}
+                          className="text-center"
+                        >
                           {group.label}
                         </TableHead>
                       ))}
@@ -1062,18 +1140,30 @@ export const ProfitLoss = () => {
                     <TableRow>
                       <TableHead />
                       {periodGroups.map((group) => {
-                        const comparisonEntry = report?.comparisonPeriodBreakdown?.find(
-                          (entry) => entry.mainLabel === group.label
-                        );
-                        const previousLabel = comparisonEntry?.label || 'Previous';
-                        
+                        const comparisonEntry =
+                          report?.comparisonPeriodBreakdown?.find(
+                            (entry) => entry.mainLabel === group.label,
+                          );
+                        const previousLabel =
+                          comparisonEntry?.label || "Previous";
+
                         return (
-                          <TableHead key={`${group.key}-current`} colSpan={3} className="p-0">
+                          <TableHead
+                            key={`${group.key}-current`}
+                            colSpan={3}
+                            className="p-0"
+                          >
                             <div className="grid grid-cols-3 text-xs uppercase text-muted-foreground">
-                              <div className="px-3 py-2 text-right">Current</div>
-                              <div className="px-3 py-2 text-right">{previousLabel}</div>
                               <div className="px-3 py-2 text-right">
-                                {comparisonMode === 'percent' ? '% Change' : '$ Change'}
+                                Current
+                              </div>
+                              <div className="px-3 py-2 text-right">
+                                {previousLabel}
+                              </div>
+                              <div className="px-3 py-2 text-right">
+                                {comparisonMode === "percent"
+                                  ? "% Change"
+                                  : "$ Change"}
                               </div>
                             </div>
                           </TableHead>
@@ -1085,22 +1175,40 @@ export const ProfitLoss = () => {
               </TableHeader>
               <TableBody>
                 {visibleRows.map((row) => {
-                  const isSection = row.type === 'section';
-                  const isSubtotal = row.type === 'total';
-                  const isSummary = row.type === 'summary';
-                  const indentClass = row.level === 0 ? 'pl-4' : row.level === 1 ? 'pl-8' : 'pl-12';
-                  const parentType = row.id.replace('section-', '') as AccountType;
-                  const subKey = row.type === 'subtype' ? row.id.replace('subtype-', '') : '';
-                  const hasToggle = row.type === 'section' || row.type === 'subtype';
-                  const isExpanded = row.type === 'section'
-                    ? expandedTypes.has(parentType)
-                    : row.type === 'subtype'
-                      ? expandedSubTypes.has(subKey)
-                      : true;
+                  const isSection = row.type === "section";
+                  const isSubtotal = row.type === "total";
+                  const isSummary = row.type === "summary";
+                  const indentClass =
+                    row.level === 0
+                      ? "pl-4"
+                      : row.level === 1
+                        ? "pl-8"
+                        : "pl-12";
+                  const parentType = row.id.replace(
+                    "section-",
+                    "",
+                  ) as AccountType;
+                  const subKey =
+                    row.type === "subtype"
+                      ? row.id.replace("subtype-", "")
+                      : "";
+                  const hasToggle =
+                    row.type === "section" || row.type === "subtype";
+                  const isExpanded =
+                    row.type === "section"
+                      ? expandedTypes.has(parentType)
+                      : row.type === "subtype"
+                        ? expandedSubTypes.has(subKey)
+                        : true;
+
+                  const isAccountRowExpanded =
+                    row.type === "account" &&
+                    !!row.account &&
+                    selectedAccount?.id === row.account.id;
 
                   const handleRowClick = () => {
                     if (hasToggle) {
-                      if (row.type === 'section') toggleType(parentType);
+                      if (row.type === "section") toggleType(parentType);
                       else toggleSubType(subKey);
                     } else if (row.account) {
                       handleAccountClick(row.account);
@@ -1108,29 +1216,210 @@ export const ProfitLoss = () => {
                   };
 
                   return (
-                    <TableRow
-                      key={row.id}
-                      className={[
-                        isSection ? 'bg-muted font-semibold uppercase cursor-pointer hover:bg-muted/80' : '',
-                        isSubtotal ? 'font-bold' : '',
-                        isSummary ? 'bg-primary/10 font-bold' : '',
-                        row.type === 'account' ? 'cursor-pointer hover:bg-muted/20' : '',
-                        (row.type === 'subtype' || row.type === 'section') ? 'cursor-pointer' : '',
-                      ].filter(Boolean).join(' ')}
-                      onClick={handleRowClick}
-                    >
-                      <TableCell className={`${indentClass} py-2`}>
-                        <div className="flex items-center gap-2">
-                          {hasToggle && (
-                            <span className="text-muted-foreground shrink-0" aria-hidden>
-                              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    <Fragment key={row.id}>
+                      <TableRow
+                        className={[
+                          isSection
+                            ? "bg-muted font-semibold uppercase cursor-pointer hover:bg-muted/80"
+                            : "",
+                          isSubtotal ? "font-bold" : "",
+                          isSummary ? "bg-primary/10 font-bold" : "",
+                          row.type === "account"
+                            ? "cursor-pointer hover:bg-muted/20"
+                            : "",
+                          row.type === "subtype" || row.type === "section"
+                            ? "cursor-pointer"
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                        onClick={handleRowClick}
+                      >
+                        <TableCell className={`${indentClass} py-2`}>
+                          <div className="flex items-center gap-2">
+                            {hasToggle && (
+                              <span
+                                className="text-muted-foreground shrink-0"
+                                aria-hidden
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                              </span>
+                            )}
+                            {!hasToggle && row.type === "account" && (
+                              <span
+                                className="text-muted-foreground shrink-0"
+                                aria-hidden
+                              >
+                                {isAccountRowExpanded ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                              </span>
+                            )}
+                            <span className={isSection ? "uppercase" : ""}>
+                              {row.label}
                             </span>
-                          )}
-                          <span className={isSection ? 'uppercase' : ''}>{row.label}</span>
-                        </div>
-                      </TableCell>
-                      {renderRowValues(row)}
-                    </TableRow>
+                          </div>
+                        </TableCell>
+                        {renderRowValues(row)}
+                      </TableRow>
+
+                      {isAccountRowExpanded && (
+                        <TableRow>
+                          <TableCell
+                            colSpan={
+                              comparisonType === "none"
+                                ? 1 + periodGroups.length
+                                : 1 + periodGroups.length * 3
+                            }
+                            className="p-0"
+                          >
+                            <div className="border-t">
+                              <div className="overflow-auto">
+                                <Table className="text-sm">
+                                  <TableHeader>
+                                    <TableRow className="h-8">
+                                      <TableHead className="py-1 px-2 text-xs font-medium text-muted-foreground">
+                                        Date
+                                      </TableHead>
+                                      <TableHead className="py-1 px-2 text-xs font-medium text-muted-foreground">
+                                        Type
+                                      </TableHead>
+                                      <TableHead className="py-1 px-2 text-xs font-medium text-muted-foreground">
+                                        Entry #
+                                      </TableHead>
+                                      <TableHead className="py-1 px-2 text-xs font-medium text-muted-foreground">
+                                        Description
+                                      </TableHead>
+                                      <TableHead className="py-1 px-2 text-xs font-medium text-muted-foreground text-right whitespace-nowrap">
+                                        Debit
+                                      </TableHead>
+                                      <TableHead className="py-1 px-2 text-xs font-medium text-muted-foreground text-right whitespace-nowrap">
+                                        Credit
+                                      </TableHead>
+                                      <TableHead className="py-1 px-2 text-xs font-medium text-muted-foreground text-right whitespace-nowrap">
+                                        Amount
+                                      </TableHead>
+                                      <TableHead className="py-1 px-2 text-xs font-medium text-muted-foreground text-right whitespace-nowrap">
+                                        Balance
+                                      </TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {detailLoading ? (
+                                      [...Array(6)].map((_, index) => (
+                                        <TableRow key={index} className="h-8">
+                                          <TableCell>
+                                            <Skeleton className="h-4 w-20" />
+                                          </TableCell>
+                                          <TableCell>
+                                            <Skeleton className="h-4 w-24" />
+                                          </TableCell>
+                                          <TableCell>
+                                            <Skeleton className="h-4 w-16" />
+                                          </TableCell>
+                                          <TableCell>
+                                            <Skeleton className="h-4 w-40" />
+                                          </TableCell>
+                                          <TableCell className="text-right">
+                                            <Skeleton className="h-4 w-16 ml-auto" />
+                                          </TableCell>
+                                          <TableCell className="text-right">
+                                            <Skeleton className="h-4 w-16 ml-auto" />
+                                          </TableCell>
+                                          <TableCell className="text-right">
+                                            <Skeleton className="h-4 w-16 ml-auto" />
+                                          </TableCell>
+                                          <TableCell className="text-right">
+                                            <Skeleton className="h-4 w-16 ml-auto" />
+                                          </TableCell>
+                                        </TableRow>
+                                      ))
+                                    ) : (
+                                      <>
+                                        {detailTransactions.map(
+                                          (txn, index) => (
+                                            <TableRow
+                                              key={txn.id}
+                                              className="h-8"
+                                            >
+                                              <TableCell className="py-1 px-2 whitespace-nowrap">
+                                                {format(
+                                                  new Date(txn.date),
+                                                  "MM/dd/yyyy",
+                                                )}
+                                              </TableCell>
+                                              <TableCell className="py-1 px-2 capitalize whitespace-nowrap">
+                                                {txn.type.replace(/_/g, " ")}
+                                              </TableCell>
+                                              <TableCell className="py-1 px-2 whitespace-nowrap">
+                                                {txn.entryNumber || "—"}
+                                              </TableCell>
+                                              <TableCell className="py-1 px-2">
+                                                {txn.description || "—"}
+                                              </TableCell>
+                                              <TableCell className="py-1 px-2 text-right font-mono whitespace-nowrap">
+                                                {formatCurrency(txn.debit || 0)}
+                                              </TableCell>
+                                              <TableCell className="py-1 px-2 text-right font-mono whitespace-nowrap">
+                                                {formatCurrency(
+                                                  txn.credit || 0,
+                                                )}
+                                              </TableCell>
+                                              <TableCell className="py-1 px-2 text-right font-mono whitespace-nowrap">
+                                                {formatCurrency(
+                                                  txn.amount || 0,
+                                                )}
+                                              </TableCell>
+                                              <TableCell className="py-1 px-2 text-right font-mono whitespace-nowrap">
+                                                {formatCurrency(
+                                                  detailRunningBalances[
+                                                    index
+                                                  ] || 0,
+                                                )}
+                                              </TableCell>
+                                            </TableRow>
+                                          ),
+                                        )}
+                                        {detailTransactions.length === 0 && (
+                                          <TableRow>
+                                            <TableCell
+                                              colSpan={8}
+                                              className="text-center text-sm text-muted-foreground py-3"
+                                            >
+                                              No transactions for this period.
+                                            </TableCell>
+                                          </TableRow>
+                                        )}
+                                        {detailTransactions.length > 0 && (
+                                          <TableRow className="h-8">
+                                            <TableCell
+                                              colSpan={6}
+                                              className="py-1 px-2 text-right font-semibold"
+                                            >
+                                              Total for {selectedAccount?.name}
+                                            </TableCell>
+                                            <TableCell className="py-1 px-2 text-right font-mono font-semibold whitespace-nowrap">
+                                              {formatCurrency(detailTotal)}
+                                            </TableCell>
+                                            <TableCell />
+                                          </TableRow>
+                                        )}
+                                      </>
+                                    )}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
                   );
                 })}
               </TableBody>
