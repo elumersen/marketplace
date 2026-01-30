@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Trash2, Plus, Calculator, ArrowLeft } from 'lucide-react';
-import { Account, CreateJournalEntryData, JournalEntry, JournalEntryStatus } from '@/types/api.types';
+import { Account, CompanySettings, CreateJournalEntryData, JournalEntry, JournalEntryStatus, UpdateJournalEntryData } from '@/types/api.types';
 import { accountAPI, journalEntryAPI, companySettingsAPI, getErrorMessage } from '@/lib/api';
 import { Checkbox } from '@/components/ui/checkbox';
+import { BookLockAuthDialog } from '@/components/common/BookLockAuthDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +48,10 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
 }) => {
   const { toast } = useToast();
   const draftReminderResolvedRef = useRef(false);
+  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
+  const [lockAuthDialogOpen, setLockAuthDialogOpen] = useState(false);
+  const [lockDate, setLockDate] = useState<string | undefined>(undefined);
+  const [originalStatus, setOriginalStatus] = useState<JournalEntryStatus>(JournalEntryStatus.DRAFT);
   const [formData, setFormData] = useState({
     entryNumber: '',
     entryDate: new Date().toISOString().split('T')[0],
@@ -83,6 +88,7 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
     loadAccounts();
     loadCompanySettings();
     if (initialData) {
+      setOriginalStatus(initialData.status || JournalEntryStatus.DRAFT);
       setFormData({
         entryNumber: initialData.entryNumber || '',
         entryDate: initialData.entryDate,
@@ -112,6 +118,7 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
   const loadCompanySettings = async () => {
     try {
       const response = await companySettingsAPI.getSettings();
+      setCompanySettings(response.settings);
       const prefix = response.settings.journalEntryPrefix || '';
       setJournalEntryPrefix(prefix);
       if (!initialData) {
@@ -198,22 +205,45 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const submitJournalEntry = async (authPassword?: string, authPIN?: string) => {
     if (!validateForm()) {
       return;
     }
 
+    const dateStr = formData.entryDate?.split('T')[0];
+    const requiresLockAuth = Boolean(
+      companySettings?.hasLockBooksPassword || companySettings?.hasLockBooksPIN
+    );
+
+    if (dateStr && requiresLockAuth) {
+      try {
+        const lockCheck = await companySettingsAPI.checkDateLocked(dateStr);
+        if (lockCheck.isLocked && !authPassword && !authPIN) {
+          setLockDate(lockCheck.lockDate);
+          setLockAuthDialogOpen(true);
+          return;
+        }
+      } catch {
+        // If lock check fails, proceed (backend will still enforce when applicable)
+      }
+    }
+
     setLoading(true);
     try {
-      const submitData: CreateJournalEntryData = {
+      const statusToSave =
+        isEditing && originalStatus === JournalEntryStatus.POSTED
+          ? JournalEntryStatus.POSTED
+          : formData.status;
+
+      const baseData = {
         entryNumber: formData.entryNumber || journalEntryPrefix || undefined,
         entryDate: formData.entryDate,
         description: formData.description || undefined,
-        status: formData.status,
+        status: statusToSave,
         isAdjusting: formData.isAdjusting,
-        lines: lines.map(line => ({
+        ...(authPassword ? { authPassword } : {}),
+        ...(authPIN ? { authPIN } : {}),
+        lines: lines.map((line) => ({
           accountId: line.accountId,
           description: line.description || undefined,
           debit: line.debit,
@@ -221,11 +251,14 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
         })),
       };
 
-      let response;
+      let response: { journalEntry: JournalEntry };
       if (isEditing && journalEntryId) {
-        response = await journalEntryAPI.update(journalEntryId, submitData);
+        response = await journalEntryAPI.update(
+          journalEntryId,
+          baseData as UpdateJournalEntryData
+        );
       } else {
-        response = await journalEntryAPI.create(submitData);
+        response = await journalEntryAPI.create(baseData as CreateJournalEntryData);
       }
 
       if (response.journalEntry?.status === JournalEntryStatus.DRAFT) {
@@ -241,16 +274,38 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
         });
         onSuccess?.(response.journalEntry);
       }
+      setLockAuthDialogOpen(false);
     } catch (error) {
-      console.error('Failed to save journal entry:', getErrorMessage(error));
+      const errorMessage = getErrorMessage(error);
+      const requiresLockAuth = Boolean(
+        companySettings?.hasLockBooksPassword || companySettings?.hasLockBooksPIN
+      );
+
+      if (
+        requiresLockAuth &&
+        (errorMessage.includes('Authentication required') ||
+          errorMessage.includes('Invalid authentication') ||
+          errorMessage.includes('credentials') ||
+          errorMessage.includes('403'))
+      ) {
+        setLockAuthDialogOpen(true);
+        return;
+      }
+
+      console.error('Failed to save journal entry:', errorMessage);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: getErrorMessage(error),
+        description: errorMessage,
       });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitJournalEntry();
   };
 
   const handleDraftReminderNo = () => {
@@ -299,6 +354,11 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
     } finally {
       setDraftReminderBusy(false);
     }
+  };
+
+  const handleLockAuthDialogAuthenticate = (password?: string, pin?: string) => {
+    setLockAuthDialogOpen(false);
+    submitJournalEntry(password, pin);
   };
 
   const { totalDebits, totalCredits } = calculateTotals();
@@ -372,6 +432,7 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
               <Select
+                disabled={isEditing && originalStatus === JournalEntryStatus.POSTED}
                 value={formData.status}
                 onValueChange={(value) => setFormData({ ...formData, status: value as JournalEntryStatus })}
               >
@@ -566,6 +627,21 @@ export const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BookLockAuthDialog
+        open={lockAuthDialogOpen}
+        onOpenChange={(open) => {
+          setLockAuthDialogOpen(open);
+          if (!open) {
+            setLockDate(undefined);
+          }
+        }}
+        onAuthenticate={handleLockAuthDialogAuthenticate}
+        settings={companySettings || undefined}
+        lockDate={lockDate}
+        title="Books Locked"
+        description="The books are locked for this date. Enter your password/PIN to save these changes."
+      />
     </>
   );
 };

@@ -46,6 +46,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { BookLockAuthDialog } from "@/components/common/BookLockAuthDialog";
 import {
   Search,
   Plus,
@@ -73,6 +74,8 @@ import {
   JournalEntryQueryParams,
   Account,
   CreateJournalEntryData,
+  UpdateJournalEntryData,
+  CompanySettings,
 } from "@/types/api.types";
 import { journalEntryAPI, accountAPI, companySettingsAPI, getErrorMessage } from "@/lib/api";
 import { format } from "date-fns";
@@ -159,13 +162,18 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   const [editingFormLoading, setEditingFormLoading] = useState(false);
   const [editingFormErrors, setEditingFormErrors] = useState<Record<string, string>>({});
   const [editingFormAccountPopovers, setEditingFormAccountPopovers] = useState<Record<number, boolean>>({});
+  const [editingOriginalStatus, setEditingOriginalStatus] = useState<JournalEntryStatus | null>(null);
 
   const [draftReminderOpen, setDraftReminderOpen] = useState(false);
   const [draftReminderEntryId, setDraftReminderEntryId] = useState<string | null>(null);
   const [draftReminderBusy, setDraftReminderBusy] = useState(false);
   const [draftReminderMode, setDraftReminderMode] = useState<"create" | "update" | null>(null);
   const draftReminderResolvedRef = useRef(false);
-  const [adjustingUpdatingIds, setAdjustingUpdatingIds] = useState<Set<string>>(new Set());
+
+  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
+  const [lockAuthDialogOpen, setLockAuthDialogOpen] = useState(false);
+  const [lockDate, setLockDate] = useState<string | undefined>(undefined);
+  const [pendingSaveMode, setPendingSaveMode] = useState<"create" | "update" | null>(null);
 
   useEffect(() => {
     setFilters((prev) => ({
@@ -187,6 +195,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   const loadCompanySettings = async () => {
     try {
       const response = await companySettingsAPI.getSettings();
+      setCompanySettings(response.settings);
       const prefix = response.settings.journalEntryPrefix || '';
       setJournalEntryPrefix(prefix);
     } catch (error) {
@@ -431,9 +440,28 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleInlineFormSubmit = async () => {
+  const handleInlineFormSubmit = async (authPassword?: string, authPIN?: string) => {
     if (!validateInlineForm()) {
       return;
+    }
+
+    const dateStr = inlineFormData.entryDate?.split("T")[0];
+    const requiresLockAuth = Boolean(
+      companySettings?.hasLockBooksPassword || companySettings?.hasLockBooksPIN
+    );
+
+    if (dateStr && requiresLockAuth) {
+      try {
+        const lockCheck = await companySettingsAPI.checkDateLocked(dateStr);
+        if (lockCheck.isLocked && !authPassword && !authPIN) {
+          setPendingSaveMode("create");
+          setLockDate(lockCheck.lockDate);
+          setLockAuthDialogOpen(true);
+          return;
+        }
+      } catch {
+        // If lock check fails, proceed (backend will still enforce when applicable)
+      }
     }
 
     setInlineFormLoading(true);
@@ -444,6 +472,8 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
         description: inlineFormData.description || undefined,
         status: inlineFormData.status,
         isAdjusting: inlineFormData.isAdjusting,
+        ...(authPassword ? { authPassword } : {}),
+        ...(authPIN ? { authPIN } : {}),
         lines: inlineFormLines.map(line => ({
           accountId: line.accountId,
           description: line.description || undefined,
@@ -478,11 +508,25 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
         });
       }
     } catch (error) {
-      console.error('Failed to create journal entry:', getErrorMessage(error));
+      const errorMessage = getErrorMessage(error);
+      // If backend requires lock auth, prompt and retry
+      if (
+        (companySettings?.hasLockBooksPassword || companySettings?.hasLockBooksPIN) &&
+        (errorMessage.includes("Authentication required") ||
+          errorMessage.includes("Invalid authentication") ||
+          errorMessage.includes("credentials") ||
+          errorMessage.includes("403"))
+      ) {
+        setPendingSaveMode("create");
+        setLockAuthDialogOpen(true);
+        return;
+      }
+
+      console.error('Failed to create journal entry:', errorMessage);
       toast({
         variant: "destructive",
         title: "Error",
-        description: getErrorMessage(error),
+        description: errorMessage,
       });
     } finally {
       setInlineFormLoading(false);
@@ -490,9 +534,10 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   };
 
   const handleStartEdit = (entry: JournalEntry) => {
-    if (entry.status !== JournalEntryStatus.DRAFT) return;
+    if (entry.status === JournalEntryStatus.VOID) return;
     
     setEditingEntryId(entry.id);
+    setEditingOriginalStatus(entry.status);
     const dateOnly = entry.entryDate.split("T")[0];
     const [year, month, day] = dateOnly.split("-").map(Number);
     const date = new Date(year, month - 1, day);
@@ -517,7 +562,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
   };
 
   const handleEdit = (entry: JournalEntry) => {
-    if (entry.status !== JournalEntryStatus.DRAFT) return;
+    if (entry.status === JournalEntryStatus.VOID) return;
     setExpandedEntries(prev => {
       const next = new Set(prev);
       next.add(entry.id);
@@ -532,6 +577,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     setEditingFormDate(undefined);
     setEditingFormLines([]);
     setEditingFormErrors({});
+    setEditingOriginalStatus(null);
   };
 
   const addEditingFormLine = () => {
@@ -631,20 +677,44 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = async (authPassword?: string, authPIN?: string) => {
     if (!editingEntryId || !editingFormData) return;
     if (!validateEditingForm()) {
       return;
     }
 
+    const dateStr = editingFormData.entryDate?.split("T")[0];
+    const requiresLockAuth = Boolean(
+      companySettings?.hasLockBooksPassword || companySettings?.hasLockBooksPIN
+    );
+
+    if (dateStr && requiresLockAuth) {
+      try {
+        const lockCheck = await companySettingsAPI.checkDateLocked(dateStr);
+        if (lockCheck.isLocked && !authPassword && !authPIN) {
+          setPendingSaveMode("update");
+          setLockDate(lockCheck.lockDate);
+          setLockAuthDialogOpen(true);
+          return;
+        }
+      } catch {
+        // If lock check fails, proceed (backend will still enforce when applicable)
+      }
+    }
+
     setEditingFormLoading(true);
     try {
-      const submitData = {
+      const submitData: UpdateJournalEntryData = {
         entryNumber: editingFormData.entryNumber || journalEntryPrefix || undefined,
         entryDate: editingFormData.entryDate,
         description: editingFormData.description || undefined,
-        status: editingFormData.status,
+        status:
+          editingOriginalStatus === JournalEntryStatus.POSTED
+            ? JournalEntryStatus.POSTED
+            : editingFormData.status,
         isAdjusting: editingFormData.isAdjusting,
+        ...(authPassword ? { authPassword } : {}),
+        ...(authPIN ? { authPIN } : {}),
         lines: editingFormLines.map(line => ({
           accountId: line.accountId,
           description: line.description || undefined,
@@ -691,11 +761,24 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
         });
       }
     } catch (error) {
-      console.error('Failed to update journal entry:', getErrorMessage(error));
+      const errorMessage = getErrorMessage(error);
+      if (
+        (companySettings?.hasLockBooksPassword || companySettings?.hasLockBooksPIN) &&
+        (errorMessage.includes("Authentication required") ||
+          errorMessage.includes("Invalid authentication") ||
+          errorMessage.includes("credentials") ||
+          errorMessage.includes("403"))
+      ) {
+        setPendingSaveMode("update");
+        setLockAuthDialogOpen(true);
+        return;
+      }
+
+      console.error('Failed to update journal entry:', errorMessage);
       toast({
         variant: "destructive",
         title: "Error",
-        description: getErrorMessage(error),
+        description: errorMessage,
       });
     } finally {
       setEditingFormLoading(false);
@@ -751,55 +834,6 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     return entry.lines.reduce((sum, line) => sum + line.debit, 0);
   };
 
-  const handleToggleAdjusting = async (entry: JournalEntry, next: boolean) => {
-    if (!entry?.id) return;
-    if (adjustingUpdatingIds.has(entry.id)) return;
-
-    setAdjustingUpdatingIds((prev) => {
-      const s = new Set(prev);
-      s.add(entry.id);
-      return s;
-    });
-
-    setJournalEntries((prevEntries) =>
-      prevEntries.map((e) => (e.id === entry.id ? { ...e, isAdjusting: next } : e))
-    );
-
-    try {
-      const response = await journalEntryAPI.update(entry.id, { isAdjusting: next });
-
-      if (response.journalEntry) {
-        setJournalEntries((prevEntries) =>
-          prevEntries.map((e) => {
-            if (e.id !== entry.id) return e;
-            return {
-              ...e,
-              ...response.journalEntry,
-              createdByUser: e.createdByUser,
-              updatedByUser: e.updatedByUser,
-            };
-          })
-        );
-      }
-    } catch (error) {
-      setJournalEntries((prevEntries) =>
-        prevEntries.map((e) => (e.id === entry.id ? { ...e, isAdjusting: entry.isAdjusting } : e))
-      );
-
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: getErrorMessage(error),
-      });
-    } finally {
-      setAdjustingUpdatingIds((prev) => {
-        const s = new Set(prev);
-        s.delete(entry.id);
-        return s;
-      });
-    }
-  };
-
   const handleDraftReminderPost = async () => {
     if (!draftReminderEntryId) return;
     try {
@@ -834,6 +868,18 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     setDraftReminderOpen(false);
     setDraftReminderEntryId(null);
     setDraftReminderMode(null);
+  };
+
+  const handleLockAuthDialogAuthenticate = (password?: string, pin?: string) => {
+    const mode = pendingSaveMode;
+    setLockAuthDialogOpen(false);
+    setPendingSaveMode(null);
+
+    if (mode === "create") {
+      handleInlineFormSubmit(password, pin);
+    } else if (mode === "update") {
+      handleSaveEdit(password, pin);
+    }
   };
 
   return (
@@ -1256,7 +1302,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                             </Button>
                             <div className="flex items-center gap-2">
                               <Button
-                                onClick={handleInlineFormSubmit}
+                                onClick={() => handleInlineFormSubmit()}
                                 disabled={inlineFormLoading || !isInlineFormValid()}
                                 size="sm"
                               >
@@ -1312,13 +1358,10 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                             className="text-center whitespace-nowrap"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <div className="flex justify-center">
+                            <div className="flex justify-center pointer-events-none cursor-default">
                               <Checkbox
                                 checked={Boolean(entry.isAdjusting)}
-                                className="scale-125"
-                                onCheckedChange={(checked) =>
-                                  handleToggleAdjusting(entry, checked === true)
-                                }
+                                className="h-5 w-6"
                                 aria-label="Mark journal entry as adjusting"
                               />
                             </div>
@@ -1389,6 +1432,10 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                 )}
                                 {entry.status === JournalEntryStatus.POSTED && (
                                   <>
+                                    <DropdownMenuItem onClick={() => handleEdit(entry)}>
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem
                                       onClick={() =>
                                         handleStatusUpdate(
@@ -1509,6 +1556,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                     <div className="space-y-1">
                                       <Label>Status</Label>
                                       <Select
+                                        disabled={editingOriginalStatus === JournalEntryStatus.POSTED}
                                         value={editingFormData?.status || JournalEntryStatus.DRAFT}
                                         onValueChange={(value) =>
                                           setEditingFormData(prev => ({
@@ -1700,7 +1748,7 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
                                     </Button>
                                     <div className="flex items-center gap-2">
                                       <Button
-                                        onClick={handleSaveEdit}
+                                        onClick={() => handleSaveEdit()}
                                         disabled={editingFormLoading || !isEditingFormValid()}
                                         size="sm"
                                       >
@@ -1824,6 +1872,22 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BookLockAuthDialog
+        open={lockAuthDialogOpen}
+        onOpenChange={(open) => {
+          setLockAuthDialogOpen(open);
+          if (!open) {
+            setPendingSaveMode(null);
+            setLockDate(undefined);
+          }
+        }}
+        onAuthenticate={handleLockAuthDialogAuthenticate}
+        settings={companySettings || undefined}
+        lockDate={lockDate}
+        title="Books Locked"
+        description="The books are locked for this date. Enter your password/PIN to save these changes."
+      />
     </div>
   );
 };

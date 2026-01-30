@@ -717,6 +717,8 @@ export interface CreateJournalEntryData {
   description?: string;
   status?: JournalEntryStatus;
   isAdjusting?: boolean;
+  authPassword?: string;
+  authPIN?: string;
   transactionType?: TransactionType;
   payee?: string;
   lines: Array<{
@@ -728,10 +730,13 @@ export interface CreateJournalEntryData {
 }
 
 export interface UpdateJournalEntryData {
+  entryNumber?: string;
   entryDate?: string;
   description?: string;
   status?: JournalEntryStatus;
   isAdjusting?: boolean;
+  authPassword?: string;
+  authPIN?: string;
   transactionType?: TransactionType;
   payee?: string;
   lines?: Array<{
