@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,6 +26,7 @@ import {
   AccountType,
   ProfitLossReportResponse,
   ProfitLossTransaction,
+  ProfitLossTransactionsResponse,
   ReportDisplayBy,
 } from "@/types/api.types";
 import { getSubTypeOrder } from "@/lib/accountOrdering";
@@ -84,13 +85,15 @@ const COMPARISON_OPTIONS = [
   { value: "custom_period", label: "Custom period" },
 ];
 
-const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat("en-US", {
+const formatCurrency = (amount: number) => {
+  const n = Math.abs(amount) < 1e-10 ? 0 : amount;
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(amount);
+  }).format(n);
+};
 
 const formatPercent = (value: number) => `${value.toFixed(2)}%`;
 
@@ -100,8 +103,39 @@ const formatAccountType = (type: string) =>
 const formatDateParam = (date?: Date) =>
   date ? format(date, "yyyy-MM-dd") : undefined;
 
-const parseDate = (value?: string | null) =>
-  value ? new Date(value) : undefined;
+/** Parse backend date string (YYYY-MM-DD or ISO) to a local Date for that calendar day only. Use for date pickers so they show the same day as the backend (no timezone rollover). */
+const parseBackendDateToLocal = (value?: string | null): Date | undefined => {
+  if (!value) return undefined;
+  const dateOnly = value.slice(0, 10);
+  const [y, m, d] = dateOnly.split("-").map(Number);
+  if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return undefined;
+  return new Date(y, m - 1, d);
+};
+
+/** Format backend date string (YYYY-MM-DD or ISO) for display. No timezone conversion — uses backend year/month/day as-is. */
+const formatBackendDateForDisplay = (value?: string | null): string | null => {
+  if (!value) return null;
+  const dateOnly = value.slice(0, 10);
+  const [y, m, d] = dateOnly.split("-").map(Number);
+  if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return null;
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+  const month = monthNames[m - 1];
+  if (!month) return null;
+  return `${month} ${d}, ${y}`;
+};
 
 const buildSubTypeGroups = (accounts: Account[]): SubTypeGroup[] => {
   const subTypeMap = new Map<string, Account[]>();
@@ -129,6 +163,315 @@ const buildSubTypeGroups = (accounts: Account[]): SubTypeGroup[] => {
     }));
 };
 
+const AccountDrilldownInline = ({
+  account,
+  initialPreset,
+  initialStartDate,
+  initialEndDate,
+}: {
+  account: Account;
+  initialPreset: string;
+  initialStartDate?: Date;
+  initialEndDate?: Date;
+}) => {
+  const { toast } = useToast();
+  const [detailPreset, setDetailPreset] = useState(initialPreset);
+  const [detailStartDate, setDetailStartDate] = useState<Date | undefined>(
+    initialStartDate,
+  );
+  const [detailEndDate, setDetailEndDate] = useState<Date | undefined>(
+    initialEndDate,
+  );
+  const [detailTransactions, setDetailTransactions] = useState<
+    ProfitLossTransaction[]
+  >([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const lastSuccessKeyRef = useRef<string | null>(null);
+
+  const detailRunningBalances = useMemo(() => {
+    return detailTransactions.reduce<number[]>((acc, txn, index) => {
+      const prev = index === 0 ? 0 : acc[index - 1];
+      acc.push(prev + (txn.amount || 0));
+      return acc;
+    }, []);
+  }, [detailTransactions]);
+
+  const detailTotal = useMemo(() => {
+    return detailTransactions.reduce((sum, txn) => sum + (txn.amount || 0), 0);
+  }, [detailTransactions]);
+
+  useEffect(() => {
+    if (detailPreset === "custom" && (!detailStartDate || !detailEndDate)) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const fetchKey =
+      detailPreset === "custom"
+        ? `${account.id}|custom|${detailStartDate?.getTime() ?? "na"}|${detailEndDate?.getTime() ?? "na"}`
+        : `${account.id}|preset|${detailPreset}`;
+
+    // Avoid re-fetch caused only by syncing backend dates into pickers
+    if (lastSuccessKeyRef.current === fetchKey) {
+      return () => controller.abort();
+    }
+
+    (async () => {
+      try {
+        setDetailLoading(true);
+
+        const params: Record<string, string> = { accountId: account.id };
+        if (detailPreset !== "custom") {
+          params.preset = detailPreset;
+        } else if (detailStartDate && detailEndDate) {
+          params.startDate = formatDateParam(detailStartDate) as string;
+          params.endDate = formatDateParam(detailEndDate) as string;
+        }
+
+        const response = await reportAPI.getProfitLoss(params, {
+          signal: controller.signal,
+        });
+
+        const data = response as ProfitLossTransactionsResponse;
+        setDetailTransactions(data.transactions || []);
+
+        // Sync backend dates into the detail pickers (avoid timezone rollover)
+        const nextStart = parseBackendDateToLocal(data.startDate);
+        const nextEnd = parseBackendDateToLocal(data.endDate);
+        setDetailStartDate((prev) =>
+          prev?.getTime() !== nextStart?.getTime() ? nextStart : prev,
+        );
+        setDetailEndDate((prev) =>
+          prev?.getTime() !== nextEnd?.getTime() ? nextEnd : prev,
+        );
+
+        lastSuccessKeyRef.current = fetchKey;
+      } catch (err) {
+        const isAbort =
+          (err as { name?: string })?.name === "CanceledError" ||
+          (err as { name?: string })?.name === "AbortError" ||
+          (err as { code?: string })?.code === "ERR_CANCELED";
+        if (!isAbort) {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: getErrorMessage(err),
+          });
+        }
+      } finally {
+        setDetailLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [
+    account.id,
+    detailPreset,
+    detailStartDate?.getTime(),
+    detailEndDate?.getTime(),
+    toast,
+  ]);
+
+  const handleDetailPresetChange = (value: string) => {
+    setDetailPreset(value);
+    if (value !== "custom") {
+      setDetailStartDate(undefined);
+      setDetailEndDate(undefined);
+    }
+  };
+
+  const handleDetailDateChange = (type: "start" | "end", date?: Date) => {
+    setDetailPreset("custom");
+    if (type === "start") setDetailStartDate(date);
+    else setDetailEndDate(date);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-0 w-full sm:w-[220px]">
+          <label className="text-sm font-medium leading-none text-muted-foreground">
+            Account period
+          </label>
+          <Select value={detailPreset} onValueChange={handleDetailPresetChange}>
+            <SelectTrigger className="mt-1 h-8 w-full min-w-0 px-2 text-sm">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              {PRESET_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="min-w-0 w-full sm:w-[190px]">
+          <label className="text-sm font-medium leading-none text-muted-foreground">
+            From
+          </label>
+          <div className="mt-1">
+            <DatePicker
+              date={detailStartDate}
+              setDate={(date) => handleDetailDateChange("start", date)}
+              className="h-8 px-2 text-sm max-w-none"
+            />
+          </div>
+        </div>
+        <div className="min-w-0 w-full sm:w-[190px]">
+          <label className="text-sm font-medium leading-none text-muted-foreground">
+            To
+          </label>
+          <div className="mt-1">
+            <DatePicker
+              date={detailEndDate}
+              setDate={(date) => handleDetailDateChange("end", date)}
+              className="h-8 px-2 text-sm max-w-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-md border bg-background overflow-y-auto overflow-x-hidden max-h-[380px]">
+        <Table className="text-sm w-max min-w-full">
+          <TableHeader className="sticky top-0 z-10 bg-background">
+            <TableRow>
+              <TableHead className="h-8 px-2 whitespace-nowrap min-w-[110px] text-sm">
+                Date
+              </TableHead>
+              <TableHead className="h-8 px-2 whitespace-nowrap min-w-[120px] text-sm">
+                Type
+              </TableHead>
+              <TableHead className="h-8 px-2 whitespace-nowrap min-w-[110px] text-sm">
+                Entry #
+              </TableHead>
+              <TableHead className="h-8 px-2 whitespace-nowrap min-w-[260px] text-sm">
+                Description
+              </TableHead>
+              <TableHead className="h-8 px-2 text-right whitespace-nowrap min-w-[110px] text-sm">
+                Debit
+              </TableHead>
+              <TableHead className="h-8 px-2 text-right whitespace-nowrap min-w-[110px] text-sm">
+                Credit
+              </TableHead>
+              <TableHead className="h-8 px-2 text-right whitespace-nowrap min-w-[120px] text-sm">
+                Amount
+              </TableHead>
+              <TableHead className="h-8 px-2 text-right whitespace-nowrap min-w-[120px] text-sm">
+                Balance
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {detailLoading ? (
+              [...Array(3)].map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell className="px-2 py-1 whitespace-nowrap">
+                    <Skeleton className="h-4 w-20" />
+                  </TableCell>
+                  <TableCell className="px-2 py-1 whitespace-nowrap">
+                    <Skeleton className="h-4 w-24" />
+                  </TableCell>
+                  <TableCell className="px-2 py-1 whitespace-nowrap">
+                    <Skeleton className="h-4 w-20" />
+                  </TableCell>
+                  <TableCell className="px-2 py-1 whitespace-nowrap">
+                    <Skeleton className="h-4 w-64" />
+                  </TableCell>
+                  <TableCell className="px-2 py-1 text-right whitespace-nowrap">
+                    <Skeleton className="h-4 w-16 ml-auto" />
+                  </TableCell>
+                  <TableCell className="px-2 py-1 text-right whitespace-nowrap">
+                    <Skeleton className="h-4 w-16 ml-auto" />
+                  </TableCell>
+                  <TableCell className="px-2 py-1 text-right whitespace-nowrap">
+                    <Skeleton className="h-4 w-20 ml-auto" />
+                  </TableCell>
+                  <TableCell className="px-2 py-1 text-right whitespace-nowrap">
+                    <Skeleton className="h-4 w-20 ml-auto" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <>
+                {detailTransactions.map((txn, index) => {
+                  const date = txn.date ? new Date(txn.date) : null;
+                  const amountNegative = (txn.amount || 0) < 0;
+                  return (
+                    <TableRow
+                      key={`${txn.id}-${txn.entryNumber ?? ""}-${txn.date}`}
+                    >
+                      <TableCell className="px-2 py-1 whitespace-nowrap">
+                        {date && !Number.isNaN(date.getTime())
+                          ? format(date, "MM/dd/yyyy")
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="px-2 py-1 whitespace-nowrap capitalize">
+                        {txn.type?.replace(/_/g, " ") || "—"}
+                      </TableCell>
+                      <TableCell className="px-2 py-1 whitespace-nowrap font-mono">
+                        {txn.entryNumber || "—"}
+                      </TableCell>
+                      <TableCell className="px-2 py-1 whitespace-nowrap">
+                        {txn.description || "—"}
+                      </TableCell>
+                      <TableCell className="px-2 py-1 text-right whitespace-nowrap font-mono tabular-nums">
+                        {txn.debit ? formatCurrency(txn.debit) : "—"}
+                      </TableCell>
+                      <TableCell className="px-2 py-1 text-right whitespace-nowrap font-mono tabular-nums">
+                        {txn.credit ? formatCurrency(txn.credit) : "—"}
+                      </TableCell>
+                      <TableCell
+                        className={[
+                          "px-2 py-1 text-right whitespace-nowrap font-mono tabular-nums",
+                          amountNegative ? "text-red-600" : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      >
+                        {formatCurrency(txn.amount || 0)}
+                      </TableCell>
+                      <TableCell className="px-2 py-1 text-right whitespace-nowrap font-mono tabular-nums">
+                        {formatCurrency(detailRunningBalances[index] || 0)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+
+                {detailTransactions.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={8}
+                      className="text-center text-sm text-muted-foreground py-4"
+                    >
+                      No transactions for this period.
+                    </TableCell>
+                  </TableRow>
+                )}
+
+                {detailTransactions.length > 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="px-2 py-2 text-right font-semibold whitespace-nowrap"
+                    >
+                      Total for {account.name}
+                    </TableCell>
+                    <TableCell className="px-2 py-2 text-right whitespace-nowrap font-mono font-semibold tabular-nums">
+                      {formatCurrency(detailTotal)}
+                    </TableCell>
+                    <TableCell className="px-2 py-2" />
+                  </TableRow>
+                )}
+              </>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+};
+
 export const ProfitLoss = () => {
   const { toast } = useToast();
   const [report, setReport] = useState<ProfitLossReportResponse | null>(null);
@@ -153,17 +496,22 @@ export const ProfitLoss = () => {
   const [expandedSubTypes, setExpandedSubTypes] = useState<Set<string>>(
     new Set(),
   );
-  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
-  const [detailTransactions, setDetailTransactions] = useState<
-    ProfitLossTransaction[]
-  >([]);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailPreset, setDetailPreset] = useState("custom");
-  const [detailStartDate, setDetailStartDate] = useState<Date | undefined>();
-  const [detailEndDate, setDetailEndDate] = useState<Date | undefined>();
+
+  const [expandedAccountIds, setExpandedAccountIds] = useState<Set<string>>(
+    new Set(),
+  );
+
+  const reportStartDate = useMemo(() => {
+    return startDate ?? parseBackendDateToLocal(report?.startDate);
+  }, [startDate, report?.startDate]);
+
+  const reportEndDate = useMemo(() => {
+    return endDate ?? parseBackendDateToLocal(report?.endDate);
+  }, [endDate, report?.endDate]);
 
   const loadReport = async () => {
     if (preset === "custom" && (!startDate || !endDate)) {
+      setLoading(false);
       return;
     }
 
@@ -171,6 +519,7 @@ export const ProfitLoss = () => {
       comparisonType === "custom_period" &&
       (!comparisonStartDate || !comparisonEndDate)
     ) {
+      setLoading(false);
       return;
     }
 
@@ -207,8 +556,8 @@ export const ProfitLoss = () => {
       )) as ProfitLossReportResponse;
       setReport(data);
       if (preset !== "custom" && data.startDate && data.endDate) {
-        const nextStart = parseDate(data.startDate);
-        const nextEnd = parseDate(data.endDate);
+        const nextStart = parseBackendDateToLocal(data.startDate);
+        const nextEnd = parseBackendDateToLocal(data.endDate);
         setStartDate((prev) => {
           if (!nextStart) return prev;
           if (prev && prev.getTime() === nextStart.getTime()) return prev;
@@ -231,59 +580,6 @@ export const ProfitLoss = () => {
     }
   };
 
-  const loadDetailTransactions = async (
-    account: Account,
-    signal?: AbortSignal,
-  ) => {
-    if (detailPreset === "custom" && (!detailStartDate || !detailEndDate)) {
-      return;
-    }
-
-    try {
-      setDetailLoading(true);
-      const params: Record<string, string> = { accountId: account.id };
-      if (detailPreset !== "custom") {
-        params.preset = detailPreset;
-      } else if (detailStartDate && detailEndDate) {
-        params.startDate = formatDateParam(detailStartDate) as string;
-        params.endDate = formatDateParam(detailEndDate) as string;
-      }
-
-      const response = await reportAPI.getProfitLoss(
-        params,
-        signal ? { signal } : undefined,
-      );
-      const data = response as {
-        transactions?: ProfitLossTransaction[];
-        startDate: string;
-        endDate: string;
-      };
-      setDetailTransactions(data.transactions || []);
-      // Only update date state when value actually changed to avoid re-triggering the effect (and a refetch/blink)
-      const nextStart = parseDate(data.startDate);
-      const nextEnd = parseDate(data.endDate);
-      setDetailStartDate((prev) =>
-        prev?.getTime() !== nextStart?.getTime() ? nextStart : prev,
-      );
-      setDetailEndDate((prev) =>
-        prev?.getTime() !== nextEnd?.getTime() ? nextEnd : prev,
-      );
-    } catch (err) {
-      const isAbort =
-        (err as { name?: string })?.name === "CanceledError" ||
-        (err as { code?: string })?.code === "ERR_CANCELED";
-      if (!isAbort) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: getErrorMessage(err),
-        });
-      }
-    } finally {
-      setDetailLoading(false);
-    }
-  };
-
   // Only depend on startDate/endDate when preset is 'custom' to avoid refetch when we sync dates from report response
   useEffect(() => {
     loadReport();
@@ -295,13 +591,6 @@ export const ProfitLoss = () => {
     comparisonEndDate,
     ...(preset === "custom" ? [startDate, endDate] : []),
   ]);
-
-  useEffect(() => {
-    if (!selectedAccount) return;
-    const controller = new AbortController();
-    loadDetailTransactions(selectedAccount, controller.signal);
-    return () => controller.abort();
-  }, [selectedAccount, detailPreset, detailStartDate, detailEndDate]);
 
   const handlePresetChange = (value: string) => {
     setPreset(value);
@@ -340,20 +629,47 @@ export const ProfitLoss = () => {
     setExpandedSubTypes(next);
   };
 
-  const reportStartDate = useMemo(() => parseDate(report?.startDate), [report]);
-  const reportEndDate = useMemo(() => parseDate(report?.endDate), [report]);
+  const toggleAccount = (accountId: string) => {
+    setExpandedAccountIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(accountId)) next.delete(accountId);
+      else next.add(accountId);
+      return next;
+    });
+  };
 
   const periodGroups = useMemo(() => {
     if (!report) return [];
-    const groups: Array<{ key: string; label: string; index: number }> = [];
+    const groups: Array<{
+      key: string;
+      label: string;
+      displayLabel: string;
+      index: number;
+    }> = [];
     if (displayBy !== "total" && report.periodBreakdown) {
       report.periodBreakdown.forEach((period, index) => {
-        groups.push({ key: period.label, label: period.label, index });
+        const displayLabel =
+          displayBy === "months"
+            ? format(new Date(period.start), "MMMM yyyy").toUpperCase()
+            : displayBy === "quarters"
+              ? period.label.toUpperCase()
+              : period.label;
+        groups.push({
+          key: period.label,
+          label: period.label,
+          displayLabel,
+          index,
+        });
       });
-      groups.push({ key: "total", label: "Total", index: -1 });
+      groups.push({
+        key: "total",
+        label: "Total",
+        displayLabel: "Total",
+        index: -1,
+      });
       return groups;
     }
-    return [{ key: "total", label: "Total", index: -1 }];
+    return [{ key: "total", label: "Total", displayLabel: "Total", index: -1 }];
   }, [report, displayBy]);
 
   const getAccountValue = (accountId: string, groupKey: string) => {
@@ -374,23 +690,32 @@ export const ProfitLoss = () => {
     return report.comparisonPeriodBalances?.[accountId]?.[groupKey] ?? null;
   };
 
+  /** Sentinel for "percent change undefined" (e.g. previous = 0, current > 0). */
+  const PERCENT_NA = NaN;
+
   const formatValue = (
     value: number | null,
     mode: "currency" | "percent" = "currency",
   ) => {
-    if (value === null || Number.isNaN(value)) {
-      return "—";
-    }
+    if (value === null) return "—";
+    if (mode === "percent" && Number.isNaN(value)) return "N/A";
+    if (Number.isNaN(value)) return "—";
     if (mode === "percent") {
       return formatPercent(value);
     }
     return formatCurrency(value);
   };
 
-  const getChangeValue = (current: number, previous: number | null) => {
+  const getChangeValue = (
+    current: number,
+    previous: number | null,
+  ): number | null => {
     if (previous === null) return null;
     if (comparisonMode === "percent") {
-      if (previous === 0) return null;
+      if (previous === 0) {
+        if (current === 0) return 0;
+        return PERCENT_NA;
+      }
       return ((current - previous) / Math.abs(previous)) * 100;
     }
     return current - previous;
@@ -577,6 +902,21 @@ export const ProfitLoss = () => {
     });
   }, [rows, expandedTypes, expandedSubTypes]);
 
+  const sectionRowIds = useMemo(() => {
+    return visibleRows
+      .filter((row) => row.type === "section")
+      .map((row) => row.id);
+  }, [visibleRows]);
+
+  const sectionRowIdsWithSpacer = useMemo(() => {
+    return new Set(sectionRowIds.slice(1));
+  }, [sectionRowIds]);
+
+  const mainColSpan =
+    comparisonType === "none"
+      ? 1 + periodGroups.length
+      : 1 + periodGroups.length * 3;
+
   const renderRowValues = (row: ReportRow) => {
     return periodGroups.map((group) => {
       const currentValue = row.account
@@ -606,7 +946,7 @@ export const ProfitLoss = () => {
           accountsByType[AccountType.Cost_of_Goods_Sold],
           group.key,
         );
-        computedCurrent = income - cogs;
+        computedCurrent = income + cogs;
         if (comparisonType !== "none") {
           const incomeComp = sumAccounts(
             accountsByType[AccountType.Income],
@@ -618,7 +958,7 @@ export const ProfitLoss = () => {
             group.key,
             true,
           );
-          computedComparison = incomeComp - cogsComp;
+          computedComparison = incomeComp + cogsComp;
         }
       }
 
@@ -643,7 +983,8 @@ export const ProfitLoss = () => {
           accountsByType[AccountType.Other_Expense],
           group.key,
         );
-        computedCurrent = income + otherIncome - cogs - expense - otherExpense;
+        // Backend returns expense-type amounts as negative; add all
+        computedCurrent = income + otherIncome + cogs + expense + otherExpense;
 
         if (comparisonType !== "none") {
           const incomeComp = sumAccounts(
@@ -673,9 +1014,9 @@ export const ProfitLoss = () => {
           );
           computedComparison =
             incomeComp +
-            otherIncomeComp -
-            cogsComp -
-            expenseComp -
+            otherIncomeComp +
+            cogsComp +
+            expenseComp +
             otherExpenseComp;
         }
       }
@@ -685,11 +1026,28 @@ export const ProfitLoss = () => {
           ? null
           : getChangeValue(computedCurrent, computedComparison);
 
+      const negativeClass =
+        computedCurrent < 0 && Math.abs(computedCurrent) >= 1e-10
+          ? "text-destructive"
+          : "";
+      const comparisonNegativeClass =
+        computedComparison !== null &&
+        computedComparison < 0 &&
+        Math.abs(computedComparison) >= 1e-10
+          ? "text-destructive"
+          : "";
+      const changeNegativeClass =
+        changeValue !== null &&
+        changeValue < 0 &&
+        Math.abs(changeValue) >= 1e-10
+          ? "text-destructive"
+          : "";
+
       if (comparisonType === "none") {
         return (
           <TableCell
             key={`${row.id}-${group.key}`}
-            className="text-right font-mono text-sm"
+            className={`px-3 py-1.5 text-right font-mono text-sm tabular-nums ${negativeClass}`}
           >
             {formatValue(computedCurrent)}
           </TableCell>
@@ -697,22 +1055,26 @@ export const ProfitLoss = () => {
       }
 
       return (
-        <TableCell key={`${row.id}-${group.key}`} className="p-0" colSpan={3}>
-          <div className="grid grid-cols-3">
-            <div className="px-3 py-2 text-right font-mono text-sm">
-              {formatValue(computedCurrent)}
-            </div>
-            <div className="px-3 py-2 text-right font-mono text-sm text-muted-foreground">
-              {formatValue(computedComparison)}
-            </div>
-            <div className="px-3 py-2 text-right font-mono text-sm">
-              {formatValue(
-                changeValue,
-                comparisonMode === "percent" ? "percent" : "currency",
-              )}
-            </div>
-          </div>
-        </TableCell>
+        <Fragment key={`${row.id}-${group.key}`}>
+          <TableCell
+            className={`px-3 py-1.5 text-right font-mono text-sm tabular-nums ${negativeClass}`}
+          >
+            {formatValue(computedCurrent)}
+          </TableCell>
+          <TableCell
+            className={`px-3 py-1.5 text-right font-mono text-sm tabular-nums text-muted-foreground border-l border-border ${comparisonNegativeClass}`}
+          >
+            {formatValue(computedComparison)}
+          </TableCell>
+          <TableCell
+            className={`px-3 py-1.5 text-right font-mono text-sm tabular-nums border-l border-border ${changeNegativeClass}`}
+          >
+            {formatValue(
+              changeValue,
+              comparisonMode === "percent" ? "percent" : "currency",
+            )}
+          </TableCell>
+        </Fragment>
       );
     });
   };
@@ -761,7 +1123,7 @@ export const ProfitLoss = () => {
             accountsByType[AccountType.Cost_of_Goods_Sold],
             group.key,
           );
-          computedCurrent = income - cogs;
+          computedCurrent = income + cogs;
           if (comparisonType !== "none") {
             const incomeComp = sumAccounts(
               accountsByType[AccountType.Income],
@@ -773,7 +1135,7 @@ export const ProfitLoss = () => {
               group.key,
               true,
             );
-            computedComparison = incomeComp - cogsComp;
+            computedComparison = incomeComp + cogsComp;
           }
         }
 
@@ -799,7 +1161,7 @@ export const ProfitLoss = () => {
             group.key,
           );
           computedCurrent =
-            income + otherIncome - cogs - expense - otherExpense;
+            income + otherIncome + cogs + expense + otherExpense;
 
           if (comparisonType !== "none") {
             const incomeComp = sumAccounts(
@@ -829,23 +1191,29 @@ export const ProfitLoss = () => {
             );
             computedComparison =
               incomeComp +
-              otherIncomeComp -
-              cogsComp -
-              expenseComp -
+              otherIncomeComp +
+              cogsComp +
+              expenseComp +
               otherExpenseComp;
           }
         }
 
+        const changeValue = getChangeValue(computedCurrent, computedComparison);
+
         if (comparisonType === "none") {
           values.push(computedCurrent.toFixed(2));
         } else {
-          const changeValue = getChangeValue(
-            computedCurrent,
-            computedComparison,
-          );
           values.push(computedCurrent.toFixed(2));
           values.push((computedComparison ?? 0).toFixed(2));
-          values.push(changeValue === null ? "" : changeValue.toFixed(2));
+          const changeDisplay =
+            changeValue === null
+              ? ""
+              : Number.isNaN(changeValue)
+                ? comparisonMode === "percent"
+                  ? "N/A"
+                  : ""
+                : changeValue.toFixed(2);
+          values.push(changeDisplay);
         }
       });
       return values;
@@ -866,36 +1234,9 @@ export const ProfitLoss = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleAccountClick = (account: Account) => {
-    const isSameAccount = selectedAccount?.id === account.id;
-    if (isSameAccount) {
-      setSelectedAccount(null);
-      setDetailTransactions([]);
-      return;
-    }
-
-    setSelectedAccount(account);
-    setDetailTransactions([]);
-    setDetailPreset(preset);
-    setDetailStartDate(reportStartDate);
-    setDetailEndDate(reportEndDate);
-  };
-
-  const detailRunningBalances = useMemo(() => {
-    return detailTransactions.reduce<number[]>((acc, txn, index) => {
-      const prev = index === 0 ? 0 : acc[index - 1];
-      acc.push(prev + (txn.amount || 0));
-      return acc;
-    }, []);
-  }, [detailTransactions]);
-
-  const detailTotal = useMemo(() => {
-    return detailTransactions.reduce((sum, txn) => sum + (txn.amount || 0), 0);
-  }, [detailTransactions]);
-
   if (loading) {
     return (
-      <div className="container mx-auto py-4 sm:py-6 px-4 sm:px-6 space-y-6 min-w-0">
+      <div className="w-full min-w-0 space-y-6">
         <Card>
           <CardHeader className="space-y-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:flex-wrap">
@@ -969,7 +1310,7 @@ export const ProfitLoss = () => {
 
   if (!report) {
     return (
-      <div className="container mx-auto py-4 sm:py-6 px-4 sm:px-6">
+      <div className="w-full min-w-0">
         <Card>
           <CardContent className="flex items-center justify-center py-12 text-sm text-muted-foreground">
             No report data available.
@@ -980,7 +1321,7 @@ export const ProfitLoss = () => {
   }
 
   return (
-    <div className="container mx-auto py-4 sm:py-6 px-4 sm:px-6 space-y-6 min-w-0">
+    <div className="w-full min-w-0 space-y-6">
       <Card>
         <CardHeader className="space-y-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:flex-wrap">
@@ -989,10 +1330,10 @@ export const ProfitLoss = () => {
                 <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 shrink-0" />
                 Profit and Loss
               </CardTitle>
-              {reportStartDate && reportEndDate && (
+              {report?.startDate && report?.endDate && (
                 <p className="text-sm text-muted-foreground mt-1 break-words">
-                  {format(reportStartDate, "MMMM d, yyyy")} -{" "}
-                  {format(reportEndDate, "MMMM d, yyyy")}
+                  {formatBackendDateForDisplay(report.startDate)} -{" "}
+                  {formatBackendDateForDisplay(report.endDate)}
                 </p>
               )}
             </div>
@@ -1111,62 +1452,93 @@ export const ProfitLoss = () => {
             )}
           </div>
 
-          <div className="rounded-md border overflow-auto">
+          {/* No outer border: keeps section gaps from looking like empty rows */}
+          <div className="rounded-md bg-background overflow-auto">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-background">
                 {comparisonType === "none" ? (
                   <TableRow>
-                    <TableHead className="min-w-[280px]">Account</TableHead>
+                    <TableHead
+                      className={
+                        displayBy !== "total"
+                          ? "h-10 px-3 min-w-[280px] sticky left-0 z-20 bg-background border-r border-border"
+                          : "h-10 px-3 min-w-[280px]"
+                      }
+                    >
+                      Account
+                    </TableHead>
                     {periodGroups.map((group) => (
-                      <TableHead key={group.key} className="text-right">
-                        {group.label}
+                      <TableHead
+                        key={group.key}
+                        className="h-10 px-3 text-right"
+                      >
+                        {group.displayLabel}
                       </TableHead>
                     ))}
                   </TableRow>
                 ) : (
                   <>
                     <TableRow>
-                      <TableHead className="min-w-[280px]">Account</TableHead>
+                      <TableHead
+                        className={
+                          displayBy !== "total"
+                            ? "h-10 px-3 min-w-[280px] sticky left-0 z-20 bg-background border-r border-border"
+                            : "h-10 px-3 min-w-[280px]"
+                        }
+                      >
+                        Account
+                      </TableHead>
                       {periodGroups.map((group) => (
                         <TableHead
                           key={group.key}
                           colSpan={3}
-                          className="text-center"
+                          className="h-10 px-3 text-center"
                         >
-                          {group.label}
+                          {group.displayLabel}
                         </TableHead>
                       ))}
                     </TableRow>
                     <TableRow>
-                      <TableHead />
+                      <TableHead
+                        className={
+                          displayBy !== "total"
+                            ? "h-10 px-3 min-w-[280px] sticky left-0 z-20 bg-background border-r border-border"
+                            : "h-10 px-3"
+                        }
+                      />
                       {periodGroups.map((group) => {
+                        const isTotalGroup = group.key === "total";
                         const comparisonEntry =
                           report?.comparisonPeriodBreakdown?.find(
                             (entry) => entry.mainLabel === group.label,
                           );
-                        const previousLabel =
-                          comparisonEntry?.label || "Previous";
+                        const previousLabel = comparisonEntry
+                          ? `${comparisonEntry.label} (PP)`
+                          : "Previous (PP)";
+                        const changeLabel =
+                          comparisonMode === "percent"
+                            ? "% Change (PP)"
+                            : "$ Change (PP)";
+
+                        const firstSubLabel = isTotalGroup
+                          ? "Total"
+                          : "CURRENT";
+                        const secondSubLabel = isTotalGroup
+                          ? "Previous Total"
+                          : previousLabel;
 
                         return (
-                          <TableHead
-                            key={`${group.key}-current`}
-                            colSpan={3}
-                            className="p-0"
-                          >
-                            <div className="grid grid-cols-3 text-xs uppercase text-muted-foreground">
-                              <div className="px-3 py-2 text-right">
-                                Current
-                              </div>
-                              <div className="px-3 py-2 text-right">
-                                {previousLabel}
-                              </div>
-                              <div className="px-3 py-2 text-right">
-                                {comparisonMode === "percent"
-                                  ? "% Change"
-                                  : "$ Change"}
-                              </div>
-                            </div>
-                          </TableHead>
+                          <Fragment key={group.key}>
+                            <TableHead className="h-9 text-right px-3 py-1.5 text-xs uppercase text-muted-foreground">
+                              {firstSubLabel}
+                            </TableHead>
+                            <TableHead className="h-9 text-right px-3 py-1.5 text-xs uppercase text-muted-foreground border-l border-border">
+                              {secondSubLabel}
+                            </TableHead>
+                            <TableHead className="h-9 text-right px-3 py-1.5 text-xs uppercase text-muted-foreground border-l border-border">
+                              {changeLabel}
+                            </TableHead>
+                          </Fragment>
                         );
                       })}
                     </TableRow>
@@ -1178,6 +1550,11 @@ export const ProfitLoss = () => {
                   const isSection = row.type === "section";
                   const isSubtotal = row.type === "total";
                   const isSummary = row.type === "summary";
+                  const isAccountRow = row.type === "account" && !!row.account;
+                  const showSectionSpacer =
+                    isSection && sectionRowIdsWithSpacer.has(row.id);
+                  const isAccountRowExpanded =
+                    isAccountRow && expandedAccountIds.has(row.account!.id);
                   const indentClass =
                     row.level === 0
                       ? "pl-4"
@@ -1201,22 +1578,26 @@ export const ProfitLoss = () => {
                         ? expandedSubTypes.has(subKey)
                         : true;
 
-                  const isAccountRowExpanded =
-                    row.type === "account" &&
-                    !!row.account &&
-                    selectedAccount?.id === row.account.id;
-
                   const handleRowClick = () => {
                     if (hasToggle) {
                       if (row.type === "section") toggleType(parentType);
                       else toggleSubType(subKey);
-                    } else if (row.account) {
-                      handleAccountClick(row.account);
+                      return;
+                    }
+                    if (isAccountRow) {
+                      toggleAccount(row.account!.id);
                     }
                   };
 
                   return (
                     <Fragment key={row.id}>
+                      {showSectionSpacer && (
+                        <TableRow className="border-0 hover:bg-transparent">
+                          <TableCell colSpan={mainColSpan} className="p-0">
+                            <div className="h-8" />
+                          </TableCell>
+                        </TableRow>
+                      )}
                       <TableRow
                         className={[
                           isSection
@@ -1224,18 +1605,24 @@ export const ProfitLoss = () => {
                             : "",
                           isSubtotal ? "font-bold" : "",
                           isSummary ? "bg-primary/10 font-bold" : "",
-                          row.type === "account"
-                            ? "cursor-pointer hover:bg-muted/20"
-                            : "",
                           row.type === "subtype" || row.type === "section"
                             ? "cursor-pointer"
+                            : "",
+                          isAccountRow
+                            ? "cursor-pointer hover:bg-muted/40"
                             : "",
                         ]
                           .filter(Boolean)
                           .join(" ")}
                         onClick={handleRowClick}
                       >
-                        <TableCell className={`${indentClass} py-2`}>
+                        <TableCell
+                          className={`${indentClass} pr-3 py-1.5 ${
+                            displayBy !== "total"
+                              ? "sticky left-0 z-10 bg-background border-r border-border"
+                              : ""
+                          }`}
+                        >
                           <div className="flex items-center gap-2">
                             {hasToggle && (
                               <span
@@ -1249,7 +1636,7 @@ export const ProfitLoss = () => {
                                 )}
                               </span>
                             )}
-                            {!hasToggle && row.type === "account" && (
+                            {!hasToggle && isAccountRow && (
                               <span
                                 className="text-muted-foreground shrink-0"
                                 aria-hidden
@@ -1279,142 +1666,13 @@ export const ProfitLoss = () => {
                             }
                             className="p-0"
                           >
-                            <div className="border-t">
-                              <div className="overflow-auto">
-                                <Table className="text-sm">
-                                  <TableHeader>
-                                    <TableRow className="h-8">
-                                      <TableHead className="py-1 px-2 text-xs font-medium text-muted-foreground">
-                                        Date
-                                      </TableHead>
-                                      <TableHead className="py-1 px-2 text-xs font-medium text-muted-foreground">
-                                        Type
-                                      </TableHead>
-                                      <TableHead className="py-1 px-2 text-xs font-medium text-muted-foreground">
-                                        Entry #
-                                      </TableHead>
-                                      <TableHead className="py-1 px-2 text-xs font-medium text-muted-foreground">
-                                        Description
-                                      </TableHead>
-                                      <TableHead className="py-1 px-2 text-xs font-medium text-muted-foreground text-right whitespace-nowrap">
-                                        Debit
-                                      </TableHead>
-                                      <TableHead className="py-1 px-2 text-xs font-medium text-muted-foreground text-right whitespace-nowrap">
-                                        Credit
-                                      </TableHead>
-                                      <TableHead className="py-1 px-2 text-xs font-medium text-muted-foreground text-right whitespace-nowrap">
-                                        Amount
-                                      </TableHead>
-                                      <TableHead className="py-1 px-2 text-xs font-medium text-muted-foreground text-right whitespace-nowrap">
-                                        Balance
-                                      </TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {detailLoading ? (
-                                      [...Array(6)].map((_, index) => (
-                                        <TableRow key={index} className="h-8">
-                                          <TableCell>
-                                            <Skeleton className="h-4 w-20" />
-                                          </TableCell>
-                                          <TableCell>
-                                            <Skeleton className="h-4 w-24" />
-                                          </TableCell>
-                                          <TableCell>
-                                            <Skeleton className="h-4 w-16" />
-                                          </TableCell>
-                                          <TableCell>
-                                            <Skeleton className="h-4 w-40" />
-                                          </TableCell>
-                                          <TableCell className="text-right">
-                                            <Skeleton className="h-4 w-16 ml-auto" />
-                                          </TableCell>
-                                          <TableCell className="text-right">
-                                            <Skeleton className="h-4 w-16 ml-auto" />
-                                          </TableCell>
-                                          <TableCell className="text-right">
-                                            <Skeleton className="h-4 w-16 ml-auto" />
-                                          </TableCell>
-                                          <TableCell className="text-right">
-                                            <Skeleton className="h-4 w-16 ml-auto" />
-                                          </TableCell>
-                                        </TableRow>
-                                      ))
-                                    ) : (
-                                      <>
-                                        {detailTransactions.map(
-                                          (txn, index) => (
-                                            <TableRow
-                                              key={txn.id}
-                                              className="h-8"
-                                            >
-                                              <TableCell className="py-1 px-2 whitespace-nowrap">
-                                                {format(
-                                                  new Date(txn.date),
-                                                  "MM/dd/yyyy",
-                                                )}
-                                              </TableCell>
-                                              <TableCell className="py-1 px-2 capitalize whitespace-nowrap">
-                                                {txn.type.replace(/_/g, " ")}
-                                              </TableCell>
-                                              <TableCell className="py-1 px-2 whitespace-nowrap">
-                                                {txn.entryNumber || "—"}
-                                              </TableCell>
-                                              <TableCell className="py-1 px-2">
-                                                {txn.description || "—"}
-                                              </TableCell>
-                                              <TableCell className="py-1 px-2 text-right font-mono whitespace-nowrap">
-                                                {formatCurrency(txn.debit || 0)}
-                                              </TableCell>
-                                              <TableCell className="py-1 px-2 text-right font-mono whitespace-nowrap">
-                                                {formatCurrency(
-                                                  txn.credit || 0,
-                                                )}
-                                              </TableCell>
-                                              <TableCell className="py-1 px-2 text-right font-mono whitespace-nowrap">
-                                                {formatCurrency(
-                                                  txn.amount || 0,
-                                                )}
-                                              </TableCell>
-                                              <TableCell className="py-1 px-2 text-right font-mono whitespace-nowrap">
-                                                {formatCurrency(
-                                                  detailRunningBalances[
-                                                    index
-                                                  ] || 0,
-                                                )}
-                                              </TableCell>
-                                            </TableRow>
-                                          ),
-                                        )}
-                                        {detailTransactions.length === 0 && (
-                                          <TableRow>
-                                            <TableCell
-                                              colSpan={8}
-                                              className="text-center text-sm text-muted-foreground py-3"
-                                            >
-                                              No transactions for this period.
-                                            </TableCell>
-                                          </TableRow>
-                                        )}
-                                        {detailTransactions.length > 0 && (
-                                          <TableRow className="h-8">
-                                            <TableCell
-                                              colSpan={6}
-                                              className="py-1 px-2 text-right font-semibold"
-                                            >
-                                              Total for {selectedAccount?.name}
-                                            </TableCell>
-                                            <TableCell className="py-1 px-2 text-right font-mono font-semibold whitespace-nowrap">
-                                              {formatCurrency(detailTotal)}
-                                            </TableCell>
-                                            <TableCell />
-                                          </TableRow>
-                                        )}
-                                      </>
-                                    )}
-                                  </TableBody>
-                                </Table>
-                              </div>
+                            <div className="border-t bg-muted/10 p-2 sm:p-3">
+                              <AccountDrilldownInline
+                                account={row.account!}
+                                initialPreset={preset}
+                                initialStartDate={reportStartDate}
+                                initialEndDate={reportEndDate}
+                              />
                             </div>
                           </TableCell>
                         </TableRow>
