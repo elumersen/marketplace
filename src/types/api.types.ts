@@ -890,3 +890,50 @@ export interface SyncTransactionsResponse {
     error: string;
   }>;
 }
+
+// Reports
+export type ReportDisplayBy = 'total' | 'months' | 'quarters' | 'years';
+
+export type ReportComparisonType = 'previous_period' | 'custom_period';
+
+export interface ProfitLossReportPeriod {
+  start: string;
+  end: string;
+  label: string;
+}
+
+export interface ProfitLossReportResponse {
+  accounts: Account[];
+  accountBalances: Record<string, number>;
+  comparisonBalances: Record<string, number> | null;
+  comparisonStart: string | null;
+  comparisonEnd: string | null;
+  periodBreakdown: ProfitLossReportPeriod[] | null;
+  periodBalances: Record<string, Record<string, number>> | null;
+  comparisonPeriodBalances: Record<string, Record<string, number>> | null;
+  comparisonPeriodBreakdown: Array<{
+    mainLabel: string;
+    label: string;
+    start: string;
+    end: string;
+  }> | null;
+  startDate: string;
+  endDate: string;
+}
+
+export interface ProfitLossTransaction {
+  id: string;
+  date: string;
+  type: string;
+  entryNumber: string | null;
+  description: string;
+  debit: number;
+  credit: number;
+  amount: number;
+}
+
+export interface ProfitLossTransactionsResponse {
+  transactions: ProfitLossTransaction[];
+  startDate: string;
+  endDate: string;
+}
