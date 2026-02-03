@@ -208,7 +208,9 @@ const AccountDrilldownInline = ({
     const controller = new AbortController();
     const fetchKey =
       detailPreset === "custom"
-        ? `${account.id}|custom|${detailStartDate?.getTime() ?? "na"}|${detailEndDate?.getTime() ?? "na"}`
+        ? `${account.id}|custom|${detailStartDate?.getTime() ?? "na"}|${
+            detailEndDate?.getTime() ?? "na"
+          }`
         : `${account.id}|preset|${detailPreset}`;
 
     // Avoid re-fetch caused only by syncing backend dates into pickers
@@ -476,6 +478,7 @@ export const ProfitLoss = () => {
   const { toast } = useToast();
   const [report, setReport] = useState<ProfitLossReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  // Draft state (what user sees in filters); report only refetches on Save or Clear
   const [preset, setPreset] = useState("this_year_to_date");
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
@@ -490,6 +493,19 @@ export const ProfitLoss = () => {
   const [comparisonMode, setComparisonMode] = useState<"amount" | "percent">(
     "amount",
   );
+  // Applied state (what we send to the API); loadReport runs only when this changes
+  const [appliedPreset, setAppliedPreset] = useState("this_year_to_date");
+  const [appliedStartDate, setAppliedStartDate] = useState<Date | undefined>();
+  const [appliedEndDate, setAppliedEndDate] = useState<Date | undefined>();
+  const [appliedDisplayBy, setAppliedDisplayBy] =
+    useState<ReportDisplayBy>("total");
+  const [appliedComparisonType, setAppliedComparisonType] = useState("none");
+  const [appliedComparisonStartDate, setAppliedComparisonStartDate] = useState<
+    Date | undefined
+  >();
+  const [appliedComparisonEndDate, setAppliedComparisonEndDate] = useState<
+    Date | undefined
+  >();
   const [expandedTypes, setExpandedTypes] = useState<Set<AccountType>>(
     new Set(PROFIT_LOSS_TYPES),
   );
@@ -510,14 +526,14 @@ export const ProfitLoss = () => {
   }, [endDate, report?.endDate]);
 
   const loadReport = async () => {
-    if (preset === "custom" && (!startDate || !endDate)) {
+    if (appliedPreset === "custom" && (!appliedStartDate || !appliedEndDate)) {
       setLoading(false);
       return;
     }
 
     if (
-      comparisonType === "custom_period" &&
-      (!comparisonStartDate || !comparisonEndDate)
+      appliedComparisonType === "custom_period" &&
+      (!appliedComparisonStartDate || !appliedComparisonEndDate)
     ) {
       setLoading(false);
       return;
@@ -527,47 +543,41 @@ export const ProfitLoss = () => {
       setLoading(true);
 
       const params: Record<string, string> = {};
-      if (preset && preset !== "custom") {
-        params.preset = preset;
+      if (appliedPreset && appliedPreset !== "custom") {
+        params.preset = appliedPreset;
       }
-      if (preset === "custom" && startDate && endDate) {
-        params.startDate = formatDateParam(startDate) as string;
-        params.endDate = formatDateParam(endDate) as string;
+      if (appliedPreset === "custom" && appliedStartDate && appliedEndDate) {
+        params.startDate = formatDateParam(appliedStartDate) as string;
+        params.endDate = formatDateParam(appliedEndDate) as string;
       }
-      if (displayBy) {
-        params.displayBy = displayBy;
+      if (appliedDisplayBy) {
+        params.displayBy = appliedDisplayBy;
       }
-      if (comparisonType !== "none") {
-        params.comparison = comparisonType;
+      if (appliedComparisonType !== "none") {
+        params.comparison = appliedComparisonType;
       }
       if (
-        comparisonType === "custom_period" &&
-        comparisonStartDate &&
-        comparisonEndDate
+        appliedComparisonType === "custom_period" &&
+        appliedComparisonStartDate &&
+        appliedComparisonEndDate
       ) {
         params.comparisonStartDate = formatDateParam(
-          comparisonStartDate,
+          appliedComparisonStartDate,
         ) as string;
-        params.comparisonEndDate = formatDateParam(comparisonEndDate) as string;
+        params.comparisonEndDate = formatDateParam(
+          appliedComparisonEndDate,
+        ) as string;
       }
 
       const data = (await reportAPI.getProfitLoss(
         params,
       )) as ProfitLossReportResponse;
       setReport(data);
-      if (preset !== "custom" && data.startDate && data.endDate) {
+      if (appliedPreset !== "custom" && data.startDate && data.endDate) {
         const nextStart = parseBackendDateToLocal(data.startDate);
         const nextEnd = parseBackendDateToLocal(data.endDate);
-        setStartDate((prev) => {
-          if (!nextStart) return prev;
-          if (prev && prev.getTime() === nextStart.getTime()) return prev;
-          return nextStart;
-        });
-        setEndDate((prev) => {
-          if (!nextEnd) return prev;
-          if (prev && prev.getTime() === nextEnd.getTime()) return prev;
-          return nextEnd;
-        });
+        if (nextStart) setStartDate(nextStart);
+        if (nextEnd) setEndDate(nextEnd);
       }
     } catch (err) {
       toast({
@@ -580,17 +590,78 @@ export const ProfitLoss = () => {
     }
   };
 
-  // Only depend on startDate/endDate when preset is 'custom' to avoid refetch when we sync dates from report response
   useEffect(() => {
     loadReport();
   }, [
-    preset,
-    displayBy,
-    comparisonType,
-    comparisonStartDate,
-    comparisonEndDate,
-    ...(preset === "custom" ? [startDate, endDate] : []),
+    appliedPreset,
+    appliedDisplayBy,
+    appliedComparisonType,
+    appliedComparisonStartDate,
+    appliedComparisonEndDate,
+    ...(appliedPreset === "custom" ? [appliedStartDate, appliedEndDate] : []),
   ]);
+
+  const handleSave = () => {
+    if (preset === "custom" && (!startDate || !endDate)) {
+      toast({
+        variant: "destructive",
+        title: "Invalid dates",
+        description: "Please select both From and To dates for custom period.",
+      });
+      return;
+    }
+    if (
+      comparisonType === "custom_period" &&
+      (!comparisonStartDate || !comparisonEndDate)
+    ) {
+      toast({
+        variant: "destructive",
+        title: "Invalid comparison dates",
+        description:
+          "Please select both Comparison from and Comparison to dates.",
+      });
+      return;
+    }
+    setAppliedPreset(preset);
+    setAppliedStartDate(startDate);
+    setAppliedEndDate(endDate);
+    setAppliedDisplayBy(displayBy);
+    setAppliedComparisonType(comparisonType);
+    setAppliedComparisonStartDate(comparisonStartDate);
+    setAppliedComparisonEndDate(comparisonEndDate);
+  };
+
+  const DEFAULTS = {
+    preset: "this_year_to_date" as const,
+    startDate: undefined as Date | undefined,
+    endDate: undefined as Date | undefined,
+    displayBy: "total" as ReportDisplayBy,
+    comparisonType: "none" as const,
+    comparisonStartDate: undefined as Date | undefined,
+    comparisonEndDate: undefined as Date | undefined,
+  };
+
+  const handleClear = () => {
+    setPreset(DEFAULTS.preset);
+    setStartDate(DEFAULTS.startDate);
+    setEndDate(DEFAULTS.endDate);
+    setDisplayBy(DEFAULTS.displayBy);
+    setComparisonType(DEFAULTS.comparisonType);
+    setComparisonStartDate(DEFAULTS.comparisonStartDate);
+    setComparisonEndDate(DEFAULTS.comparisonEndDate);
+    setAppliedPreset(DEFAULTS.preset);
+    setAppliedStartDate(DEFAULTS.startDate);
+    setAppliedEndDate(DEFAULTS.endDate);
+    setAppliedDisplayBy(DEFAULTS.displayBy);
+    setAppliedComparisonType(DEFAULTS.comparisonType);
+    setAppliedComparisonStartDate(DEFAULTS.comparisonStartDate);
+    setAppliedComparisonEndDate(DEFAULTS.comparisonEndDate);
+  };
+
+  const hasNonDefaultFilters =
+    appliedPreset !== DEFAULTS.preset ||
+    appliedDisplayBy !== DEFAULTS.displayBy ||
+    appliedComparisonType !== DEFAULTS.comparisonType;
 
   const handlePresetChange = (value: string) => {
     setPreset(value);
@@ -646,14 +717,14 @@ export const ProfitLoss = () => {
       displayLabel: string;
       index: number;
     }> = [];
-    if (displayBy !== "total" && report.periodBreakdown) {
+    if (appliedDisplayBy !== "total" && report.periodBreakdown) {
       report.periodBreakdown.forEach((period, index) => {
+        // Single source of truth: use periodBreakdown[].label from API for all display-by modes.
+        // Do not recompute or infer labels from period.start/end on the frontend.
         const displayLabel =
-          displayBy === "months"
-            ? format(new Date(period.start), "MMMM yyyy").toUpperCase()
-            : displayBy === "quarters"
-              ? period.label.toUpperCase()
-              : period.label;
+          appliedDisplayBy === "months" || appliedDisplayBy === "quarters"
+            ? period.label.toUpperCase()
+            : period.label;
         groups.push({
           key: period.label,
           label: period.label,
@@ -670,7 +741,7 @@ export const ProfitLoss = () => {
       return groups;
     }
     return [{ key: "total", label: "Total", displayLabel: "Total", index: -1 }];
-  }, [report, displayBy]);
+  }, [report, appliedDisplayBy]);
 
   const getAccountValue = (accountId: string, groupKey: string) => {
     if (!report) return 0;
@@ -681,7 +752,7 @@ export const ProfitLoss = () => {
   };
 
   const getComparisonValue = (accountId: string, groupKey: string) => {
-    if (!report || comparisonType === "none") return null;
+    if (!report || appliedComparisonType === "none") return null;
 
     if (groupKey === "total") {
       return report.comparisonBalances?.[accountId] ?? null;
@@ -728,7 +799,7 @@ export const ProfitLoss = () => {
   ) =>
     accounts.reduce((sum, account) => {
       const value = useComparison
-        ? (getComparisonValue(account.id, groupKey) ?? 0)
+        ? getComparisonValue(account.id, groupKey) ?? 0
         : getAccountValue(account.id, groupKey);
       return sum + value;
     }, 0);
@@ -913,26 +984,27 @@ export const ProfitLoss = () => {
   }, [sectionRowIds]);
 
   const mainColSpan =
-    comparisonType === "none"
+    appliedComparisonType === "none"
       ? 1 + periodGroups.length
       : 1 + periodGroups.length * 3;
 
   const renderRowValues = (row: ReportRow) => {
-    return periodGroups.map((group) => {
+    return periodGroups.map((group, i) => {
+      const leftBorder = i > 0 ? "border-l border-border" : "";
       const currentValue = row.account
         ? getAccountValue(row.account.id, group.key)
         : row.type === "summary"
-          ? null
-          : sumAccounts(row.accounts || [], group.key);
+        ? null
+        : sumAccounts(row.accounts || [], group.key);
 
       const comparisonValue =
-        comparisonType === "none"
+        appliedComparisonType === "none"
           ? null
           : row.account
-            ? getComparisonValue(row.account.id, group.key)
-            : row.type === "summary"
-              ? null
-              : sumAccounts(row.accounts || [], group.key, true);
+          ? getComparisonValue(row.account.id, group.key)
+          : row.type === "summary"
+          ? null
+          : sumAccounts(row.accounts || [], group.key, true);
 
       let computedCurrent = currentValue ?? 0;
       let computedComparison = comparisonValue;
@@ -947,7 +1019,7 @@ export const ProfitLoss = () => {
           group.key,
         );
         computedCurrent = income + cogs;
-        if (comparisonType !== "none") {
+        if (appliedComparisonType !== "none") {
           const incomeComp = sumAccounts(
             accountsByType[AccountType.Income],
             group.key,
@@ -986,7 +1058,7 @@ export const ProfitLoss = () => {
         // Backend returns expense-type amounts as negative; add all
         computedCurrent = income + otherIncome + cogs + expense + otherExpense;
 
-        if (comparisonType !== "none") {
+        if (appliedComparisonType !== "none") {
           const incomeComp = sumAccounts(
             accountsByType[AccountType.Income],
             group.key,
@@ -1022,7 +1094,7 @@ export const ProfitLoss = () => {
       }
 
       const changeValue =
-        comparisonType === "none"
+        appliedComparisonType === "none"
           ? null
           : getChangeValue(computedCurrent, computedComparison);
 
@@ -1043,11 +1115,11 @@ export const ProfitLoss = () => {
           ? "text-destructive"
           : "";
 
-      if (comparisonType === "none") {
+      if (appliedComparisonType === "none") {
         return (
           <TableCell
             key={`${row.id}-${group.key}`}
-            className={`px-3 py-1.5 text-right font-mono text-sm tabular-nums ${negativeClass}`}
+            className={`px-3 py-1.5 text-right font-mono text-sm tabular-nums ${leftBorder} ${negativeClass}`}
           >
             {formatValue(computedCurrent)}
           </TableCell>
@@ -1057,7 +1129,7 @@ export const ProfitLoss = () => {
       return (
         <Fragment key={`${row.id}-${group.key}`}>
           <TableCell
-            className={`px-3 py-1.5 text-right font-mono text-sm tabular-nums ${negativeClass}`}
+            className={`px-3 py-1.5 text-right font-mono text-sm tabular-nums ${leftBorder} ${negativeClass}`}
           >
             {formatValue(computedCurrent)}
           </TableCell>
@@ -1084,7 +1156,7 @@ export const ProfitLoss = () => {
 
     const headers: string[] = ["Account"];
     periodGroups.forEach((group) => {
-      if (comparisonType === "none") {
+      if (appliedComparisonType === "none") {
         headers.push(group.label);
       } else {
         headers.push(`${group.label} - Current`);
@@ -1099,17 +1171,17 @@ export const ProfitLoss = () => {
         const currentValue = row.account
           ? getAccountValue(row.account.id, group.key)
           : row.type === "summary"
-            ? null
-            : sumAccounts(row.accounts || [], group.key);
+          ? null
+          : sumAccounts(row.accounts || [], group.key);
 
         const comparisonValue =
-          comparisonType === "none"
+          appliedComparisonType === "none"
             ? null
             : row.account
-              ? getComparisonValue(row.account.id, group.key)
-              : row.type === "summary"
-                ? null
-                : sumAccounts(row.accounts || [], group.key, true);
+            ? getComparisonValue(row.account.id, group.key)
+            : row.type === "summary"
+            ? null
+            : sumAccounts(row.accounts || [], group.key, true);
 
         let computedCurrent = currentValue ?? 0;
         let computedComparison = comparisonValue;
@@ -1124,7 +1196,7 @@ export const ProfitLoss = () => {
             group.key,
           );
           computedCurrent = income + cogs;
-          if (comparisonType !== "none") {
+          if (appliedComparisonType !== "none") {
             const incomeComp = sumAccounts(
               accountsByType[AccountType.Income],
               group.key,
@@ -1163,7 +1235,7 @@ export const ProfitLoss = () => {
           computedCurrent =
             income + otherIncome + cogs + expense + otherExpense;
 
-          if (comparisonType !== "none") {
+          if (appliedComparisonType !== "none") {
             const incomeComp = sumAccounts(
               accountsByType[AccountType.Income],
               group.key,
@@ -1200,7 +1272,7 @@ export const ProfitLoss = () => {
 
         const changeValue = getChangeValue(computedCurrent, computedComparison);
 
-        if (comparisonType === "none") {
+        if (appliedComparisonType === "none") {
           values.push(computedCurrent.toFixed(2));
         } else {
           values.push(computedCurrent.toFixed(2));
@@ -1209,10 +1281,10 @@ export const ProfitLoss = () => {
             changeValue === null
               ? ""
               : Number.isNaN(changeValue)
-                ? comparisonMode === "percent"
-                  ? "N/A"
-                  : ""
-                : changeValue.toFixed(2);
+              ? comparisonMode === "percent"
+                ? "N/A"
+                : ""
+              : changeValue.toFixed(2);
           values.push(changeDisplay);
         }
       });
@@ -1286,12 +1358,18 @@ export const ProfitLoss = () => {
                           index % 3 === 1
                             ? "pl-6"
                             : index % 3 === 2
-                              ? "pl-10"
-                              : undefined
+                            ? "pl-10"
+                            : undefined
                         }
                       >
                         <Skeleton
-                          className={`h-5 ${index % 3 === 0 ? "w-48" : index % 3 === 1 ? "w-36" : "w-32"}`}
+                          className={`h-5 ${
+                            index % 3 === 0
+                              ? "w-48"
+                              : index % 3 === 1
+                              ? "w-36"
+                              : "w-32"
+                          }`}
                         />
                       </TableCell>
                       <TableCell>
@@ -1367,14 +1445,14 @@ export const ProfitLoss = () => {
             <div className="min-w-0">
               <label className="text-sm font-medium">From</label>
               <DatePicker
-                date={startDate}
+                date={reportStartDate}
                 setDate={(date) => handleDateChange("start", date)}
               />
             </div>
             <div className="min-w-0">
               <label className="text-sm font-medium">To</label>
               <DatePicker
-                date={endDate}
+                date={reportEndDate}
                 setDate={(date) => handleDateChange("end", date)}
               />
             </div>
@@ -1452,16 +1530,27 @@ export const ProfitLoss = () => {
             )}
           </div>
 
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            {hasNonDefaultFilters && (
+              <Button variant="outline" size="sm" onClick={handleClear}>
+                Clear filters
+              </Button>
+            )}
+            <Button size="sm" onClick={handleSave}>
+              Save filters
+            </Button>
+          </div>
+
           {/* No outer border: keeps section gaps from looking like empty rows */}
           <div className="rounded-md bg-background overflow-auto">
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-background">
-                {comparisonType === "none" ? (
+                {appliedComparisonType === "none" ? (
                   <TableRow>
                     <TableHead
                       className={
-                        displayBy !== "total"
-                          ? "h-10 px-3 min-w-[280px] sticky left-0 z-20 bg-background border-r border-border"
+                        appliedDisplayBy !== "total"
+                          ? "h-10 px-3 min-w-[280px] sticky left-0 z-20 bg-background"
                           : "h-10 px-3 min-w-[280px]"
                       }
                     >
@@ -1481,8 +1570,8 @@ export const ProfitLoss = () => {
                     <TableRow>
                       <TableHead
                         className={
-                          displayBy !== "total"
-                            ? "h-10 px-3 min-w-[280px] sticky left-0 z-20 bg-background border-r border-border"
+                          appliedDisplayBy !== "total"
+                            ? "h-10 px-3 min-w-[280px] sticky left-0 z-20 bg-background"
                             : "h-10 px-3 min-w-[280px]"
                         }
                       >
@@ -1501,8 +1590,8 @@ export const ProfitLoss = () => {
                     <TableRow>
                       <TableHead
                         className={
-                          displayBy !== "total"
-                            ? "h-10 px-3 min-w-[280px] sticky left-0 z-20 bg-background border-r border-border"
+                          appliedDisplayBy !== "total"
+                            ? "h-10 px-3 min-w-[280px] sticky left-0 z-20 bg-background"
                             : "h-10 px-3"
                         }
                       />
@@ -1559,8 +1648,8 @@ export const ProfitLoss = () => {
                     row.level === 0
                       ? "pl-4"
                       : row.level === 1
-                        ? "pl-8"
-                        : "pl-12";
+                      ? "pl-8"
+                      : "pl-12";
                   const parentType = row.id.replace(
                     "section-",
                     "",
@@ -1575,8 +1664,8 @@ export const ProfitLoss = () => {
                     row.type === "section"
                       ? expandedTypes.has(parentType)
                       : row.type === "subtype"
-                        ? expandedSubTypes.has(subKey)
-                        : true;
+                      ? expandedSubTypes.has(subKey)
+                      : true;
 
                   const handleRowClick = () => {
                     if (hasToggle) {
@@ -1618,7 +1707,7 @@ export const ProfitLoss = () => {
                       >
                         <TableCell
                           className={`${indentClass} pr-3 py-1.5 ${
-                            displayBy !== "total"
+                            appliedDisplayBy !== "total"
                               ? "sticky left-0 z-10 bg-background border-r border-border"
                               : ""
                           }`}
@@ -1660,7 +1749,7 @@ export const ProfitLoss = () => {
                         <TableRow>
                           <TableCell
                             colSpan={
-                              comparisonType === "none"
+                              appliedComparisonType === "none"
                                 ? 1 + periodGroups.length
                                 : 1 + periodGroups.length * 3
                             }
