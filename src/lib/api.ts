@@ -307,7 +307,11 @@ export const reportAPI = {
     },
     config?: { signal?: AbortSignal }
   ): Promise<ProfitLossReportResponse | ProfitLossTransactionsResponse> =>
-    api.get<ProfitLossReportResponse | ProfitLossTransactionsResponse>('/reports/profit-loss', { params, ...config }),
+    api.get<ProfitLossReportResponse | ProfitLossTransactionsResponse>('/reports/profit-loss', {
+      params,
+      timeout: 60000, // 60s for heavy combos (display by months/quarters/years + comparison)
+      ...config,
+    }),
 };
 
 export const customerAPI = {
