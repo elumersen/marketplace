@@ -334,7 +334,7 @@ const AccountDrilldownInline = ({
         </div>
       </div>
 
-      <div className="rounded-md border bg-background overflow-y-auto overflow-x-hidden max-h-[380px]">
+      <div className="rounded-md border bg-background overflow-x-auto overflow-y-auto max-h-[380px] min-w-0">
         <Table className="text-sm w-max min-w-full">
           <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow>
@@ -1399,8 +1399,8 @@ export const ProfitLoss = () => {
   }
 
   return (
-    <div className="w-full min-w-0 space-y-6">
-      <Card>
+    <div className="w-full min-w-0 max-w-full space-y-6">
+      <Card className="min-w-0 overflow-hidden">
         <CardHeader className="space-y-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:flex-wrap">
             <div className="min-w-0">
@@ -1425,9 +1425,9 @@ export const ProfitLoss = () => {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <div className="min-w-0 sm:col-span-2 lg:col-span-2">
+        <CardContent className="min-w-0 space-y-6">
+          <div className="grid min-w-0 max-w-full grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+            <div className="min-w-0 sm:col-span-2 lg:col-span-2 xl:col-span-2">
               <label className="text-sm font-medium">Report period</label>
               <Select value={preset} onValueChange={handlePresetChange}>
                 <SelectTrigger className="mt-1 w-full min-w-0">
@@ -1512,14 +1512,14 @@ export const ProfitLoss = () => {
             )}
             {comparisonType === "custom_period" && (
               <>
-                <div className="min-w-0 lg:col-start-3">
+                <div className="min-w-0 xl:col-start-3">
                   <label className="text-sm font-medium">Comparison from</label>
                   <DatePicker
                     date={comparisonStartDate}
                     setDate={(date) => setComparisonStartDate(date)}
                   />
                 </div>
-                <div className="min-w-0 lg:col-start-4">
+                <div className="min-w-0 xl:col-start-4">
                   <label className="text-sm font-medium">Comparison to</label>
                   <DatePicker
                     date={comparisonEndDate}
@@ -1541,8 +1541,7 @@ export const ProfitLoss = () => {
             </Button>
           </div>
 
-          {/* No outer border: keeps section gaps from looking like empty rows */}
-          <div className="rounded-md bg-background overflow-auto">
+          <div className="min-w-0 w-full overflow-x-auto overflow-y-visible rounded-md bg-background">
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-background">
                 {appliedComparisonType === "none" ? (
@@ -1550,8 +1549,8 @@ export const ProfitLoss = () => {
                     <TableHead
                       className={
                         appliedDisplayBy !== "total"
-                          ? "h-10 px-3 min-w-[280px] sticky left-0 z-20 bg-background"
-                          : "h-10 px-3 min-w-[280px]"
+                          ? "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px] sticky left-0 z-20 bg-background"
+                          : "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px]"
                       }
                     >
                       Account
@@ -1559,7 +1558,7 @@ export const ProfitLoss = () => {
                     {periodGroups.map((group) => (
                       <TableHead
                         key={group.key}
-                        className="h-10 px-3 text-right"
+                        className="h-10 px-2 text-right sm:px-3"
                       >
                         {group.displayLabel}
                       </TableHead>
@@ -1571,8 +1570,8 @@ export const ProfitLoss = () => {
                       <TableHead
                         className={
                           appliedDisplayBy !== "total"
-                            ? "h-10 px-3 min-w-[280px] sticky left-0 z-20 bg-background"
-                            : "h-10 px-3 min-w-[280px]"
+                            ? "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px] sticky left-0 z-20 bg-background"
+                            : "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px]"
                         }
                       >
                         Account
@@ -1581,7 +1580,7 @@ export const ProfitLoss = () => {
                         <TableHead
                           key={group.key}
                           colSpan={3}
-                          className="h-10 px-3 text-center"
+                          className="h-10 px-2 sm:px-3 text-center"
                         >
                           {group.displayLabel}
                         </TableHead>
@@ -1591,8 +1590,8 @@ export const ProfitLoss = () => {
                       <TableHead
                         className={
                           appliedDisplayBy !== "total"
-                            ? "h-10 px-3 min-w-[280px] sticky left-0 z-20 bg-background"
-                            : "h-10 px-3"
+                            ? "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px] sticky left-0 z-20 bg-background"
+                            : "h-10 px-2 sm:px-3"
                         }
                       />
                       {periodGroups.map((group) => {
@@ -1706,13 +1705,13 @@ export const ProfitLoss = () => {
                         onClick={handleRowClick}
                       >
                         <TableCell
-                          className={`${indentClass} pr-3 py-1.5 ${
+                          className={`${indentClass} pr-2 sm:pr-3 py-1.5 min-w-0 ${
                             appliedDisplayBy !== "total"
                               ? "sticky left-0 z-10 bg-background border-r border-border"
                               : ""
                           }`}
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
                             {hasToggle && (
                               <span
                                 className="text-muted-foreground shrink-0"
@@ -1753,9 +1752,9 @@ export const ProfitLoss = () => {
                                 ? 1 + periodGroups.length
                                 : 1 + periodGroups.length * 3
                             }
-                            className="p-0"
+                            className="min-w-0 overflow-hidden p-0"
                           >
-                            <div className="border-t bg-muted/10 p-2 sm:p-3">
+                            <div className="min-w-0 border-t bg-muted/10 p-2 sm:p-3">
                               <AccountDrilldownInline
                                 account={row.account!}
                                 initialPreset={preset}
