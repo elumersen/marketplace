@@ -177,10 +177,10 @@ const AccountDrilldownInline = ({
   const { toast } = useToast();
   const [detailPreset, setDetailPreset] = useState(initialPreset);
   const [detailStartDate, setDetailStartDate] = useState<Date | undefined>(
-    initialStartDate,
+    initialStartDate
   );
   const [detailEndDate, setDetailEndDate] = useState<Date | undefined>(
-    initialEndDate,
+    initialEndDate
   );
   const [detailTransactions, setDetailTransactions] = useState<
     ProfitLossTransaction[]
@@ -241,10 +241,10 @@ const AccountDrilldownInline = ({
         const nextStart = parseBackendDateToLocal(data.startDate);
         const nextEnd = parseBackendDateToLocal(data.endDate);
         setDetailStartDate((prev) =>
-          prev?.getTime() !== nextStart?.getTime() ? nextStart : prev,
+          prev?.getTime() !== nextStart?.getTime() ? nextStart : prev
         );
         setDetailEndDate((prev) =>
-          prev?.getTime() !== nextEnd?.getTime() ? nextEnd : prev,
+          prev?.getTime() !== nextEnd?.getTime() ? nextEnd : prev
         );
 
         lastSuccessKeyRef.current = fetchKey;
@@ -491,7 +491,7 @@ export const ProfitLoss = () => {
     Date | undefined
   >();
   const [comparisonMode, setComparisonMode] = useState<"amount" | "percent">(
-    "amount",
+    "amount"
   );
   // Applied state (what we send to the API); loadReport runs only when this changes
   const [appliedPreset, setAppliedPreset] = useState("this_year_to_date");
@@ -507,14 +507,14 @@ export const ProfitLoss = () => {
     Date | undefined
   >();
   const [expandedTypes, setExpandedTypes] = useState<Set<AccountType>>(
-    new Set(PROFIT_LOSS_TYPES),
+    new Set(PROFIT_LOSS_TYPES)
   );
   const [expandedSubTypes, setExpandedSubTypes] = useState<Set<string>>(
-    new Set(),
+    new Set()
   );
 
   const [expandedAccountIds, setExpandedAccountIds] = useState<Set<string>>(
-    new Set(),
+    new Set()
   );
 
   const reportStartDate = useMemo(() => {
@@ -562,15 +562,15 @@ export const ProfitLoss = () => {
         appliedComparisonEndDate
       ) {
         params.comparisonStartDate = formatDateParam(
-          appliedComparisonStartDate,
+          appliedComparisonStartDate
         ) as string;
         params.comparisonEndDate = formatDateParam(
-          appliedComparisonEndDate,
+          appliedComparisonEndDate
         ) as string;
       }
 
       const data = (await reportAPI.getProfitLoss(
-        params,
+        params
       )) as ProfitLossReportResponse;
       setReport(data);
       if (appliedPreset !== "custom" && data.startDate && data.endDate) {
@@ -766,7 +766,7 @@ export const ProfitLoss = () => {
 
   const formatValue = (
     value: number | null,
-    mode: "currency" | "percent" = "currency",
+    mode: "currency" | "percent" = "currency"
   ) => {
     if (value === null) return "—";
     if (mode === "percent" && Number.isNaN(value)) return "N/A";
@@ -779,7 +779,7 @@ export const ProfitLoss = () => {
 
   const getChangeValue = (
     current: number,
-    previous: number | null,
+    previous: number | null
   ): number | null => {
     if (previous === null) return null;
     if (comparisonMode === "percent") {
@@ -795,7 +795,7 @@ export const ProfitLoss = () => {
   const sumAccounts = (
     accounts: Account[] = [],
     groupKey: string,
-    useComparison = false,
+    useComparison = false
   ) =>
     accounts.reduce((sum, account) => {
       const value = useComparison
@@ -1012,23 +1012,23 @@ export const ProfitLoss = () => {
       if (row.id === "gross-profit") {
         const income = sumAccounts(
           accountsByType[AccountType.Income],
-          group.key,
+          group.key
         );
         const cogs = sumAccounts(
           accountsByType[AccountType.Cost_of_Goods_Sold],
-          group.key,
+          group.key
         );
         computedCurrent = income + cogs;
         if (appliedComparisonType !== "none") {
           const incomeComp = sumAccounts(
             accountsByType[AccountType.Income],
             group.key,
-            true,
+            true
           );
           const cogsComp = sumAccounts(
             accountsByType[AccountType.Cost_of_Goods_Sold],
             group.key,
-            true,
+            true
           );
           computedComparison = incomeComp + cogsComp;
         }
@@ -1037,23 +1037,23 @@ export const ProfitLoss = () => {
       if (row.id === "net-income") {
         const income = sumAccounts(
           accountsByType[AccountType.Income],
-          group.key,
+          group.key
         );
         const otherIncome = sumAccounts(
           accountsByType[AccountType.Other_Income],
-          group.key,
+          group.key
         );
         const cogs = sumAccounts(
           accountsByType[AccountType.Cost_of_Goods_Sold],
-          group.key,
+          group.key
         );
         const expense = sumAccounts(
           accountsByType[AccountType.Expense],
-          group.key,
+          group.key
         );
         const otherExpense = sumAccounts(
           accountsByType[AccountType.Other_Expense],
-          group.key,
+          group.key
         );
         // Backend returns expense-type amounts as negative; add all
         computedCurrent = income + otherIncome + cogs + expense + otherExpense;
@@ -1062,27 +1062,27 @@ export const ProfitLoss = () => {
           const incomeComp = sumAccounts(
             accountsByType[AccountType.Income],
             group.key,
-            true,
+            true
           );
           const otherIncomeComp = sumAccounts(
             accountsByType[AccountType.Other_Income],
             group.key,
-            true,
+            true
           );
           const cogsComp = sumAccounts(
             accountsByType[AccountType.Cost_of_Goods_Sold],
             group.key,
-            true,
+            true
           );
           const expenseComp = sumAccounts(
             accountsByType[AccountType.Expense],
             group.key,
-            true,
+            true
           );
           const otherExpenseComp = sumAccounts(
             accountsByType[AccountType.Other_Expense],
             group.key,
-            true,
+            true
           );
           computedComparison =
             incomeComp +
@@ -1143,7 +1143,7 @@ export const ProfitLoss = () => {
           >
             {formatValue(
               changeValue,
-              comparisonMode === "percent" ? "percent" : "currency",
+              comparisonMode === "percent" ? "percent" : "currency"
             )}
           </TableCell>
         </Fragment>
@@ -1189,23 +1189,23 @@ export const ProfitLoss = () => {
         if (row.id === "gross-profit") {
           const income = sumAccounts(
             accountsByType[AccountType.Income],
-            group.key,
+            group.key
           );
           const cogs = sumAccounts(
             accountsByType[AccountType.Cost_of_Goods_Sold],
-            group.key,
+            group.key
           );
           computedCurrent = income + cogs;
           if (appliedComparisonType !== "none") {
             const incomeComp = sumAccounts(
               accountsByType[AccountType.Income],
               group.key,
-              true,
+              true
             );
             const cogsComp = sumAccounts(
               accountsByType[AccountType.Cost_of_Goods_Sold],
               group.key,
-              true,
+              true
             );
             computedComparison = incomeComp + cogsComp;
           }
@@ -1214,23 +1214,23 @@ export const ProfitLoss = () => {
         if (row.id === "net-income") {
           const income = sumAccounts(
             accountsByType[AccountType.Income],
-            group.key,
+            group.key
           );
           const otherIncome = sumAccounts(
             accountsByType[AccountType.Other_Income],
-            group.key,
+            group.key
           );
           const cogs = sumAccounts(
             accountsByType[AccountType.Cost_of_Goods_Sold],
-            group.key,
+            group.key
           );
           const expense = sumAccounts(
             accountsByType[AccountType.Expense],
-            group.key,
+            group.key
           );
           const otherExpense = sumAccounts(
             accountsByType[AccountType.Other_Expense],
-            group.key,
+            group.key
           );
           computedCurrent =
             income + otherIncome + cogs + expense + otherExpense;
@@ -1239,27 +1239,27 @@ export const ProfitLoss = () => {
             const incomeComp = sumAccounts(
               accountsByType[AccountType.Income],
               group.key,
-              true,
+              true
             );
             const otherIncomeComp = sumAccounts(
               accountsByType[AccountType.Other_Income],
               group.key,
-              true,
+              true
             );
             const cogsComp = sumAccounts(
               accountsByType[AccountType.Cost_of_Goods_Sold],
               group.key,
-              true,
+              true
             );
             const expenseComp = sumAccounts(
               accountsByType[AccountType.Expense],
               group.key,
-              true,
+              true
             );
             const otherExpenseComp = sumAccounts(
               accountsByType[AccountType.Other_Expense],
               group.key,
-              true,
+              true
             );
             computedComparison =
               incomeComp +
@@ -1293,7 +1293,7 @@ export const ProfitLoss = () => {
 
     const csvContent = [headers, ...allRows]
       .map((row) =>
-        row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","),
+        row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")
       )
       .join("\n");
 
@@ -1599,7 +1599,7 @@ export const ProfitLoss = () => {
                         const isTotalGroup = group.key === "total";
                         const comparisonEntry =
                           report?.comparisonPeriodBreakdown?.find(
-                            (entry) => entry.mainLabel === group.label,
+                            (entry) => entry.mainLabel === group.label
                           );
                         const previousLabel = comparisonEntry
                           ? `${comparisonEntry.label} (PP)`
@@ -1652,7 +1652,7 @@ export const ProfitLoss = () => {
                       : "pl-12";
                   const parentType = row.id.replace(
                     "section-",
-                    "",
+                    ""
                   ) as AccountType;
                   const subKey =
                     row.type === "subtype"
