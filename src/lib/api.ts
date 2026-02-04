@@ -58,6 +58,8 @@ import type {
   VerifyLockBooksAuthData,
   BookLock,
   CreateBookLockData,
+  BalanceSheetReportResponse,
+  BalanceSheetTransactionsResponse,
   ProfitLossReportResponse,
   ProfitLossTransactionsResponse,
 } from '@/types/api.types';
@@ -308,6 +310,20 @@ export const reportAPI = {
     config?: { signal?: AbortSignal }
   ): Promise<ProfitLossReportResponse | ProfitLossTransactionsResponse> =>
     api.get<ProfitLossReportResponse | ProfitLossTransactionsResponse>('/reports/profit-loss', { params, ...config }),
+  getBalanceSheet: (
+    params?: {
+      startDate?: string;
+      endDate?: string;
+      preset?: string;
+      comparison?: string;
+      comparisonStartDate?: string;
+      comparisonEndDate?: string;
+      displayBy?: string;
+      accountId?: string;
+    },
+    config?: { signal?: AbortSignal }
+  ): Promise<BalanceSheetReportResponse | BalanceSheetTransactionsResponse> =>
+    api.get<BalanceSheetReportResponse | BalanceSheetTransactionsResponse>('/reports/balance-sheet', { params, ...config }),
 };
 
 export const customerAPI = {

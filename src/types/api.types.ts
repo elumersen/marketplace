@@ -932,3 +932,31 @@ export interface ProfitLossTransactionsResponse {
   startDate: string;
   endDate: string;
 }
+
+
+export interface BalanceSheetReportResponse {
+  accounts: Account[];
+  accountBalances: Record<string, number>;
+  comparisonBalances: Record<string, number> | null;
+  comparisonStart: string | null;
+  comparisonEnd: string | null;
+  periodBreakdown: ProfitLossReportPeriod[] | null;
+  periodBalances: Record<string, Record<string, number>> | null;
+  comparisonPeriodBalances: Record<string, Record<string, number>> | null;
+  comparisonPeriodBreakdown: Array<{
+    mainLabel: string;
+    label: string;
+    start: string;
+    end: string;
+  }> | null;
+  startDate: string;
+  endDate: string;
+  /** Cumulative net income (income − expenses − COGS) as-of endDate for Equity section. Optional until backend adds it. */
+  netIncome?: number;
+}
+
+export interface BalanceSheetTransactionsResponse {
+  transactions: ProfitLossTransaction[];
+  startDate: string;
+  endDate: string;
+}
