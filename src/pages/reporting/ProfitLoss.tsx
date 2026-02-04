@@ -177,10 +177,10 @@ const AccountDrilldownInline = ({
   const { toast } = useToast();
   const [detailPreset, setDetailPreset] = useState(initialPreset);
   const [detailStartDate, setDetailStartDate] = useState<Date | undefined>(
-    initialStartDate,
+    initialStartDate
   );
   const [detailEndDate, setDetailEndDate] = useState<Date | undefined>(
-    initialEndDate,
+    initialEndDate
   );
   const [detailTransactions, setDetailTransactions] = useState<
     ProfitLossTransaction[]
@@ -241,10 +241,10 @@ const AccountDrilldownInline = ({
         const nextStart = parseBackendDateToLocal(data.startDate);
         const nextEnd = parseBackendDateToLocal(data.endDate);
         setDetailStartDate((prev) =>
-          prev?.getTime() !== nextStart?.getTime() ? nextStart : prev,
+          prev?.getTime() !== nextStart?.getTime() ? nextStart : prev
         );
         setDetailEndDate((prev) =>
-          prev?.getTime() !== nextEnd?.getTime() ? nextEnd : prev,
+          prev?.getTime() !== nextEnd?.getTime() ? nextEnd : prev
         );
 
         lastSuccessKeyRef.current = fetchKey;
@@ -334,7 +334,7 @@ const AccountDrilldownInline = ({
         </div>
       </div>
 
-      <div className="rounded-md border bg-background overflow-y-auto overflow-x-hidden max-h-[380px]">
+      <div className="rounded-md border bg-background overflow-x-auto overflow-y-auto max-h-[380px] min-w-0">
         <Table className="text-sm w-max min-w-full">
           <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow>
@@ -491,7 +491,7 @@ export const ProfitLoss = () => {
     Date | undefined
   >();
   const [comparisonMode, setComparisonMode] = useState<"amount" | "percent">(
-    "amount",
+    "amount"
   );
   // Applied state (what we send to the API); loadReport runs only when this changes
   const [appliedPreset, setAppliedPreset] = useState("this_year_to_date");
@@ -507,14 +507,14 @@ export const ProfitLoss = () => {
     Date | undefined
   >();
   const [expandedTypes, setExpandedTypes] = useState<Set<AccountType>>(
-    new Set(PROFIT_LOSS_TYPES),
+    new Set(PROFIT_LOSS_TYPES)
   );
   const [expandedSubTypes, setExpandedSubTypes] = useState<Set<string>>(
-    new Set(),
+    new Set()
   );
 
   const [expandedAccountIds, setExpandedAccountIds] = useState<Set<string>>(
-    new Set(),
+    new Set()
   );
 
   const reportStartDate = useMemo(() => {
@@ -562,15 +562,15 @@ export const ProfitLoss = () => {
         appliedComparisonEndDate
       ) {
         params.comparisonStartDate = formatDateParam(
-          appliedComparisonStartDate,
+          appliedComparisonStartDate
         ) as string;
         params.comparisonEndDate = formatDateParam(
-          appliedComparisonEndDate,
+          appliedComparisonEndDate
         ) as string;
       }
 
       const data = (await reportAPI.getProfitLoss(
-        params,
+        params
       )) as ProfitLossReportResponse;
       setReport(data);
       if (appliedPreset !== "custom" && data.startDate && data.endDate) {
@@ -766,7 +766,7 @@ export const ProfitLoss = () => {
 
   const formatValue = (
     value: number | null,
-    mode: "currency" | "percent" = "currency",
+    mode: "currency" | "percent" = "currency"
   ) => {
     if (value === null) return "—";
     if (mode === "percent" && Number.isNaN(value)) return "N/A";
@@ -779,7 +779,7 @@ export const ProfitLoss = () => {
 
   const getChangeValue = (
     current: number,
-    previous: number | null,
+    previous: number | null
   ): number | null => {
     if (previous === null) return null;
     if (comparisonMode === "percent") {
@@ -795,7 +795,7 @@ export const ProfitLoss = () => {
   const sumAccounts = (
     accounts: Account[] = [],
     groupKey: string,
-    useComparison = false,
+    useComparison = false
   ) =>
     accounts.reduce((sum, account) => {
       const value = useComparison
@@ -1012,23 +1012,23 @@ export const ProfitLoss = () => {
       if (row.id === "gross-profit") {
         const income = sumAccounts(
           accountsByType[AccountType.Income],
-          group.key,
+          group.key
         );
         const cogs = sumAccounts(
           accountsByType[AccountType.Cost_of_Goods_Sold],
-          group.key,
+          group.key
         );
         computedCurrent = income + cogs;
         if (appliedComparisonType !== "none") {
           const incomeComp = sumAccounts(
             accountsByType[AccountType.Income],
             group.key,
-            true,
+            true
           );
           const cogsComp = sumAccounts(
             accountsByType[AccountType.Cost_of_Goods_Sold],
             group.key,
-            true,
+            true
           );
           computedComparison = incomeComp + cogsComp;
         }
@@ -1037,23 +1037,23 @@ export const ProfitLoss = () => {
       if (row.id === "net-income") {
         const income = sumAccounts(
           accountsByType[AccountType.Income],
-          group.key,
+          group.key
         );
         const otherIncome = sumAccounts(
           accountsByType[AccountType.Other_Income],
-          group.key,
+          group.key
         );
         const cogs = sumAccounts(
           accountsByType[AccountType.Cost_of_Goods_Sold],
-          group.key,
+          group.key
         );
         const expense = sumAccounts(
           accountsByType[AccountType.Expense],
-          group.key,
+          group.key
         );
         const otherExpense = sumAccounts(
           accountsByType[AccountType.Other_Expense],
-          group.key,
+          group.key
         );
         // Backend returns expense-type amounts as negative; add all
         computedCurrent = income + otherIncome + cogs + expense + otherExpense;
@@ -1062,27 +1062,27 @@ export const ProfitLoss = () => {
           const incomeComp = sumAccounts(
             accountsByType[AccountType.Income],
             group.key,
-            true,
+            true
           );
           const otherIncomeComp = sumAccounts(
             accountsByType[AccountType.Other_Income],
             group.key,
-            true,
+            true
           );
           const cogsComp = sumAccounts(
             accountsByType[AccountType.Cost_of_Goods_Sold],
             group.key,
-            true,
+            true
           );
           const expenseComp = sumAccounts(
             accountsByType[AccountType.Expense],
             group.key,
-            true,
+            true
           );
           const otherExpenseComp = sumAccounts(
             accountsByType[AccountType.Other_Expense],
             group.key,
-            true,
+            true
           );
           computedComparison =
             incomeComp +
@@ -1143,7 +1143,7 @@ export const ProfitLoss = () => {
           >
             {formatValue(
               changeValue,
-              comparisonMode === "percent" ? "percent" : "currency",
+              comparisonMode === "percent" ? "percent" : "currency"
             )}
           </TableCell>
         </Fragment>
@@ -1189,23 +1189,23 @@ export const ProfitLoss = () => {
         if (row.id === "gross-profit") {
           const income = sumAccounts(
             accountsByType[AccountType.Income],
-            group.key,
+            group.key
           );
           const cogs = sumAccounts(
             accountsByType[AccountType.Cost_of_Goods_Sold],
-            group.key,
+            group.key
           );
           computedCurrent = income + cogs;
           if (appliedComparisonType !== "none") {
             const incomeComp = sumAccounts(
               accountsByType[AccountType.Income],
               group.key,
-              true,
+              true
             );
             const cogsComp = sumAccounts(
               accountsByType[AccountType.Cost_of_Goods_Sold],
               group.key,
-              true,
+              true
             );
             computedComparison = incomeComp + cogsComp;
           }
@@ -1214,23 +1214,23 @@ export const ProfitLoss = () => {
         if (row.id === "net-income") {
           const income = sumAccounts(
             accountsByType[AccountType.Income],
-            group.key,
+            group.key
           );
           const otherIncome = sumAccounts(
             accountsByType[AccountType.Other_Income],
-            group.key,
+            group.key
           );
           const cogs = sumAccounts(
             accountsByType[AccountType.Cost_of_Goods_Sold],
-            group.key,
+            group.key
           );
           const expense = sumAccounts(
             accountsByType[AccountType.Expense],
-            group.key,
+            group.key
           );
           const otherExpense = sumAccounts(
             accountsByType[AccountType.Other_Expense],
-            group.key,
+            group.key
           );
           computedCurrent =
             income + otherIncome + cogs + expense + otherExpense;
@@ -1239,27 +1239,27 @@ export const ProfitLoss = () => {
             const incomeComp = sumAccounts(
               accountsByType[AccountType.Income],
               group.key,
-              true,
+              true
             );
             const otherIncomeComp = sumAccounts(
               accountsByType[AccountType.Other_Income],
               group.key,
-              true,
+              true
             );
             const cogsComp = sumAccounts(
               accountsByType[AccountType.Cost_of_Goods_Sold],
               group.key,
-              true,
+              true
             );
             const expenseComp = sumAccounts(
               accountsByType[AccountType.Expense],
               group.key,
-              true,
+              true
             );
             const otherExpenseComp = sumAccounts(
               accountsByType[AccountType.Other_Expense],
               group.key,
-              true,
+              true
             );
             computedComparison =
               incomeComp +
@@ -1293,7 +1293,7 @@ export const ProfitLoss = () => {
 
     const csvContent = [headers, ...allRows]
       .map((row) =>
-        row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","),
+        row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")
       )
       .join("\n");
 
@@ -1399,8 +1399,8 @@ export const ProfitLoss = () => {
   }
 
   return (
-    <div className="w-full min-w-0 space-y-6">
-      <Card>
+    <div className="w-full min-w-0 max-w-full space-y-6">
+      <Card className="min-w-0 overflow-hidden">
         <CardHeader className="space-y-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:flex-wrap">
             <div className="min-w-0">
@@ -1425,9 +1425,9 @@ export const ProfitLoss = () => {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <div className="min-w-0 sm:col-span-2 lg:col-span-2">
+        <CardContent className="min-w-0 space-y-6">
+          <div className="grid min-w-0 max-w-full grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+            <div className="min-w-0 sm:col-span-2 lg:col-span-2 xl:col-span-2">
               <label className="text-sm font-medium">Report period</label>
               <Select value={preset} onValueChange={handlePresetChange}>
                 <SelectTrigger className="mt-1 w-full min-w-0">
@@ -1512,14 +1512,14 @@ export const ProfitLoss = () => {
             )}
             {comparisonType === "custom_period" && (
               <>
-                <div className="min-w-0 lg:col-start-3">
+                <div className="min-w-0 xl:col-start-3">
                   <label className="text-sm font-medium">Comparison from</label>
                   <DatePicker
                     date={comparisonStartDate}
                     setDate={(date) => setComparisonStartDate(date)}
                   />
                 </div>
-                <div className="min-w-0 lg:col-start-4">
+                <div className="min-w-0 xl:col-start-4">
                   <label className="text-sm font-medium">Comparison to</label>
                   <DatePicker
                     date={comparisonEndDate}
@@ -1541,8 +1541,7 @@ export const ProfitLoss = () => {
             </Button>
           </div>
 
-          {/* No outer border: keeps section gaps from looking like empty rows */}
-          <div className="rounded-md bg-background overflow-auto">
+          <div className="min-w-0 w-full overflow-x-auto overflow-y-visible rounded-md bg-background">
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-background">
                 {appliedComparisonType === "none" ? (
@@ -1550,8 +1549,8 @@ export const ProfitLoss = () => {
                     <TableHead
                       className={
                         appliedDisplayBy !== "total"
-                          ? "h-10 px-3 min-w-[280px] sticky left-0 z-20 bg-background"
-                          : "h-10 px-3 min-w-[280px]"
+                          ? "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px] sticky left-0 z-20 bg-background"
+                          : "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px]"
                       }
                     >
                       Account
@@ -1559,7 +1558,7 @@ export const ProfitLoss = () => {
                     {periodGroups.map((group) => (
                       <TableHead
                         key={group.key}
-                        className="h-10 px-3 text-right"
+                        className="h-10 px-2 text-right sm:px-3"
                       >
                         {group.displayLabel}
                       </TableHead>
@@ -1571,8 +1570,8 @@ export const ProfitLoss = () => {
                       <TableHead
                         className={
                           appliedDisplayBy !== "total"
-                            ? "h-10 px-3 min-w-[280px] sticky left-0 z-20 bg-background"
-                            : "h-10 px-3 min-w-[280px]"
+                            ? "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px] sticky left-0 z-20 bg-background"
+                            : "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px]"
                         }
                       >
                         Account
@@ -1581,7 +1580,7 @@ export const ProfitLoss = () => {
                         <TableHead
                           key={group.key}
                           colSpan={3}
-                          className="h-10 px-3 text-center"
+                          className="h-10 px-2 sm:px-3 text-center"
                         >
                           {group.displayLabel}
                         </TableHead>
@@ -1591,15 +1590,15 @@ export const ProfitLoss = () => {
                       <TableHead
                         className={
                           appliedDisplayBy !== "total"
-                            ? "h-10 px-3 min-w-[280px] sticky left-0 z-20 bg-background"
-                            : "h-10 px-3"
+                            ? "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px] sticky left-0 z-20 bg-background"
+                            : "h-10 px-2 sm:px-3"
                         }
                       />
                       {periodGroups.map((group) => {
                         const isTotalGroup = group.key === "total";
                         const comparisonEntry =
                           report?.comparisonPeriodBreakdown?.find(
-                            (entry) => entry.mainLabel === group.label,
+                            (entry) => entry.mainLabel === group.label
                           );
                         const previousLabel = comparisonEntry
                           ? `${comparisonEntry.label} (PP)`
@@ -1652,7 +1651,7 @@ export const ProfitLoss = () => {
                       : "pl-12";
                   const parentType = row.id.replace(
                     "section-",
-                    "",
+                    ""
                   ) as AccountType;
                   const subKey =
                     row.type === "subtype"
@@ -1706,13 +1705,13 @@ export const ProfitLoss = () => {
                         onClick={handleRowClick}
                       >
                         <TableCell
-                          className={`${indentClass} pr-3 py-1.5 ${
+                          className={`${indentClass} pr-2 sm:pr-3 py-1.5 min-w-0 ${
                             appliedDisplayBy !== "total"
                               ? "sticky left-0 z-10 bg-background border-r border-border"
                               : ""
                           }`}
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
                             {hasToggle && (
                               <span
                                 className="text-muted-foreground shrink-0"
@@ -1753,9 +1752,9 @@ export const ProfitLoss = () => {
                                 ? 1 + periodGroups.length
                                 : 1 + periodGroups.length * 3
                             }
-                            className="p-0"
+                            className="min-w-0 overflow-hidden p-0"
                           >
-                            <div className="border-t bg-muted/10 p-2 sm:p-3">
+                            <div className="min-w-0 border-t bg-muted/10 p-2 sm:p-3">
                               <AccountDrilldownInline
                                 account={row.account!}
                                 initialPreset={preset}
