@@ -296,7 +296,6 @@ const AccountDrilldownInline = ({
           }`
         : `${account.id}|preset|${detailPreset}`;
 
-    // Avoid re-fetch caused only by syncing backend dates into pickers
     if (lastSuccessKeyRef.current === fetchKey) {
       return () => controller.abort();
     }
@@ -320,7 +319,6 @@ const AccountDrilldownInline = ({
         const data = response as ProfitLossTransactionsResponse;
         setDetailTransactions(data.transactions || []);
 
-        // Sync backend dates into the detail pickers (avoid timezone rollover)
         const nextStart = parseBackendDateToLocal(data.startDate);
         const nextEnd = parseBackendDateToLocal(data.endDate);
         setDetailStartDate((prev) =>
@@ -561,7 +559,6 @@ export const ProfitLoss = () => {
   const { toast } = useToast();
   const [report, setReport] = useState<ProfitLossReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  // Draft state (what user sees in filters); report only refetches on Save or Clear
   const [preset, setPreset] = useState("this_year_to_date");
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
@@ -576,7 +573,6 @@ export const ProfitLoss = () => {
   const [comparisonMode, setComparisonMode] = useState<"amount" | "percent">(
     "amount"
   );
-  // Applied state (what we send to the API); loadReport runs only when this changes
   const [appliedPreset, setAppliedPreset] = useState("this_year_to_date");
   const [appliedStartDate, setAppliedStartDate] = useState<Date | undefined>();
   const [appliedEndDate, setAppliedEndDate] = useState<Date | undefined>();
@@ -749,7 +745,6 @@ export const ProfitLoss = () => {
   const handlePresetChange = (value: string) => {
     setPreset(value);
     if (value !== "custom") {
-      // Compute dates immediately for better UX
       const dates = getPresetDates(value);
       if (dates) {
         setStartDate(dates.start);
@@ -809,8 +804,6 @@ export const ProfitLoss = () => {
     }> = [];
     if (appliedDisplayBy !== "total" && report.periodBreakdown) {
       report.periodBreakdown.forEach((period, index) => {
-        // Single source of truth: use periodBreakdown[].label from API for all display-by modes.
-        // Do not recompute or infer labels from period.start/end on the frontend.
         const displayLabel =
           appliedDisplayBy === "months" || appliedDisplayBy === "quarters"
             ? period.label.toUpperCase()
@@ -960,7 +953,7 @@ export const ProfitLoss = () => {
       });
     };
 
-    // Order per requirements: Income → COGS → Gross Profit → Expenses → Other Income → Other Expense → Net Income
+  
     addTypeSection(AccountType.Income);
     rows.push({
       id: "total-income",
@@ -1145,7 +1138,6 @@ export const ProfitLoss = () => {
           accountsByType[AccountType.Other_Expense],
           group.key
         );
-        // Backend returns expense-type amounts as negative; add all
         computedCurrent = income + otherIncome + cogs + expense + otherExpense;
 
         if (appliedComparisonType !== "none") {

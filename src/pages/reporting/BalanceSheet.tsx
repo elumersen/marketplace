@@ -662,7 +662,7 @@ export const BalanceSheet = () => {
   const handlePresetChange = (value: string) => {
     setPreset(value);
     if (value !== "custom") {
-      // Compute dates immediately for better UX
+     
       const dates = getPresetDates(value);
       if (dates) {
         setStartDate(dates.start);

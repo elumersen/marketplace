@@ -1,26 +1,19 @@
 import { TransactionType } from '@/types/api.types';
 
-// Posting side refers to the side applied to the REGISTER account (the one whose register you are in / left column in the chart)
-// The counter account takes the opposite side.
+
 export type PostingRule = 'debit' | 'credit' | 'both' | 'none';
 
-// Keys match backend AccountSubType enum string values (as sent to the frontend)
-// Example: Cash_Cash_Equivalents, Accounts_Receivable, Accounts_Payable, Credit_Card, etc.
-// NOTE: Where business rules are still being finalized, default to 'both'.
 const RULES: Record<string, Partial<Record<TransactionType, PostingRule>>> = {
-  // Current Assets
+  
   Cash_Cash_Equivalents: {
-    [TransactionType.EXPENSE]: 'credit', // Register must be credited for Expense
+    [TransactionType.EXPENSE]: 'credit', 
     [TransactionType.CHECK]: 'credit',
-    [TransactionType.DEPOSIT]: 'debit', // Register must be debited for Deposit
+    [TransactionType.DEPOSIT]: 'debit', 
     [TransactionType.REFUND]: 'credit',
     [TransactionType.TRANSFER]: 'both',
     [TransactionType.CREDIT_CARD_PAYMENT]: 'credit',
     [TransactionType.JOURNAL_ENTRY]: 'both',
-    // [TransactionType.INVOICE]: 'none',
-    // [TransactionType.RECEIVE_PAYMENT]: 'none',
-    // [TransactionType.BILL]: 'none',
-    // [TransactionType.BILL_PAYMENT]: 'none',
+
   },
   Accounts_Receivable: {},
   Other_Current_Assets: {
@@ -29,7 +22,7 @@ const RULES: Record<string, Partial<Record<TransactionType, PostingRule>>> = {
     [TransactionType.JOURNAL_ENTRY]: 'both',
     [TransactionType.TRANSFER]: 'both',
   },
-  // Fixed Assets
+ 
   Property_Plant_Equipment: {
     [TransactionType.JOURNAL_ENTRY]: 'both',
     [TransactionType.TRANSFER]: 'both',
@@ -50,12 +43,12 @@ const RULES: Record<string, Partial<Record<TransactionType, PostingRule>>> = {
     [TransactionType.JOURNAL_ENTRY]: 'both',
     [TransactionType.TRANSFER]: 'both',
   },
-  // Current Liabilities
+ 
   Accounts_Payable: {},
   Credit_Card: {
-    [TransactionType.EXPENSE]: 'debit', // Expense increases CC liability (debit register)
+    [TransactionType.EXPENSE]: 'debit', 
     [TransactionType.REFUND]: 'debit',
-    [TransactionType.CREDIT_CARD_PAYMENT]: 'credit', // Payment reduces CC liability (credit register)
+    [TransactionType.CREDIT_CARD_PAYMENT]: 'credit', 
     [TransactionType.JOURNAL_ENTRY]: 'both',
   },
   Other_Current_Liabilities: {
@@ -66,7 +59,7 @@ const RULES: Record<string, Partial<Record<TransactionType, PostingRule>>> = {
     [TransactionType.JOURNAL_ENTRY]: 'both',
     [TransactionType.TRANSFER]: 'both',
   },
-  // Equity
+  
   Equity: {
     [TransactionType.JOURNAL_ENTRY]: 'both',
     [TransactionType.TRANSFER]: 'both',
@@ -75,7 +68,7 @@ const RULES: Record<string, Partial<Record<TransactionType, PostingRule>>> = {
     [TransactionType.JOURNAL_ENTRY]: 'both',
   },
   Net_Income: {},
-  // P&L
+  
   Income: {
     [TransactionType.EXPENSE]: 'both',
     [TransactionType.CHECK]: 'both',
@@ -144,10 +137,9 @@ const RULES: Record<string, Partial<Record<TransactionType, PostingRule>>> = {
 };
 
 export function getPostingRule(registerAccountSubType: string | undefined, transactionType: TransactionType): PostingRule {
-  if (!registerAccountSubType) return 'none'; // if no subtype, none allowed
+  if (!registerAccountSubType) return 'none'; 
   const map = RULES[registerAccountSubType];
-  if (!map) return 'none'; // if no rule for subtype, none allowed
-  // If transactionType value is missing, return 'none'
+  if (!map) return 'none'; 
   return (transactionType in map) ? map[transactionType]! : 'none';
 }
 
