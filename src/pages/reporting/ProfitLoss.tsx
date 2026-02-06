@@ -1,5 +1,22 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { format } from "date-fns";
+import {
+  format,
+  startOfDay,
+  endOfDay,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  startOfQuarter,
+  endOfQuarter,
+  startOfYear,
+  endOfYear,
+  subDays,
+  subWeeks,
+  subMonths,
+  subQuarters,
+  subYears,
+} from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -84,6 +101,72 @@ const COMPARISON_OPTIONS = [
   { value: "previous_period", label: "Previous period" },
   { value: "custom_period", label: "Custom period" },
 ];
+
+/**
+ * Computes the start and end dates for a given preset based on today's date.
+ * Returns undefined for custom preset (user must manually select dates).
+ */
+const getPresetDates = (
+  preset: string
+): { start: Date; end: Date } | undefined => {
+  const today = new Date();
+
+  switch (preset) {
+    case "today":
+      return { start: startOfDay(today), end: endOfDay(today) };
+    case "yesterday": {
+      const yesterday = subDays(today, 1);
+      return { start: startOfDay(yesterday), end: endOfDay(yesterday) };
+    }
+    case "this_week":
+      return {
+        start: startOfWeek(today, { weekStartsOn: 0 }),
+        end: endOfWeek(today, { weekStartsOn: 0 }),
+      };
+    case "this_week_to_date":
+      return {
+        start: startOfWeek(today, { weekStartsOn: 0 }),
+        end: endOfDay(today),
+      };
+    case "last_week": {
+      const lastWeek = subWeeks(today, 1);
+      return {
+        start: startOfWeek(lastWeek, { weekStartsOn: 0 }),
+        end: endOfWeek(lastWeek, { weekStartsOn: 0 }),
+      };
+    }
+    case "this_month":
+      return { start: startOfMonth(today), end: endOfMonth(today) };
+    case "this_month_to_date":
+      return { start: startOfMonth(today), end: endOfDay(today) };
+    case "last_month": {
+      const lastMonth = subMonths(today, 1);
+      return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) };
+    }
+    case "this_quarter":
+      return { start: startOfQuarter(today), end: endOfQuarter(today) };
+    case "this_quarter_to_date":
+      return { start: startOfQuarter(today), end: endOfDay(today) };
+    case "last_quarter": {
+      const lastQuarter = subQuarters(today, 1);
+      return {
+        start: startOfQuarter(lastQuarter),
+        end: endOfQuarter(lastQuarter),
+      };
+    }
+    case "this_year":
+      return { start: startOfYear(today), end: endOfYear(today) };
+    case "this_year_to_date":
+      return { start: startOfYear(today), end: endOfDay(today) };
+    case "last_year": {
+      const lastYear = subYears(today, 1);
+      return { start: startOfYear(lastYear), end: endOfYear(lastYear) };
+    }
+    case "custom":
+    default:
+      return undefined;
+  }
+};
 
 const formatCurrency = (amount: number) => {
   const n = Math.abs(amount) < 1e-10 ? 0 : amount;
@@ -213,7 +296,6 @@ const AccountDrilldownInline = ({
           }`
         : `${account.id}|preset|${detailPreset}`;
 
-    // Avoid re-fetch caused only by syncing backend dates into pickers
     if (lastSuccessKeyRef.current === fetchKey) {
       return () => controller.abort();
     }
@@ -237,7 +319,6 @@ const AccountDrilldownInline = ({
         const data = response as ProfitLossTransactionsResponse;
         setDetailTransactions(data.transactions || []);
 
-        // Sync backend dates into the detail pickers (avoid timezone rollover)
         const nextStart = parseBackendDateToLocal(data.startDate);
         const nextEnd = parseBackendDateToLocal(data.endDate);
         setDetailStartDate((prev) =>
@@ -478,7 +559,6 @@ export const ProfitLoss = () => {
   const { toast } = useToast();
   const [report, setReport] = useState<ProfitLossReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  // Draft state (what user sees in filters); report only refetches on Save or Clear
   const [preset, setPreset] = useState("this_year_to_date");
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
@@ -493,7 +573,6 @@ export const ProfitLoss = () => {
   const [comparisonMode, setComparisonMode] = useState<"amount" | "percent">(
     "amount"
   );
-  // Applied state (what we send to the API); loadReport runs only when this changes
   const [appliedPreset, setAppliedPreset] = useState("this_year_to_date");
   const [appliedStartDate, setAppliedStartDate] = useState<Date | undefined>();
   const [appliedEndDate, setAppliedEndDate] = useState<Date | undefined>();
@@ -666,8 +745,14 @@ export const ProfitLoss = () => {
   const handlePresetChange = (value: string) => {
     setPreset(value);
     if (value !== "custom") {
-      setStartDate(undefined);
-      setEndDate(undefined);
+      const dates = getPresetDates(value);
+      if (dates) {
+        setStartDate(dates.start);
+        setEndDate(dates.end);
+      } else {
+        setStartDate(undefined);
+        setEndDate(undefined);
+      }
     }
   };
 
@@ -719,8 +804,6 @@ export const ProfitLoss = () => {
     }> = [];
     if (appliedDisplayBy !== "total" && report.periodBreakdown) {
       report.periodBreakdown.forEach((period, index) => {
-        // Single source of truth: use periodBreakdown[].label from API for all display-by modes.
-        // Do not recompute or infer labels from period.start/end on the frontend.
         const displayLabel =
           appliedDisplayBy === "months" || appliedDisplayBy === "quarters"
             ? period.label.toUpperCase()
@@ -870,7 +953,7 @@ export const ProfitLoss = () => {
       });
     };
 
-    // Order per requirements: Income → COGS → Gross Profit → Expenses → Other Income → Other Expense → Net Income
+  
     addTypeSection(AccountType.Income);
     rows.push({
       id: "total-income",
@@ -1055,7 +1138,6 @@ export const ProfitLoss = () => {
           accountsByType[AccountType.Other_Expense],
           group.key
         );
-        // Backend returns expense-type amounts as negative; add all
         computedCurrent = income + otherIncome + cogs + expense + otherExpense;
 
         if (appliedComparisonType !== "none") {
@@ -1426,8 +1508,8 @@ export const ProfitLoss = () => {
           </div>
         </CardHeader>
         <CardContent className="min-w-0 space-y-6">
-          <div className="grid min-w-0 max-w-full grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-            <div className="min-w-0 sm:col-span-2 lg:col-span-2 xl:col-span-2">
+          <div className="grid min-w-0 max-w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="min-w-0">
               <label className="text-sm font-medium">Report period</label>
               <Select value={preset} onValueChange={handlePresetChange}>
                 <SelectTrigger className="mt-1 w-full min-w-0">
@@ -1447,6 +1529,7 @@ export const ProfitLoss = () => {
               <DatePicker
                 date={reportStartDate}
                 setDate={(date) => handleDateChange("start", date)}
+                className="mt-1 w-full"
               />
             </div>
             <div className="min-w-0">
@@ -1454,6 +1537,7 @@ export const ProfitLoss = () => {
               <DatePicker
                 date={reportEndDate}
                 setDate={(date) => handleDateChange("end", date)}
+                className="mt-1 w-full"
               />
             </div>
             <div className="min-w-0">
@@ -1492,7 +1576,7 @@ export const ProfitLoss = () => {
               </Select>
             </div>
             {comparisonType !== "none" && (
-              <div className="min-w-0 sm:col-span-2 md:col-span-1">
+              <div className="min-w-0">
                 <label className="text-sm font-medium">Change type</label>
                 <Select
                   value={comparisonMode}
@@ -1512,18 +1596,20 @@ export const ProfitLoss = () => {
             )}
             {comparisonType === "custom_period" && (
               <>
-                <div className="min-w-0 xl:col-start-3">
+                <div className="min-w-0">
                   <label className="text-sm font-medium">Comparison from</label>
                   <DatePicker
                     date={comparisonStartDate}
                     setDate={(date) => setComparisonStartDate(date)}
+                    className="mt-1 w-full"
                   />
                 </div>
-                <div className="min-w-0 xl:col-start-4">
+                <div className="min-w-0">
                   <label className="text-sm font-medium">Comparison to</label>
                   <DatePicker
                     date={comparisonEndDate}
                     setDate={(date) => setComparisonEndDate(date)}
+                    className="mt-1 w-full"
                   />
                 </div>
               </>
