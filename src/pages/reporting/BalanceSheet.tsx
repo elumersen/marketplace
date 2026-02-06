@@ -1,5 +1,22 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { format } from "date-fns";
+import {
+  format,
+  startOfDay,
+  endOfDay,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  startOfQuarter,
+  endOfQuarter,
+  startOfYear,
+  endOfYear,
+  subDays,
+  subWeeks,
+  subMonths,
+  subQuarters,
+  subYears,
+} from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -31,7 +48,7 @@ import {
 import { getSubTypeOrder } from "@/lib/accountOrdering";
 import { ChevronDown, ChevronRight, FileText } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
 interface SubTypeGroup {
   subType: string;
@@ -115,6 +132,72 @@ const COMPARISON_OPTIONS = [
   { value: "custom_period", label: "Custom period" },
 ];
 
+/**
+ * Computes the start and end dates for a given preset based on today's date.
+ * Returns undefined for custom preset (user must manually select dates).
+ */
+const getPresetDates = (
+  preset: string
+): { start: Date; end: Date } | undefined => {
+  const today = new Date();
+
+  switch (preset) {
+    case "today":
+      return { start: startOfDay(today), end: endOfDay(today) };
+    case "yesterday": {
+      const yesterday = subDays(today, 1);
+      return { start: startOfDay(yesterday), end: endOfDay(yesterday) };
+    }
+    case "this_week":
+      return {
+        start: startOfWeek(today, { weekStartsOn: 0 }),
+        end: endOfWeek(today, { weekStartsOn: 0 }),
+      };
+    case "this_week_to_date":
+      return {
+        start: startOfWeek(today, { weekStartsOn: 0 }),
+        end: endOfDay(today),
+      };
+    case "last_week": {
+      const lastWeek = subWeeks(today, 1);
+      return {
+        start: startOfWeek(lastWeek, { weekStartsOn: 0 }),
+        end: endOfWeek(lastWeek, { weekStartsOn: 0 }),
+      };
+    }
+    case "this_month":
+      return { start: startOfMonth(today), end: endOfMonth(today) };
+    case "this_month_to_date":
+      return { start: startOfMonth(today), end: endOfDay(today) };
+    case "last_month": {
+      const lastMonth = subMonths(today, 1);
+      return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) };
+    }
+    case "this_quarter":
+      return { start: startOfQuarter(today), end: endOfQuarter(today) };
+    case "this_quarter_to_date":
+      return { start: startOfQuarter(today), end: endOfDay(today) };
+    case "last_quarter": {
+      const lastQuarter = subQuarters(today, 1);
+      return {
+        start: startOfQuarter(lastQuarter),
+        end: endOfQuarter(lastQuarter),
+      };
+    }
+    case "this_year":
+      return { start: startOfYear(today), end: endOfYear(today) };
+    case "this_year_to_date":
+      return { start: startOfYear(today), end: endOfDay(today) };
+    case "last_year": {
+      const lastYear = subYears(today, 1);
+      return { start: startOfYear(lastYear), end: endOfYear(lastYear) };
+    }
+    case "custom":
+    default:
+      return undefined;
+  }
+};
+
 const formatCurrency = (amount: number) => {
   const n = Math.abs(amount) < 1e-10 ? 0 : amount;
   return new Intl.NumberFormat("en-US", {
@@ -139,14 +222,6 @@ const parseBackendDateToLocal = (value?: string | null): Date | undefined => {
   const [y, m, d] = dateOnly.split("-").map(Number);
   if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return undefined;
   return new Date(y, m - 1, d);
-};
-
-const formatBackendDateForDisplay = (value?: string | null): string | null => {
-  if (!value) return null;
-  const dateOnly = value.slice(0, 10);
-  const [y, m, d] = dateOnly.split("-").map(Number);
-  if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return null;
-  return format(new Date(y, m - 1, d), "MMM d, yyyy");
 };
 
 function buildSubTypeGroups(
@@ -587,8 +662,15 @@ export const BalanceSheet = () => {
   const handlePresetChange = (value: string) => {
     setPreset(value);
     if (value !== "custom") {
-      setStartDate(undefined);
-      setEndDate(undefined);
+      // Compute dates immediately for better UX
+      const dates = getPresetDates(value);
+      if (dates) {
+        setStartDate(dates.start);
+        setEndDate(dates.end);
+      } else {
+        setStartDate(undefined);
+        setEndDate(undefined);
+      }
     }
   };
 
@@ -813,9 +895,9 @@ export const BalanceSheet = () => {
     addTypeSection(AccountType.Equity);
     rows.push({
       id: "net-income-row",
-      type: "summary",
+      type: "account",
       label: "Net Income",
-      level: 0,
+      level: 1,
       accounts: [],
     });
     rows.push({
@@ -887,8 +969,12 @@ export const BalanceSheet = () => {
       const leftBorder = i > 0 ? "border-l border-border" : "";
       let currentValue: number | null = row.account
         ? getAccountValue(row.account.id, group.key)
-        : null;
-      if (row.type === "total" || row.type === "summary") {
+        : row.type === "summary"
+        ? null
+        : sumAccounts(row.accounts || [], group.key);
+      if (row.id === "net-income-row") {
+        currentValue = group.key === "total" ? netIncome : null;
+      } else if (row.type === "total") {
         if (row.id === "total-assets") {
           currentValue = sumAccounts(
             [
@@ -905,8 +991,6 @@ export const BalanceSheet = () => {
             ],
             group.key
           );
-        } else if (row.id === "net-income-row") {
-          currentValue = group.key === "total" ? netIncome : null;
         } else if (row.id === "total-equity") {
           const equitySum = sumAccounts(
             equityAccountsExcludingNetIncome,
@@ -1134,22 +1218,11 @@ export const BalanceSheet = () => {
                 <FileText className="h-5 w-5 sm:h-6 sm:w-6 shrink-0" />
                 Balance Sheet
               </CardTitle>
-              {report?.startDate && report?.endDate && (
-                <div className="mt-1 min-w-0 break-words">
-                  <p className="text-sm text-muted-foreground">
-                    As of {formatBackendDateForDisplay(report.endDate)}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Balances are running balances as of the end date. Start date
-                    only affects transaction detail when you expand an account.
-                  </p>
-                </div>
-              )}
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {!isBalanced ? (
+          {!isBalanced && (
             <Alert
               variant="destructive"
               className="min-w-0 py-3 px-4 [&>svg]:h-4 [&>svg]:w-4 [&>svg]:top-3.5 [&>svg~*]:pl-7 [&>svg+div]:translate-y-0"
@@ -1162,25 +1235,13 @@ export const BalanceSheet = () => {
                 Difference: {formatCurrency(Math.abs(balanceDifference))}
               </AlertDescription>
             </Alert>
-          ) : (
-            <Alert
-              variant="default"
-              className="min-w-0 border-green-500/50 bg-green-50 text-green-800 dark:border-green-500/50 dark:bg-green-950/30 dark:text-green-200 py-3 px-4 [&>svg]:h-4 [&>svg]:w-4 [&>svg]:top-3.5 [&>svg~*]:pl-7 [&>svg+div]:translate-y-0 [&>svg]:text-green-600 dark:[&>svg]:text-green-400"
-            >
-              <CheckCircle className="h-4 w-4 shrink-0" />
-              <AlertDescription className="min-w-0 break-words text-base leading-snug">
-                <strong>Balance Sheet is balanced.</strong> Total Assets and
-                Total Liabilities & Equity both equal{" "}
-                {formatCurrency(totalAssets)}.
-              </AlertDescription>
-            </Alert>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <div className="min-w-0 sm:col-span-2 lg:col-span-2">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-0 flex-1 min-w-[130px] max-w-[170px]">
               <label className="text-sm font-medium">Report period</label>
               <Select value={preset} onValueChange={handlePresetChange}>
-                <SelectTrigger className="mt-1 w-full min-w-0">
+                <SelectTrigger className="mt-1 w-full">
                   <SelectValue placeholder="Select period" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1192,29 +1253,31 @@ export const BalanceSheet = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1 min-w-[165px] max-w-[200px]">
               <label className="text-sm font-medium">From</label>
               <DatePicker
                 date={reportStartDate}
                 setDate={(date) => handleDateChange("start", date)}
+                className="mt-1 w-full"
               />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1 min-w-[165px] max-w-[200px]">
               <label className="text-sm font-medium">To</label>
               <DatePicker
                 date={reportEndDate}
                 setDate={(date) => handleDateChange("end", date)}
+                className="mt-1 w-full"
               />
             </div>
-            <div className="min-w-0">
-              <label className="text-sm font-medium">Display columns by</label>
+            <div className="min-w-0 flex-1 min-w-[100px] max-w-[130px]">
+              <label className="text-sm font-medium">Display by</label>
               <Select
                 value={displayBy}
                 onValueChange={(value) =>
                   setDisplayBy(value as ReportDisplayBy)
                 }
               >
-                <SelectTrigger className="mt-1 w-full min-w-0">
+                <SelectTrigger className="mt-1 w-full">
                   <SelectValue placeholder="Display by" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1226,10 +1289,10 @@ export const BalanceSheet = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1 min-w-[130px] max-w-[160px]">
               <label className="text-sm font-medium">Comparison</label>
               <Select value={comparisonType} onValueChange={setComparisonType}>
-                <SelectTrigger className="mt-1 w-full min-w-0">
+                <SelectTrigger className="mt-1 w-full">
                   <SelectValue placeholder="Comparison" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1242,7 +1305,7 @@ export const BalanceSheet = () => {
               </Select>
             </div>
             {comparisonType !== "none" && (
-              <div className="min-w-0 sm:col-span-2 md:col-span-1">
+              <div className="min-w-0 flex-1 min-w-[110px] max-w-[140px]">
                 <label className="text-sm font-medium">Change type</label>
                 <Select
                   value={comparisonMode}
@@ -1250,7 +1313,7 @@ export const BalanceSheet = () => {
                     setComparisonMode(value as "amount" | "percent")
                   }
                 >
-                  <SelectTrigger className="mt-1 w-full min-w-0">
+                  <SelectTrigger className="mt-1 w-full">
                     <SelectValue placeholder="Change type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1262,33 +1325,34 @@ export const BalanceSheet = () => {
             )}
             {comparisonType === "custom_period" && (
               <>
-                <div className="min-w-0 lg:col-start-3">
-                  <label className="text-sm font-medium">Comparison from</label>
+                <div className="min-w-0 flex-1 min-w-[165px] max-w-[200px]">
+                  <label className="text-sm font-medium">Compare from</label>
                   <DatePicker
                     date={comparisonStartDate}
                     setDate={(date) => setComparisonStartDate(date)}
+                    className="mt-1 w-full"
                   />
                 </div>
-                <div className="min-w-0 lg:col-start-4">
-                  <label className="text-sm font-medium">Comparison to</label>
+                <div className="min-w-0 flex-1 min-w-[165px] max-w-[200px]">
+                  <label className="text-sm font-medium">Compare to</label>
                   <DatePicker
                     date={comparisonEndDate}
                     setDate={(date) => setComparisonEndDate(date)}
+                    className="mt-1 w-full"
                   />
                 </div>
               </>
             )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            {hasNonDefaultFilters && (
-              <Button variant="outline" size="sm" onClick={handleClear}>
-                Clear filters
+            <div className="flex items-center gap-2 self-end shrink-0">
+              {hasNonDefaultFilters && (
+                <Button variant="outline" size="sm" onClick={handleClear}>
+                  Clear filters
+                </Button>
+              )}
+              <Button size="sm" onClick={handleSave}>
+                Save filters
               </Button>
-            )}
-            <Button size="sm" onClick={handleSave}>
-              Save filters
-            </Button>
+            </div>
           </div>
 
           <div className="min-w-0 w-full overflow-x-auto overflow-y-visible rounded-md bg-background">
