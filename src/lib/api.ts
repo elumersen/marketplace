@@ -14,7 +14,6 @@ import type {
   CreateVendorData,
   Item,
   CreateItemData,
-  ItemType,
   Invoice,
   CreateInvoiceData,
   InvoiceQueryParams,
@@ -416,7 +415,7 @@ export const billPaymentAPI = {
 };
 
 export const itemAPI = {
-  getAll: (params?: { type?: ItemType }): Promise<{ items: Item[] }> =>
+  getAll: (params?: { context?: 'sales' | 'purchase' }): Promise<{ items: Item[] }> =>
     api.get<{ items: Item[] }>('/items', { params }),
   getById: (id: string): Promise<{ item: Item }> => api.get<{ item: Item }>(`/items/${id}`),
   create: (data: CreateItemData & { description?: string; sku?: string }): Promise<{ message: string; item: Item }> =>

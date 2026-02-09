@@ -68,14 +68,17 @@ export const BillForm: React.FC<BillFormProps> = ({
 
   const [lines, setLines] = useState<BillLineForm[]>(() => {
     if (initialData?.lines && initialData.lines.length > 0) {
-      return initialData.lines.map(line => ({
-        itemId: line.itemId,
-        accountId: (line as any).accountId,
-        description: line.description || '',
-        quantity: line.quantity,
-        unitPrice: line.unitPrice,
-        amount: line.quantity * line.unitPrice,
-      }));
+      return initialData.lines.map(line => {
+        const amt = Math.round((line.quantity * line.unitPrice) * 100) / 100;
+        return {
+          itemId: line.itemId,
+          accountId: (line as any).accountId,
+          description: line.description || '',
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          amount: amt,
+        };
+      });
     }
     return [];
   });
@@ -97,7 +100,7 @@ export const BillForm: React.FC<BillFormProps> = ({
       setLoading(true);
       const [vendorsRes, itemsRes, accountsRes] = await Promise.all([
         vendorAPI.getAll(),
-        itemAPI.getAll(),
+        itemAPI.getAll({ context: 'purchase' }),
         accountAPI.getAll({ type: 'Expense', all: 'true' }),
       ]);
 
@@ -114,12 +117,13 @@ export const BillForm: React.FC<BillFormProps> = ({
   const handleItemSelect = (itemId: string) => {
     const item = items.find(i => i.id === itemId);
     if (item) {
+      const rate = item.purchasePrice ?? 0;
       setNewLine({
         ...newLine,
         itemId: item.id,
-        unitPrice: item.amount,
+        unitPrice: rate,
         description: item.description || item.name,
-        accountId: (item as any).expenseAccountId || '',
+        accountId: item.expenseAccountId || '',
       });
     }
   };
@@ -130,7 +134,7 @@ export const BillForm: React.FC<BillFormProps> = ({
       return;
     }
 
-    const amount = Number((newLine.quantity! * newLine.unitPrice!).toFixed(2));
+    const amount = Math.round((newLine.quantity! * newLine.unitPrice!) * 100) / 100;
     setLines([...lines, {
       itemId: newLine.itemId!,
       accountId: newLine.accountId,
@@ -159,7 +163,7 @@ export const BillForm: React.FC<BillFormProps> = ({
     updated[index] = { ...updated[index], [field]: value };
     
     if (field === 'quantity' || field === 'unitPrice') {
-      updated[index].amount = Number((updated[index].quantity * updated[index].unitPrice).toFixed(2));
+      updated[index].amount = Math.round((updated[index].quantity * updated[index].unitPrice) * 100) / 100;
     }
     
     setLines(updated);
@@ -489,7 +493,7 @@ export const BillForm: React.FC<BillFormProps> = ({
                 <SelectContent>
                   {items.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
-                      {item.name} - ${item.amount.toFixed(2)}
+                      {item.name} - ${(item.purchasePrice ?? 0).toFixed(2)}
                     </SelectItem>
                   ))}
                 </SelectContent>
