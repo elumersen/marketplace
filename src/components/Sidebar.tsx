@@ -50,7 +50,7 @@ const navigation: (NavSection | NavItem)[] = [
       { name: 'Invoices', href: '/invoices', icon: FileText },
       { name: 'Receive Payments', href: '/receive-payments', icon: DollarSign },
       { name: 'Deposits', href: '/deposits', icon: DollarSign },
-      { name: 'Products & Services', href: '/products-services', icon: Package },
+      { name: 'Catalog', href: '/catalog', icon: Package },
     ],
   },
   {

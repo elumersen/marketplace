@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Invoice, CreateInvoiceData, Customer, Item, Account, ItemType } from '@/types/api.types';
+import { Invoice, CreateInvoiceData, Customer, Item, Account } from '@/types/api.types';
 import { invoiceAPI, customerAPI, itemAPI, accountAPI, getErrorMessage } from '@/lib/api';
 
 interface InvoiceFormProps {
@@ -68,14 +68,17 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
   const [lines, setLines] = useState<InvoiceLineForm[]>(() => {
     if (initialData?.lines && initialData.lines.length > 0) {
-      return initialData.lines.map(line => ({
-        itemId: line.itemId,
-        accountId: line.accountId,
-        description: line.description || '',
-        quantity: line.quantity,
-        unitPrice: line.unitPrice,
-        amount: line.quantity * line.unitPrice,
-      }));
+      return initialData.lines.map(line => {
+        const amt = Math.round((line.quantity * line.unitPrice) * 100) / 100;
+        return {
+          itemId: line.itemId,
+          accountId: line.accountId,
+          description: line.description || '',
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          amount: amt,
+        };
+      });
     }
     return [];
   });
@@ -97,7 +100,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
       setLoading(true);
       const [customersRes, itemsRes, accountsRes] = await Promise.all([
         customerAPI.getAll(),
-        itemAPI.getAll({ type: ItemType.INCOME }),
+        itemAPI.getAll({ context: 'sales' }),
         accountAPI.getAll({ type: 'Income', all: 'true' }),
       ]);
 
@@ -114,12 +117,13 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
   const handleItemSelect = (itemId: string) => {
     const item = items.find(i => i.id === itemId);
     if (item) {
+      const rate = item.salesPrice ?? 0;
       setNewLine({
         ...newLine,
         itemId: item.id,
-        unitPrice: item.amount,
+        unitPrice: rate,
         description: item.description || item.name,
-        accountId: (item as any).incomeAccountId || '',
+        accountId: item.incomeAccountId || '',
       });
     }
   };
@@ -130,7 +134,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
       return;
     }
 
-    const amount = Number((newLine.quantity! * newLine.unitPrice!).toFixed(2));
+    const amount = Math.round((newLine.quantity! * newLine.unitPrice!) * 100) / 100;
     setLines([...lines, {
       itemId: newLine.itemId!,
       accountId: newLine.accountId,
@@ -159,7 +163,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
     updated[index] = { ...updated[index], [field]: value };
     
     if (field === 'quantity' || field === 'unitPrice') {
-      updated[index].amount = Number((updated[index].quantity * updated[index].unitPrice).toFixed(2));
+      updated[index].amount = Math.round((updated[index].quantity * updated[index].unitPrice) * 100) / 100;
     }
     
     setLines(updated);
@@ -470,7 +474,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 <SelectContent>
                   {items.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
-                      {item.name} - ${item.amount.toFixed(2)}
+                      {item.name} - ${(item.salesPrice ?? 0).toFixed(2)}
                     </SelectItem>
                   ))}
                 </SelectContent>

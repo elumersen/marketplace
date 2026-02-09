@@ -11,17 +11,13 @@ import {
 } from '@/components/ui/select';
 import {
   Card,
-  CardContent,
   CardHeader,
   CardTitle
 } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, Save, AlertCircle } from 'lucide-react';
 import {
   Item,
-  ItemType,
   CreateItemData,
   Account,
   AccountType,
@@ -34,16 +30,16 @@ import {
 
 interface ItemFormProps {
   initialData?: Partial<CreateItemData> & {
-    id?: string;
-    description?: string;
-    amount?: number;
-    incomeAccountId?: string | null;
-    expenseAccountId?: string | null;
+    sku?: string | null;
+    description?: string | null;
+    salesPrice?: number | null;
+    purchasePrice?: number | null;
   };
   onSuccess: (item: Item) => void;
   onCancel: () => void;
   isEditing?: boolean;
   itemId?: string;
+  compact?: boolean;
 }
 
 interface AccountOption extends Account {
@@ -59,6 +55,7 @@ export const ItemForm: React.FC<ItemFormProps> = ({
   onCancel,
   isEditing = false,
   itemId,
+  compact = false,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,16 +64,18 @@ export const ItemForm: React.FC<ItemFormProps> = ({
 
   const [formData, setFormData] = useState<{
     name: string;
+    sku: string;
     description: string;
-    type: ItemType;
-    amount: number | string;
+    salesPrice: string;
+    purchasePrice: string;
     incomeAccountId: string;
     expenseAccountId: string;
   }>({
     name: initialData?.name ?? '',
+    sku: initialData?.sku ?? '',
     description: initialData?.description ?? '',
-    type: initialData?.type ?? ItemType.INCOME,
-    amount: initialData?.amount ?? '',
+    salesPrice: initialData?.salesPrice != null ? String(initialData.salesPrice) : '',
+    purchasePrice: initialData?.purchasePrice != null ? String(initialData.purchasePrice) : '',
     incomeAccountId: initialData?.incomeAccountId ?? '',
     expenseAccountId: initialData?.expenseAccountId ?? '',
   });
@@ -116,54 +115,56 @@ export const ItemForm: React.FC<ItemFormProps> = ({
     setError(null);
 
     if (!formData.name.trim()) {
-      setError('Name is required');
+      setError('Item name is required');
       return;
     }
 
-    // Check for empty string explicitly to allow 0 (number) or '0' (string)
-    if (formData.amount === '' || Number(formData.amount) < 0) {
-      setError('Amount must be zero or greater');
+    const salesPriceVal = formData.salesPrice === '' ? null : parseFloat(formData.salesPrice);
+    const purchasePriceVal = formData.purchasePrice === '' ? null : parseFloat(formData.purchasePrice);
+
+    if (salesPriceVal != null && (isNaN(salesPriceVal) || salesPriceVal < 0)) {
+      setError('Sales price must be zero or greater');
+      return;
+    }
+    if (purchasePriceVal != null && (isNaN(purchasePriceVal) || purchasePriceVal < 0)) {
+      setError('Purchase price must be zero or greater');
       return;
     }
 
-    // Validate account requirements based on type
-    if (formData.type === ItemType.INCOME) {
-      if (!formData.incomeAccountId || formData.incomeAccountId === 'none') {
-        setError('Income account is required for income items');
-        return;
-      }
-    } else if (formData.type === ItemType.EXPENSE) {
-      if (!formData.expenseAccountId || formData.expenseAccountId === 'none') {
-        setError('Expense account is required for expense items');
-        return;
-      }
+    const hasSales = salesPriceVal != null && salesPriceVal >= 0 && formData.incomeAccountId && formData.incomeAccountId !== 'none';
+    const hasPurchase = purchasePriceVal != null && purchasePriceVal >= 0 && formData.expenseAccountId && formData.expenseAccountId !== 'none';
+
+    if (!hasSales && !hasPurchase) {
+      setError('Item must have at least one of: (Sales Price + Sales Account) or (Purchase Price + Purchase Account)');
+      return;
+    }
+    if (hasSales && (!formData.incomeAccountId || formData.incomeAccountId === 'none')) {
+      setError('Sales account is required when Sales Price is set');
+      return;
+    }
+    if (hasPurchase && (!formData.expenseAccountId || formData.expenseAccountId === 'none')) {
+      setError('Purchase account is required when Purchase Price is set');
+      return;
     }
 
     try {
       setLoading(true);
 
-      const payload: CreateItemData & {
-        description?: string;
-      } = {
+      const payload = {
         name: formData.name.trim(),
+        sku: formData.sku.trim() || undefined,
         description: formData.description.trim() || undefined,
-        type: formData.type,
-        amount: Number(formData.amount),
-        incomeAccountId:
-          formData.type === ItemType.INCOME && formData.incomeAccountId && formData.incomeAccountId !== 'none'
-            ? formData.incomeAccountId
-            : undefined,
-        expenseAccountId:
-          formData.type === ItemType.EXPENSE && formData.expenseAccountId && formData.expenseAccountId !== 'none'
-            ? formData.expenseAccountId
-            : undefined,
+        salesPrice: hasSales ? salesPriceVal! : null,
+        purchasePrice: hasPurchase ? purchasePriceVal! : null,
+        incomeAccountId: hasSales ? formData.incomeAccountId : null,
+        expenseAccountId: hasPurchase ? formData.expenseAccountId : null,
       };
 
       if (isEditing && itemId) {
-        const response = await itemAPI.update(itemId, payload);
+        const response = await itemAPI.update(itemId, payload as any);
         onSuccess(response.item);
       } else {
-        const response = await itemAPI.create(payload);
+        const response = await itemAPI.create(payload as any);
         onSuccess(response.item);
       }
     } catch (err) {
@@ -175,172 +176,159 @@ export const ItemForm: React.FC<ItemFormProps> = ({
     }
   };
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <Card>
+  const content = (
+    <form onSubmit={handleSubmit} className={compact ? 'space-y-4' : 'space-y-6'}>
+      {!compact && isEditing && (
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>
-                {isEditing ? 'Update Product or Service' : 'Create Product or Service'}
-              </CardTitle>
-            </div>
+            <CardTitle>Update Item</CardTitle>
             <Button type="button" variant="outline" onClick={onCancel}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+      )}
+      <div className={compact ? '' : 'px-6 pb-6'}>
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(event) =>
-                  setFormData((prev) => ({ ...prev, name: event.target.value }))
-                }
-                placeholder="e.g. Consulting Retainer"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="type">Type *</Label>
-              <Select
-                value={formData.type}
-                onValueChange={(value: ItemType) => {
-                  // Clear account selections when type changes
-                  setFormData((prev) => ({
-                    ...prev,
-                    type: value,
-                    incomeAccountId: value === ItemType.INCOME ? prev.incomeAccountId : '',
-                    expenseAccountId: value === ItemType.EXPENSE ? prev.expenseAccountId : '',
-                  }));
-                }}
-              >
-                <SelectTrigger id="type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ItemType.INCOME}>Income</SelectItem>
-                  <SelectItem value={ItemType.EXPENSE}>Expense</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount *</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                min={0}
-                value={formData.amount}
-                onChange={(event) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    amount: event.target.value,
-                  }))
-                }
-                placeholder="0.00"
-                required
-              />
-            </div>
-          </div>
-
+        <div
+          className={
+            compact
+              ? 'grid grid-cols-1 md:grid-cols-3 gap-4'
+              : isEditing
+                ? 'grid grid-cols-1 md:grid-cols-2 gap-4'
+                : 'grid grid-cols-1 md:grid-cols-3 gap-4 mt-4'
+          }
+        >
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              rows={4}
-              value={formData.description}
-              onChange={(event) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  description: event.target.value,
-                }))
-              }
-              placeholder="Optional description shown on invoices"
+            <Label htmlFor="sku">Label/SKU</Label>
+            <Input
+              id="sku"
+              value={formData.sku}
+              onChange={(e) => setFormData((prev) => ({ ...prev, sku: e.target.value }))}
+              placeholder="e.g. WEB-DEV-SR-01"
             />
           </div>
-
-          <Separator />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {formData.type === ItemType.INCOME && (
-              <div className="space-y-2">
-                <Label htmlFor="incomeAccountId">Income Account *</Label>
-                <Select
-                  value={formData.incomeAccountId || undefined}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      incomeAccountId: value,
-                    }))
-                  }
-                >
-                  <SelectTrigger id="incomeAccountId">
-                    <SelectValue placeholder="Select income account" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {incomeAccounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {formData.type === ItemType.EXPENSE && (
-              <div className="space-y-2">
-                <Label htmlFor="expenseAccountId">Expense Account *</Label>
-                <Select
-                  value={formData.expenseAccountId || undefined}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      expenseAccountId: value,
-                    }))
-                  }
-                >
-                  <SelectTrigger id="expenseAccountId">
-                    <SelectValue placeholder="Select expense account" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {expenseAccounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+          <div className="space-y-2">
+            <Label htmlFor="name">Item *</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+              placeholder="e.g. Web Development Income"
+              required
+            />
           </div>
+          <div className={`space-y-2 ${compact ? 'md:col-span-1' : ''}`}>
+            <Label htmlFor="description">Description</Label>
+            <Input
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+              placeholder="Shown on invoice/bill"
+            />
+          </div>
+        </div>
 
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onCancel}>
+        <div
+          className={
+            compact
+              ? 'grid grid-cols-1 md:grid-cols-4 gap-4 mt-4'
+              : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4'
+          }
+        >
+          <div className="space-y-2">
+            <Label htmlFor="salesPrice">Sales Price</Label>
+            <Input
+              id="salesPrice"
+              type="number"
+              step="0.01"
+              min={0}
+              value={formData.salesPrice}
+              onChange={(e) => setFormData((prev) => ({ ...prev, salesPrice: e.target.value }))}
+              placeholder="0.00"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="incomeAccountId">Sales Account</Label>
+            <Select
+              value={formData.incomeAccountId || undefined}
+              onValueChange={(value) => setFormData((prev) => ({ ...prev, incomeAccountId: value }))}
+            >
+              <SelectTrigger id="incomeAccountId">
+                <SelectValue placeholder="Select sales account" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">—</SelectItem>
+                {incomeAccounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="purchasePrice">Purchase Price</Label>
+            <Input
+              id="purchasePrice"
+              type="number"
+              step="0.01"
+              min={0}
+              value={formData.purchasePrice}
+              onChange={(e) => setFormData((prev) => ({ ...prev, purchasePrice: e.target.value }))}
+              placeholder="0.00"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="expenseAccountId">Purchase Account</Label>
+            <Select
+              value={formData.expenseAccountId || undefined}
+              onValueChange={(value) => setFormData((prev) => ({ ...prev, expenseAccountId: value }))}
+            >
+              <SelectTrigger id="expenseAccountId">
+                <SelectValue placeholder="Select purchase account" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">—</SelectItem>
+                {expenseAccounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-4">
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel} size="sm">
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
-              <Save className="h-4 w-4 mr-2" />
-              {loading ? 'Saving...' : isEditing ? 'Update Product or Service' : 'Create Product or Service'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          )}
+          <Button type="submit" disabled={loading} size="sm">
+            <Save className="h-4 w-4 mr-2" />
+            {loading ? 'Saving...' : isEditing ? 'Save' : 'Create Item'}
+          </Button>
+        </div>
+      </div>
     </form>
   );
-};
 
+  if (compact) {
+    return content;
+  }
+
+  return (
+    <Card>
+      {content}
+    </Card>
+  );
+};

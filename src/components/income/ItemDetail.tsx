@@ -16,7 +16,7 @@ import {
   Layers,
   Info,
 } from 'lucide-react';
-import { Item, ItemType } from '@/types/api.types';
+import { Item } from '@/types/api.types';
 import { itemAPI, getErrorMessage } from '@/lib/api';
 
 interface ItemDetailProps {
@@ -25,8 +25,13 @@ interface ItemDetailProps {
   onEdit?: (item: Item) => void;
 }
 
-const typeLabel = (type: ItemType) =>
-  type === ItemType.INCOME ? 'Income' : 'Expense';
+const formatCurrency = (amount: number | null | undefined) => {
+  if (amount == null) return '—';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(amount);
+};
 
 export const ItemDetail: React.FC<ItemDetailProps> = ({
   itemId,
@@ -39,7 +44,6 @@ export const ItemDetail: React.FC<ItemDetailProps> = ({
 
   useEffect(() => {
     loadItem();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId]);
 
   const loadItem = async () => {
@@ -57,15 +61,9 @@ export const ItemDetail: React.FC<ItemDetailProps> = ({
     }
   };
 
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-8">
+      <div className="flex justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
       </div>
     );
@@ -95,7 +93,9 @@ export const ItemDetail: React.FC<ItemDetailProps> = ({
               <Package className="h-5 w-5 text-muted-foreground" />
               {item.name}
             </h1>
-            <p className="text-gray-600">{typeLabel(item.type)}</p>
+            {item.sku && (
+              <p className="text-gray-600 font-mono text-sm">{item.sku}</p>
+            )}
           </div>
         </div>
 
@@ -115,11 +115,17 @@ export const ItemDetail: React.FC<ItemDetailProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <p className="text-sm text-gray-500">Amount</p>
+              <p className="text-sm text-gray-500">Sales Price</p>
               <p className="text-lg font-semibold">
-                {formatCurrency(item.amount)}
+                {formatCurrency(item.salesPrice)}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Purchase Price</p>
+              <p className="text-lg font-semibold">
+                {formatCurrency(item.purchasePrice)}
               </p>
             </div>
           </div>
@@ -135,7 +141,7 @@ export const ItemDetail: React.FC<ItemDetailProps> = ({
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <p className="text-sm text-gray-500">Income Account</p>
+            <p className="text-sm text-gray-500">Sales Account</p>
             <p className="font-medium">
               {item.incomeAccount
                 ? `${item.incomeAccount.code} - ${item.incomeAccount.name}`
@@ -143,7 +149,7 @@ export const ItemDetail: React.FC<ItemDetailProps> = ({
             </p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Expense Account</p>
+            <p className="text-sm text-gray-500">Purchase Account</p>
             <p className="font-medium">
               {item.expenseAccount
                 ? `${item.expenseAccount.code} - ${item.expenseAccount.name}`
@@ -173,12 +179,8 @@ export const ItemDetail: React.FC<ItemDetailProps> = ({
               )}
             </p>
           </div>
-          {/* <div className="text-sm text-gray-500">
-            Last updated {new Date(item.updatedAt).toLocaleString()}
-          </div> */}
         </CardContent>
       </Card>
     </div>
   );
 };
-

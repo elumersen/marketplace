@@ -256,34 +256,30 @@ export interface CreateVendorData {
   country?: string;
 }
 
-// Item types
+// Item types (Catalog)
 export interface Item {
   id: string;
   name: string;
+  sku: string | null;
   description: string | null;
-  type: ItemType;
-  amount: number;
-  incomeAccountId: string | null;
-  expenseAccountId: string | null;
-  isActive: boolean;
+  salesPrice: number | null;
+  purchasePrice: number | null;
+  incomeAccountId: string | null;  // Sales account
+  expenseAccountId: string | null; // Purchase account
   createdAt: string;
   updatedAt: string;
   incomeAccount?: Account | null;
   expenseAccount?: Account | null;
 }
 
-export enum ItemType {
-  INCOME = 'INCOME',
-  EXPENSE = 'EXPENSE',
-}
-
 export interface CreateItemData {
   name: string;
-  description?: string;
-  type: ItemType;
-  amount: number;
-  incomeAccountId?: string;
-  expenseAccountId?: string;
+  sku?: string | null;
+  description?: string | null;
+  salesPrice?: number | null;
+  purchasePrice?: number | null;
+  incomeAccountId?: string | null;
+  expenseAccountId?: string | null;
 }
 
 // Invoice types

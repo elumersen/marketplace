@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { CompanySettingsProvider } from '@/contexts/CompanySettingsContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -58,7 +58,8 @@ function App() {
               <Route path="/invoices" element={<Invoices />} />
               <Route path="/receive-payments" element={<ReceivePayments />} />
               <Route path="/deposits" element={<Deposits />} />
-              <Route path="/products-services" element={<ItemsServices />} />
+              <Route path="/catalog" element={<ItemsServices />} />
+              <Route path="/products-services" element={<Navigate to="/catalog" replace />} />
               
               {/* Expenses */}
               <Route path="/vendors" element={<Vendors />} />
