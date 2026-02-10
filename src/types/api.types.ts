@@ -717,6 +717,8 @@ export interface CreateJournalEntryData {
   authPIN?: string;
   transactionType?: TransactionType;
   payee?: string;
+  /** When set, link this bank transaction to the journal entry instead of creating a new transaction (used when categorizing bank feed). */
+  transactionIdToLink?: string;
   lines: Array<{
     accountId: string;
     description?: string;

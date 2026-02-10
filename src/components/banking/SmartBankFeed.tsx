@@ -495,11 +495,14 @@ export const SmartBankFeed = () => {
         return;
       }
 
-      // Create journal entry with two lines
+      // Create journal entry with two lines; pass bank transaction id so backend links it instead of creating a duplicate
       const journalEntryData = {
         entryDate: transaction.transactionDate,
         description: transaction.description || "Transaction categorization",
         status: JournalEntryStatus.POSTED,
+        transactionType: type,
+        payee: transaction.payee ?? undefined,
+        transactionIdToLink: id,
         lines: [
           {
             accountId: debitAccountId,
@@ -516,20 +519,7 @@ export const SmartBankFeed = () => {
         ],
       };
 
-      // Create the journal entry
       await journalEntryAPI.create(journalEntryData);
-
-      // Update the transaction to link it to the journal entry and set the type
-      const updateData: any = { type };
-      if (type === TransactionTypeEnum.EXPENSE) {
-        updateData.expenseAccountId = accountId;
-      } else if (
-        type === TransactionTypeEnum.DEPOSIT ||
-        type === TransactionTypeEnum.RECEIVE_PAYMENT
-      ) {
-        updateData.incomeAccountId = accountId;
-      }
-      await transactionAPI.update(id, updateData);
 
       toast({
         title: "Success",
