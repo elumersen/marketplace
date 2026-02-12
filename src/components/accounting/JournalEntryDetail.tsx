@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { JournalEntry, JournalEntryStatus } from '@/types/api.types';
 import { journalEntryAPI, getErrorMessage } from '@/lib/api';
+import { formatCurrency as formatCurrencyBase } from '@/lib/formatCurrency';
 import { format } from 'date-fns';
 
 interface JournalEntryDetailProps {
@@ -73,12 +74,8 @@ export const JournalEntryDetail: React.FC<JournalEntryDetailProps> = ({
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) =>
+    formatCurrencyBase(amount, { signedParenthesis: true });
 
   const calculateTotals = () => {
     if (!journalEntry?.lines) return { totalDebits: 0, totalCredits: 0 };

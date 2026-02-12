@@ -286,7 +286,10 @@ export const transactionAPI = {
   create: (data: CreateTransactionData): Promise<Transaction> => api.post<Transaction>('/transactions', data),
   update: (id: string, data: Partial<CreateTransactionData>): Promise<Transaction> => api.put<Transaction>(`/transactions/${id}`, data),
   delete: (id: string): Promise<void> => api.delete(`/transactions/${id}`),
-  getAccountRegister: (accountId: string, params?: { startDate?: string; endDate?: string }): Promise<AccountRegister> =>
+  getAccountRegister: (
+    accountId: string,
+    params?: { startDate?: string; endDate?: string; page?: number; pageSize?: number; sortOrder?: "asc" | "desc" }
+  ): Promise<AccountRegister> =>
     api.get<AccountRegister>(`/transactions/register/${accountId}`, { params }),
   findMatches: (id: string): Promise<{ transaction: Transaction; matches: Transaction[] }> =>
     api.get<{ transaction: Transaction; matches: Transaction[] }>(`/transactions/${id}/matches`),

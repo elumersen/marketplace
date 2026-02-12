@@ -37,7 +37,7 @@ import {
 } from "@/lib/api";
 import { getPostingRule, describeRule } from "@/lib/postingRules";
 import { useToast } from "@/hooks/use-toast";
-import { Check, ChevronsUpDown, X } from "lucide-react";
+import { Check, ChevronsUpDown, Minus, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -48,6 +48,7 @@ import {
 interface QBOTransactionFormProps {
   registerAccountId: string;
   onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
 // Transaction type label mapping
@@ -65,31 +66,7 @@ const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   [TransactionType.JOURNAL_ENTRY]: "Journal Entry",
 };
 
-const TRANSACTION_TYPES = [
-  {
-    value: TransactionType.EXPENSE,
-    label: TRANSACTION_TYPE_LABELS[TransactionType.EXPENSE],
-  },
-  {
-    value: TransactionType.REFUND,
-    label: TRANSACTION_TYPE_LABELS[TransactionType.REFUND],
-  },
-  {
-    value: TransactionType.CHECK,
-    label: TRANSACTION_TYPE_LABELS[TransactionType.CHECK],
-  },
-  {
-    value: TransactionType.DEPOSIT,
-    label: TRANSACTION_TYPE_LABELS[TransactionType.DEPOSIT],
-  },
-  {
-    value: TransactionType.INVOICE,
-    label: TRANSACTION_TYPE_LABELS[TransactionType.INVOICE],
-  },
-  {
-    value: TransactionType.RECEIVE_PAYMENT,
-    label: TRANSACTION_TYPE_LABELS[TransactionType.RECEIVE_PAYMENT],
-  },
+const TRANSACTION_TYPES_RAW = [
   {
     value: TransactionType.BILL,
     label: TRANSACTION_TYPE_LABELS[TransactionType.BILL],
@@ -99,32 +76,60 @@ const TRANSACTION_TYPES = [
     label: TRANSACTION_TYPE_LABELS[TransactionType.BILL_PAYMENT],
   },
   {
-    value: TransactionType.TRANSFER,
-    label: TRANSACTION_TYPE_LABELS[TransactionType.TRANSFER],
+    value: TransactionType.CHECK,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.CHECK],
   },
   {
     value: TransactionType.CREDIT_CARD_PAYMENT,
     label: TRANSACTION_TYPE_LABELS[TransactionType.CREDIT_CARD_PAYMENT],
   },
   {
+    value: TransactionType.DEPOSIT,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.DEPOSIT],
+  },
+  {
+    value: TransactionType.EXPENSE,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.EXPENSE],
+  },
+  {
+    value: TransactionType.INVOICE,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.INVOICE],
+  },
+  {
     value: TransactionType.JOURNAL_ENTRY,
     label: TRANSACTION_TYPE_LABELS[TransactionType.JOURNAL_ENTRY],
   },
+  {
+    value: TransactionType.RECEIVE_PAYMENT,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.RECEIVE_PAYMENT],
+  },
+  {
+    value: TransactionType.REFUND,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.REFUND],
+  },
+  {
+    value: TransactionType.TRANSFER,
+    label: TRANSACTION_TYPE_LABELS[TransactionType.TRANSFER],
+  },
 ];
+const TRANSACTION_TYPES = [...TRANSACTION_TYPES_RAW].sort((a, b) =>
+  a.label.localeCompare(b.label),
+);
 
 export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
   registerAccountId,
   onSuccess,
+  onCancel,
 }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [entryDate, setEntryDate] = useState<string>(
-    new Date().toISOString().split("T")[0]
+    new Date().toISOString().split("T")[0],
   );
 
   // Transaction fields
   const [transactionType, setTransactionType] = useState<TransactionType>(
-    TransactionType.EXPENSE
+    TransactionType.EXPENSE,
   );
   const [refNo, setRefNo] = useState("");
   const [payee, setPayee] = useState("");
@@ -187,16 +192,6 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
       }
     }
   }, [accounts, registerAccountId]);
-
-  // Auto-focus on date field when component mounts
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (dateInputRef.current) {
-        dateInputRef.current.focus();
-      }
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
 
   const loadAutocompleteData = async () => {
     try {
@@ -341,12 +336,6 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
     setAmount("");
     setDebitCredit("debit");
     setMemo("");
-
-    setTimeout(() => {
-      if (dateInputRef.current) {
-        dateInputRef.current.focus();
-      }
-    }, 100);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, currentField: string) => {
@@ -400,11 +389,30 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
     setDebitCredit((prev) => (prev === "debit" ? "credit" : "debit"));
   };
 
+  const adjustDateByDays = (delta: number) => {
+    const d = new Date(entryDate + "T12:00:00");
+    if (isNaN(d.getTime())) return;
+    d.setDate(d.getDate() + delta);
+    setEntryDate(d.toISOString().split("T")[0]);
+  };
+
+  const handleDateKeyDown = (e: React.KeyboardEvent, currentField: string) => {
+    if (e.key === "+" || e.key === "=" || e.key === "Add") {
+      e.preventDefault();
+      adjustDateByDays(1);
+      return;
+    }
+    if (e.key === "-" || e.key === "Subtract") {
+      e.preventDefault();
+      adjustDateByDays(-1);
+      return;
+    }
+    handleKeyDown(e, currentField);
+  };
+
   const selectedAccount = accounts.find((acc) => acc.id === accountId);
   const registerAccount = accounts.find((acc) => acc.id === registerAccountId);
 
-  // Filter transaction types based on posting rules for the register account
-  // If register account is not loaded yet, show all types temporarily
   const allowedTransactionTypes = registerAccount
     ? TRANSACTION_TYPES.filter((type) => {
         const rule = getPostingRule(registerAccount.subType, type.value);
@@ -412,7 +420,6 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
       })
     : TRANSACTION_TYPES;
 
-  // Don't show form if there are no allowed transaction types (and register account is loaded)
   if (registerAccount && allowedTransactionTypes.length === 0) {
     return null;
   }
@@ -450,7 +457,9 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
           <Button
             variant="ghost"
             size="sm"
-            onClick={resetForm}
+            onClick={() => {
+              onCancel?.();
+            }}
             className="h-6 px-2 text-xs"
             disabled={loading}
           >
@@ -462,50 +471,94 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
 
       {/* Transaction Entry Row */}
       <div className="flex flex-wrap items-end gap-3 p-3">
-        {/* Date */}
-        <div className="w-36 flex-none">
+        {/* Date with +/- buttons (top row & 10-key) */}
+        <div className="flex flex-none items-center gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            onClick={() => adjustDateByDays(-1)}
+            disabled={loading}
+            aria-label="Previous day"
+          >
+            <Minus className="h-4 w-4" />
+          </Button>
           <Input
             ref={dateInputRef}
             type="date"
             value={entryDate}
             onChange={(e) => setEntryDate(e.target.value)}
-            className="h-9 text-sm"
-            onKeyDown={(e) => handleKeyDown(e, "date")}
+            className="h-9 w-28 text-sm"
+            onKeyDown={(e) => handleDateKeyDown(e, "date")}
             disabled={loading}
           />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            onClick={() => adjustDateByDays(1)}
+            disabled={loading}
+            aria-label="Next day"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
         </div>
 
         {/* Ref No */}
-        <div className="w-24 flex-none">
-          <Input
-            ref={refNoInputRef}
-            value={refNo}
-            onChange={(e) => setRefNo(e.target.value)}
-            placeholder="Ref No"
-            className="h-9 text-sm"
-            onKeyDown={(e) => handleKeyDown(e, "refNo")}
-            disabled={loading}
-          />
+        <div className="flex-1 min-w-[7rem] max-w-[12rem]">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Input
+                ref={refNoInputRef}
+                value={refNo}
+                onChange={(e) => setRefNo(e.target.value)}
+                placeholder="Ref No"
+                className="h-9 w-full text-sm truncate"
+                onKeyDown={(e) => handleKeyDown(e, "refNo")}
+                disabled={loading}
+              />
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              className="max-w-[20rem] px-3 py-2 text-left text-sm font-normal leading-snug"
+            >
+              {refNo || "Ref No"}
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Payee */}
-        <div className="flex-1 min-w-[200px]">
+        <div className="flex-1 min-w-[140px]">
           <Popover open={payeeOpen} onOpenChange={setPayeeOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                ref={payeeInputRef}
-                variant="outline"
-                role="combobox"
-                className={cn(
-                  "w-full h-9 justify-start text-sm font-normal",
-                  !payee && "text-muted-foreground"
-                )}
-                disabled={loading}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <PopoverTrigger asChild>
+                  <Button
+                    ref={payeeInputRef}
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      "w-full h-9 justify-start text-left text-sm font-normal overflow-hidden",
+                      !payee && "text-muted-foreground",
+                    )}
+                    disabled={loading}
+                  >
+                    <span className="min-w-0 truncate block">
+                      {payee || "Customer/Vendor"}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+              </TooltipTrigger>
+              <TooltipContent
+                side="bottom"
+                className="max-w-[20rem] px-3 py-2 text-left text-sm font-normal leading-snug"
               >
                 {payee || "Customer/Vendor"}
-                <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
+              </TooltipContent>
+            </Tooltip>
             <PopoverContent className="w-[20rem] p-0" align="start">
               <Command>
                 <CommandInput
@@ -517,10 +570,9 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
                       const filteredPayees = getFilteredPayees(payee);
                       if (filteredPayees.length > 0) {
                         e.preventDefault();
-                        // Find the highlighted item (cmdk uses aria-selected="true")
                         const highlightedItem =
                           payeeCommandListRef.current?.querySelector(
-                            '[cmdk-item][aria-selected="true"]'
+                            '[cmdk-item][aria-selected="true"]',
                           ) as HTMLElement | null;
 
                         let selectedPayee: {
@@ -529,8 +581,6 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
                         } | null = null;
 
                         if (highlightedItem) {
-                          // Extract the payee name from the highlighted item
-                          // The item contains: <Check /> <span>Name</span> <span>Type</span>
                           const spans =
                             highlightedItem.querySelectorAll("span");
                           const payeeName = spans[0]?.textContent?.trim() || "";
@@ -539,7 +589,6 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
                             null;
                         }
 
-                        // Fall back to first item if no highlighted item found
                         if (!selectedPayee) {
                           selectedPayee = filteredPayees[0];
                         }
@@ -587,25 +636,39 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
         </div>
 
         {/* Account */}
-        <div className="flex-1 min-w-[200px] overflow-hidden">
+        <div className="flex-1 min-w-[140px]">
           <Popover open={accountOpen} onOpenChange={setAccountOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                ref={accountInputRef}
-                variant="outline"
-                role="combobox"
-                className={cn(
-                  "w-full h-9 justify-start text-sm font-normal",
-                  !accountId && "text-muted-foreground"
-                )}
-                disabled={loading}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <PopoverTrigger asChild>
+                  <Button
+                    ref={accountInputRef}
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      "w-full h-9 justify-start text-left text-sm font-normal overflow-hidden",
+                      !accountId && "text-muted-foreground",
+                    )}
+                    disabled={loading}
+                  >
+                    <span className="min-w-0 truncate block">
+                      {selectedAccount
+                        ? `${selectedAccount.code} - ${selectedAccount.name}`
+                        : "Account"}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+              </TooltipTrigger>
+              <TooltipContent
+                side="bottom"
+                className="max-w-[20rem] px-3 py-2 text-left text-sm font-normal leading-snug"
               >
                 {selectedAccount
                   ? `${selectedAccount.code} - ${selectedAccount.name}`
                   : "Account"}
-                <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
+              </TooltipContent>
+            </Tooltip>
             <PopoverContent className="w-[30rem] p-0" align="start">
               <Command>
                 <CommandInput
@@ -613,32 +676,28 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
                   onKeyDown={(e) => {
                     if (e.key === "Tab" && !e.shiftKey) {
                       const filteredAccounts = accounts.filter(
-                        (account) => account.id !== registerAccountId
+                        (account) => account.id !== registerAccountId,
                       );
                       if (filteredAccounts.length > 0) {
                         e.preventDefault();
-                        // Find the highlighted item (cmdk uses aria-selected="true")
                         const highlightedItem =
                           accountCommandListRef.current?.querySelector(
-                            '[cmdk-item][aria-selected="true"]'
+                            '[cmdk-item][aria-selected="true"]',
                           ) as HTMLElement | null;
 
                         let selectedAccount: Account | null = null;
 
                         if (highlightedItem) {
-                          // Extract the account code from the highlighted item
-                          // The item contains: <Check /> <span>Code</span> <span>Name</span>
                           const spans =
                             highlightedItem.querySelectorAll("span");
                           const accountCode =
                             spans[0]?.textContent?.trim() || "";
                           selectedAccount =
                             filteredAccounts.find(
-                              (a) => a.code === accountCode
+                              (a) => a.code === accountCode,
                             ) || null;
                         }
 
-                        // Fall back to first account if no highlighted item found
                         if (!selectedAccount) {
                           selectedAccount = filteredAccounts[0];
                         }
@@ -712,41 +771,61 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
 
         {/* Amount */}
         <div className="w-28 flex-none">
-          <Input
-            ref={amountInputRef}
-            type="number"
-            step="0.01"
-            value={amount}
-            onChange={(e) =>
-              setAmount(e.target.value ? parseFloat(e.target.value) : "")
-            }
-            placeholder="0.00"
-            className="h-9 text-sm"
-            onKeyDown={(e) => handleKeyDown(e, "amount")}
-            disabled={loading}
-          />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Input
+                ref={amountInputRef}
+                type="number"
+                step="0.01"
+                value={amount}
+                onChange={(e) =>
+                  setAmount(e.target.value ? parseFloat(e.target.value) : "")
+                }
+                placeholder="0.00"
+                className="h-9 text-sm truncate"
+                onKeyDown={(e) => handleKeyDown(e, "amount")}
+                disabled={loading}
+              />
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              className="max-w-[20rem] px-3 py-2 text-left text-sm font-normal leading-snug"
+            >
+              {amount !== "" ? String(Number(amount).toFixed(2)) : "0.00"}
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Memo */}
-        <div className="flex-1 min-w-[180px]">
-          <Input
-            ref={memoInputRef}
-            value={memo}
-            onChange={(e) => setMemo(e.target.value)}
-            placeholder="Memo"
-            className="h-9 text-sm"
-            onKeyDown={(e) => handleKeyDown(e, "memo")}
-            disabled={loading}
-          />
+        <div className="flex-1 min-w-[100px] min-w-0">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Input
+                ref={memoInputRef}
+                value={memo}
+                onChange={(e) => setMemo(e.target.value)}
+                placeholder="Memo"
+                className="h-9 w-full text-sm truncate"
+                onKeyDown={(e) => handleKeyDown(e, "memo")}
+                disabled={loading}
+              />
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              className="max-w-[20rem] px-3 py-2 text-left text-sm font-normal leading-snug"
+            >
+              {memo || "Memo"}
+            </TooltipContent>
+          </Tooltip>
         </div>
 
-        {/* Save Button */}
-        <div className="w-24 flex-none">
+        {/* Save Button - same line as filters */}
+        <div className="flex-none shrink-0">
           <Button
             type="button"
             onClick={handleSave}
             disabled={loading || ruleLock === "none"}
-            className="h-9 w-full"
+            className="h-9 min-w-[5rem]"
             size="sm"
           >
             {loading ? "..." : "Save"}

@@ -38,7 +38,7 @@ function App() {
     <AuthProvider>
       <CompanySettingsProvider>
         <BrowserRouter>
-          <TooltipProvider>
+          <TooltipProvider delayDuration={200}>
             <Routes>
               <Route path="/login" element={<Login />} />
             

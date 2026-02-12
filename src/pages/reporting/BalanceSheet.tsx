@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { reportAPI, getErrorMessage } from "@/lib/api";
+import { formatCurrency as formatCurrencyBase } from "@/lib/formatCurrency";
 import {
   Account,
   AccountType,
@@ -198,15 +199,8 @@ const getPresetDates = (
   }
 };
 
-const formatCurrency = (amount: number) => {
-  const n = Math.abs(amount) < 1e-10 ? 0 : amount;
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n);
-};
+const formatCurrency = (amount: number) =>
+  formatCurrencyBase(amount, { signedParenthesis: true });
 
 const formatPercent = (value: number) => `${value.toFixed(2)}%`;
 
@@ -410,7 +404,6 @@ const BalanceSheetAccountDrilldown = ({
               <>
                 {detailTransactions.map((txn, index) => {
                   const date = txn.date ? new Date(txn.date) : null;
-                  const amountNegative = (txn.amount || 0) < 0;
                   return (
                     <TableRow
                       key={`${txn.id}-${txn.entryNumber ?? ""}-${txn.date}`}
@@ -435,11 +428,7 @@ const BalanceSheetAccountDrilldown = ({
                       <TableCell className="px-2 py-1 text-right whitespace-nowrap font-mono tabular-nums">
                         {txn.credit ? formatCurrency(txn.credit) : "—"}
                       </TableCell>
-                      <TableCell
-                        className={`px-2 py-1 text-right whitespace-nowrap font-mono tabular-nums ${
-                          amountNegative ? "text-red-600" : ""
-                        }`}
-                      >
+                      <TableCell className="px-2 py-1 text-right whitespace-nowrap font-mono tabular-nums">
                         {formatCurrency(txn.amount || 0)}
                       </TableCell>
                       <TableCell className="px-2 py-1 text-right whitespace-nowrap font-mono tabular-nums">
@@ -1055,28 +1044,12 @@ export const BalanceSheet = () => {
           : sumAccounts(row.accounts || [], group.key, true);
       const computedComparison = comparisonValue ?? null;
       const changeValue = getChangeValue(computedCurrent, computedComparison);
-      const negativeClass =
-        computedCurrent < 0 && Math.abs(computedCurrent) >= 1e-10
-          ? "text-destructive"
-          : "";
-      const comparisonNegativeClass =
-        computedComparison !== null &&
-        computedComparison < 0 &&
-        Math.abs(computedComparison) >= 1e-10
-          ? "text-destructive"
-          : "";
-      const changeNegativeClass =
-        changeValue !== null &&
-        changeValue < 0 &&
-        Math.abs(changeValue) >= 1e-10
-          ? "text-destructive"
-          : "";
 
       if (appliedComparisonType === "none") {
         return (
           <TableCell
             key={`${row.id}-${group.key}`}
-            className={`px-3 py-1.5 text-right font-mono text-sm tabular-nums ${leftBorder} ${negativeClass}`}
+            className={`px-3 py-1.5 text-right font-mono text-sm tabular-nums ${leftBorder}`}
           >
             {formatValue(computedCurrent)}
           </TableCell>
@@ -1085,17 +1058,17 @@ export const BalanceSheet = () => {
       return (
         <Fragment key={`${row.id}-${group.key}`}>
           <TableCell
-            className={`px-3 py-1.5 text-right font-mono text-sm tabular-nums ${leftBorder} ${negativeClass}`}
+            className={`px-3 py-1.5 text-right font-mono text-sm tabular-nums ${leftBorder}`}
           >
             {formatValue(computedCurrent)}
           </TableCell>
           <TableCell
-            className={`px-3 py-1.5 text-right font-mono text-sm tabular-nums text-muted-foreground border-l border-border ${comparisonNegativeClass}`}
+            className="px-3 py-1.5 text-right font-mono text-sm tabular-nums text-muted-foreground border-l border-border"
           >
             {formatValue(computedComparison)}
           </TableCell>
           <TableCell
-            className={`px-3 py-1.5 text-right font-mono text-sm tabular-nums border-l border-border ${changeNegativeClass}`}
+            className="px-3 py-1.5 text-right font-mono text-sm tabular-nums border-l border-border"
           >
             {formatValue(
               changeValue,
