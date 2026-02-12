@@ -149,6 +149,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
   // Autocomplete open states
   const [accountOpen, setAccountOpen] = useState(false);
   const [payeeOpen, setPayeeOpen] = useState(false);
+  const [payeeSearchQuery, setPayeeSearchQuery] = useState("");
 
   // Refs for fields
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -531,7 +532,13 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
 
         {/* Payee */}
         <div className="flex-1 min-w-[140px]">
-          <Popover open={payeeOpen} onOpenChange={setPayeeOpen}>
+          <Popover
+            open={payeeOpen}
+            onOpenChange={(open) => {
+              setPayeeOpen(open);
+              if (open) setPayeeSearchQuery("");
+            }}
+          >
             <Tooltip>
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
@@ -563,11 +570,11 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
               <Command>
                 <CommandInput
                   placeholder="Search customer/vendor..."
-                  value={payee}
-                  onValueChange={setPayee}
+                  value={payeeSearchQuery}
+                  onValueChange={setPayeeSearchQuery}
                   onKeyDown={(e) => {
                     if (e.key === "Tab" && !e.shiftKey) {
-                      const filteredPayees = getFilteredPayees(payee);
+                      const filteredPayees = getFilteredPayees(payeeSearchQuery);
                       if (filteredPayees.length > 0) {
                         e.preventDefault();
                         const highlightedItem =
@@ -607,7 +614,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
                 <CommandList ref={payeeCommandListRef}>
                   <CommandEmpty>No customer/vendor found.</CommandEmpty>
                   <CommandGroup>
-                    {getFilteredPayees(payee).map((p, idx) => (
+                    {getFilteredPayees(payeeSearchQuery).map((p, idx) => (
                       <CommandItem
                         key={`${p.type}-${p.name}-${idx}`}
                         value={p.name}
