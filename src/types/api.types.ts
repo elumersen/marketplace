@@ -621,10 +621,19 @@ export interface RegisterTransaction {
   pairedAccount?: string;
 }
 
+export interface AccountRegisterPagination {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
 export interface AccountRegister {
   account: Account;
   transactions: RegisterTransaction[];
   currentBalance: number;
+  sortOrder?: "asc" | "desc";
+  pagination?: AccountRegisterPagination;
 }
 
 export interface CreateTransactionData {

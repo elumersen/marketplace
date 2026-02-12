@@ -10,9 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -20,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Dialog,
@@ -27,9 +26,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Pagination } from "@/components/ui/pagination";
 import { format } from "date-fns";
 import { accountAPI, transactionAPI } from "@/lib/api";
+import { formatCurrency as formatCurrencyUtil } from "@/lib/formatCurrency";
 import type {
   Account,
   AccountRegister,
@@ -49,27 +50,31 @@ export const Registers = () => {
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [memoDialogOpen, setMemoDialogOpen] = useState(false);
   const [selectedMemo, setSelectedMemo] = useState<string>("");
+  const [page, setPage] = useState(1);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [addFormExpanded, setAddFormExpanded] = useState(false);
 
-  // Load accounts on component mount
   useEffect(() => {
     loadAccounts();
   }, []);
 
-  // Load register when account changes
   useEffect(() => {
     if (selectedAccount) {
       loadRegister(selectedAccount.id);
     }
-  }, [selectedAccount, startDate, endDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAccount, startDate, endDate, page, sortOrder]);
 
-  // Set selected account from URL params
+  useEffect(() => {
+    setPage(1);
+  }, [selectedAccount?.id, startDate, endDate]);
+
   useEffect(() => {
     if (accountId && accounts.length > 0) {
       const account = accounts.find((acc) => acc.id === accountId);
       if (account && account.subType !== "Net_Income") {
         setSelectedAccount(account);
       } else if (account && account.subType === "Net_Income") {
-        // Redirect away from Net_Income accounts (they can't be viewed)
         navigate("/registers");
       }
     }
@@ -78,9 +83,8 @@ export const Registers = () => {
   const loadAccounts = async () => {
     try {
       const response = await accountAPI.getAll({ all: "true", isActive: true });
-      // Filter out Net_Income accounts (calculation-based, not real accounts)
       const filteredAccounts = response.data.filter(
-        (acc) => acc.subType !== "Net_Income"
+        (acc) => acc.subType !== "Net_Income",
       );
       setAccounts(filteredAccounts);
     } catch (error) {
@@ -88,16 +92,23 @@ export const Registers = () => {
     }
   };
 
-  const loadRegister = async (accountId: string) => {
+  const loadRegister = async (acctId: string) => {
     setLoading(true);
     try {
-      const params: { startDate?: string; endDate?: string } = {};
-      if (startDate) params.startDate = startDate.toISOString();
-      if (endDate) params.endDate = endDate.toISOString();
+      const params: {
+        startDate?: string;
+        endDate?: string;
+        page?: number;
+        pageSize?: number;
+        sortOrder?: "asc" | "desc";
+      } = { page, pageSize: 25, sortOrder };
+
+      if (startDate) params.startDate = startDate.toISOString().split("T")[0];
+      if (endDate) params.endDate = endDate.toISOString().split("T")[0];
 
       const registerData = await transactionAPI.getAccountRegister(
-        accountId,
-        params
+        acctId,
+        params,
       );
       setRegister(registerData);
     } catch (error) {
@@ -107,24 +118,21 @@ export const Registers = () => {
     }
   };
 
-  const handleAccountChange = (accountId: string) => {
-    const account = accounts.find((acc) => acc.id === accountId);
+  const handleAccountChange = (acctId: string) => {
+    const account = accounts.find((acc) => acc.id === acctId);
     if (account) {
       setSelectedAccount(account);
-      navigate(`/registers/${accountId}`);
+      navigate(`/registers/${acctId}`);
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number, signedParenthesis = false) =>
+    formatCurrencyUtil(amount, { signedParenthesis });
 
   const formatDate = (dateString: string) => {
     const dateOnly = dateString.split("T")[0];
     const [year, month, day] = dateOnly.split("-").map(Number);
+    // keeping your logic (though +1 day is usually a timezone bug workaround)
     const date = new Date(year, month - 1, day + 1);
     return format(date, "MM/dd/yyyy");
   };
@@ -148,34 +156,25 @@ export const Registers = () => {
   };
 
   const getPayeeDisplay = (transaction: RegisterTransaction) => {
-    if (transaction.payee) {
-      return transaction.payee;
-    }
+    if (transaction.payee) return transaction.payee;
+
     if (transaction.journalEntry?.createdByUser) {
       const user = transaction.journalEntry.createdByUser;
       return (
         `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email
       );
     }
+
     return "-";
   };
 
   const getAccountNameDisplay = (transaction: RegisterTransaction) => {
-    // Use pairedAccount if available (from journal entries or expense account)
-    if (transaction.pairedAccount) {
-      return transaction.pairedAccount;
-    }
+    if (transaction.pairedAccount) return transaction.pairedAccount;
     return "-";
   };
 
   const getReconciliationStatus = (transaction: RegisterTransaction) => {
-    return transaction.isReconciled ? "Reconciled" : "Unreconciled";
-  };
-
-  const getReconciliationColor = (transaction: RegisterTransaction) => {
-    return transaction.isReconciled
-      ? "bg-green-100 text-green-800"
-      : "bg-red-100 text-red-800";
+    return transaction.isReconciled ? "Yes" : "No";
   };
 
   const clearFilters = () => {
@@ -192,10 +191,19 @@ export const Registers = () => {
     return !!transaction.description && transaction.description.trim() !== "";
   };
 
-  // Show loading state while accounts are being loaded
+  const handleDateSortClick = () => {
+    setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"));
+    setPage(1);
+  };
+
+  const pagination = register?.pagination;
+
+  // Min width so table is at least this wide on small screens; table fills available space on larger screens
+  const TABLE_MIN_WIDTH = 960;
+
   if (accounts.length === 0) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="w-full max-w-full">
         <div className="mb-6">
           <h1 className="text-3xl font-bold">Account Registers</h1>
           <div className="flex items-center gap-2 mt-4">
@@ -207,10 +215,9 @@ export const Registers = () => {
     );
   }
 
-  // Show account selection only if no accountId in URL and accounts are loaded
   if (!accountId) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="w-full max-w-full">
         <div className="mb-6">
           <h1 className="text-3xl font-bold">Account Registers</h1>
           <p className="text-muted-foreground">
@@ -218,7 +225,7 @@ export const Registers = () => {
           </p>
         </div>
 
-        <Card>
+        <Card className="w-full">
           <CardHeader>
             <CardTitle>Select Account</CardTitle>
           </CardHeader>
@@ -242,15 +249,11 @@ export const Registers = () => {
     );
   }
 
-  // Show loading state while register is being loaded
-  if (loading) {
+  if (loading && !register) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="w-full max-w-full">
         <div className="mb-6">
           <h1 className="text-3xl font-bold">Account Register</h1>
-          <p className="text-muted-foreground">
-            {selectedAccount?.code} - {selectedAccount?.name}
-          </p>
           <div className="flex items-center gap-2 mt-4">
             <Spinner size="sm" />
             <p className="text-muted-foreground">Loading register...</p>
@@ -261,25 +264,18 @@ export const Registers = () => {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Account Register</h1>
-            {selectedAccount && (
-              <p className="text-muted-foreground">
-                {selectedAccount.code} - {selectedAccount.name}{" "}
-                {selectedAccount.subType ? `(${selectedAccount.subType})` : ""}
-              </p>
-            )}
-          </div>
-        </div>
+    <div
+      className="flex min-h-0 w-full max-w-full flex-col overflow-hidden py-2 sm:py-3"
+      style={{ height: "calc(100vh - 6rem)", maxHeight: "calc(100vh - 6rem)" }}
+    >
+      <div className="shrink-0">
+        <h1 className="text-3xl font-bold">Account Register</h1>
       </div>
 
       {/* Filters */}
-      <Card className="mb-6 py-4">
-        <CardContent>
-          <div className="flex flex-wrap gap-3">
+      <Card className="mt-2 shrink-0 py-1.5 sm:py-2">
+        <CardContent className="py-1.5 sm:py-2">
+          <div className="flex flex-wrap items-end gap-2">
             <div className="flex-1 min-w-[220px]">
               <Label htmlFor="account-select">Account</Label>
               <Select
@@ -292,7 +288,6 @@ export const Registers = () => {
                 <SelectContent>
                   {accounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
-                      {/* {account.code} - {account.name}{account.subType ? ` (${account.subType})` : ''} */}
                       {account.code} - {account.name}
                     </SelectItem>
                   ))}
@@ -318,136 +313,227 @@ export const Registers = () => {
               />
             </div>
 
-            <div className="flex items-end">
+            <div className="flex items-end gap-2">
               <Button variant="outline" size="sm" onClick={clearFilters}>
                 Clear Filters
               </Button>
+              {selectedAccount && (
+                <Button
+                  size="sm"
+                  onClick={() => setAddFormExpanded(true)}
+                  className={addFormExpanded ? "hidden" : ""}
+                >
+                  Add Transaction
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* QBO Transaction Form */}
-      {selectedAccount && (
+      {selectedAccount && addFormExpanded && (
         <QBOTransactionForm
           registerAccountId={selectedAccount.id}
           onSuccess={() => {
-            if (selectedAccount) {
-              loadRegister(selectedAccount.id);
-            }
+            if (selectedAccount) loadRegister(selectedAccount.id);
           }}
+          onCancel={() => setAddFormExpanded(false)}
         />
       )}
 
-      {/* Register Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Transaction Register</CardTitle>
-            {register && (
-              <div className="text-right">
-                <p className="text-sm text-muted-foreground">Current Balance</p>
-                <p className="text-2xl font-bold">
-                  {formatCurrency(register.currentBalance)}
-                </p>
-              </div>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
+      <Card className="mt-2 flex min-h-0 flex-1 flex-col overflow-hidden">
+        <CardContent className="flex min-h-0 flex-1 flex-col p-0">
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Spinner size="lg" />
-            </div>
-          ) : register ? (
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="min-h-0 flex-1 w-full overflow-auto overflow-x-auto">
+              <table
+                className="w-full border-collapse text-sm [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap"
+                style={{ minWidth: TABLE_MIN_WIDTH }}
+              >
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="hover:bg-transparent">
                     <TableHead>Date</TableHead>
-                    <TableHead>Ref No</TableHead>
                     <TableHead>Type</TableHead>
+                    <TableHead>Ref No</TableHead>
                     <TableHead>Customer/Vendor</TableHead>
                     <TableHead>Account</TableHead>
                     <TableHead className="text-center">Memo</TableHead>
                     <TableHead className="text-right">Debit</TableHead>
                     <TableHead className="text-right">Credit</TableHead>
                     <TableHead className="text-right">Balance</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Reconciled</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {register.transactions.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={10}
-                        className="text-center py-8 text-muted-foreground"
-                      >
-                        No transactions found for the selected period
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <Skeleton className="h-5 w-20" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-24" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-16" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-32" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-28" />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Skeleton className="h-8 w-8 mx-auto rounded" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Skeleton className="h-5 w-16 ml-auto" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Skeleton className="h-5 w-16 ml-auto" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Skeleton className="h-5 w-20 ml-auto" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-10" />
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    register.transactions.map((transaction) => (
-                      <TableRow key={transaction.id}>
-                        <TableCell>
-                          {formatDate(transaction.transactionDate)}
-                        </TableCell>
-                        <TableCell>
-                          {transaction.referenceNumber || "-"}
-                        </TableCell>
-                        <TableCell>
-                          {getTransactionTypeDisplay(transaction)}
-                        </TableCell>
-                        <TableCell>{getPayeeDisplay(transaction)}</TableCell>
-                        <TableCell>
-                          {getAccountNameDisplay(transaction)}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 relative"
-                            onClick={() =>
-                              handleMemoClick(transaction.description)
-                            }
-                          >
-                            <MessageCircle
-                              className={`h-4 w-4 ${
-                                hasMemo(transaction)
-                                  ? "text-blue-600"
-                                  : "text-gray-400"
-                              }`}
+                  ))}
+                </TableBody>
+              </table>
+            </div>
+          ) : register ? (
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="min-h-0 min-w-0 flex-1 w-full overflow-auto overflow-x-auto">
+                <table
+                  className="w-full border-collapse text-sm [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap"
+                  style={{ minWidth: TABLE_MIN_WIDTH }}
+                >
+                  <TableHeader className="sticky top-0 z-10 border-b bg-muted [&_th]:bg-muted [&_th]:shadow-[0_1px_0_0_hsl(var(--border))]">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>
+                        <button
+                          type="button"
+                          onClick={handleDateSortClick}
+                          className="inline-flex items-center gap-1 font-medium focus:outline-none text-left"
+                        >
+                          Date
+                          {sortOrder === "desc" ? (
+                            <ChevronDown
+                              className="h-4 w-4"
+                              aria-label="Newest first"
                             />
-                            {hasMemo(transaction) && (
-                              <span className="absolute top-0 right-0 h-2 w-2 bg-blue-600 rounded-full border-2 border-white"></span>
-                            )}
-                          </Button>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {transaction.debitAmount > 0
-                            ? formatCurrency(transaction.debitAmount)
-                            : "-"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {transaction.creditAmount > 0
-                            ? formatCurrency(transaction.creditAmount)
-                            : "-"}
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(transaction.runningBalance)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            className={getReconciliationColor(transaction)}
-                          >
-                            {getReconciliationStatus(transaction)}
-                          </Badge>
+                          ) : (
+                            <ChevronUp
+                              className="h-4 w-4"
+                              aria-label="Oldest first"
+                            />
+                          )}
+                        </button>
+                      </TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Ref No</TableHead>
+                      <TableHead>Customer/Vendor</TableHead>
+                      <TableHead>Account</TableHead>
+                      <TableHead className="text-center">Memo</TableHead>
+                      <TableHead className="text-right">Debit</TableHead>
+                      <TableHead className="text-right">Credit</TableHead>
+                      <TableHead className="text-right">Balance</TableHead>
+                      <TableHead>Reconciled</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {register.transactions.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={10}
+                          className="text-center py-8 text-muted-foreground"
+                        >
+                          No transactions found for the selected period
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      register.transactions.map((transaction) => (
+                        <TableRow key={transaction.id}>
+                          <TableCell>
+                            {formatDate(transaction.transactionDate)}
+                          </TableCell>
+                          <TableCell>
+                            {getTransactionTypeDisplay(transaction)}
+                          </TableCell>
+                          <TableCell>
+                            {transaction.referenceNumber || "-"}
+                          </TableCell>
+                          <TableCell>{getPayeeDisplay(transaction)}</TableCell>
+                          <TableCell>
+                            {getAccountNameDisplay(transaction)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 relative"
+                              onClick={() =>
+                                handleMemoClick(transaction.description)
+                              }
+                            >
+                              <MessageCircle
+                                className={`h-4 w-4 ${
+                                  hasMemo(transaction)
+                                    ? "text-blue-600"
+                                    : "text-gray-400"
+                                }`}
+                              />
+                              {hasMemo(transaction) && (
+                                <span className="absolute top-0 right-0 h-2 w-2 bg-blue-600 rounded-full border-2 border-white" />
+                              )}
+                            </Button>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {transaction.debitAmount !== 0
+                              ? formatCurrency(transaction.debitAmount, true)
+                              : "-"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {transaction.creditAmount !== 0
+                              ? formatCurrency(transaction.creditAmount, true)
+                              : "-"}
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {formatCurrency(transaction.runningBalance, true)}
+                          </TableCell>
+                          <TableCell>
+                            {getReconciliationStatus(transaction)}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </table>
+              </div>
+
+              {pagination && (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t px-4 py-2 shrink-0">
+                  <p className="text-sm text-muted-foreground">
+                    Page {pagination.page} of {pagination.totalPages}
+                    {pagination.totalCount !== undefined && (
+                      <> ({pagination.totalCount} transactions)</>
+                    )}
+                    {pagination.pageSize !== undefined && (
+                      <> · {pagination.pageSize} per page</>
+                    )}
+                  </p>
+                  <Pagination
+                    currentPage={pagination.page}
+                    totalPages={pagination.totalPages}
+                    totalItems={pagination.totalCount}
+                    itemsPerPage={pagination.pageSize ?? 25}
+                    onPageChange={setPage}
+                    showResultsInfo={false}
+                    className="shrink-0"
+                  />
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">

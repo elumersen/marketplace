@@ -1,6 +1,11 @@
-import React from 'react';
-import { Button } from './button';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import React from "react";
+import { Button } from "./button";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 
 interface PaginationProps {
   currentPage: number;
@@ -21,7 +26,7 @@ export const Pagination: React.FC<PaginationProps> = ({
   onPageChange,
   onItemsPerPageChange,
   showResultsInfo = true,
-  className = '',
+  className = "",
 }) => {
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
@@ -29,7 +34,7 @@ export const Pagination: React.FC<PaginationProps> = ({
   const getPageNumbers = () => {
     const pages = [];
     const maxVisiblePages = 5;
-    
+
     if (totalPages <= maxVisiblePages) {
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i);
@@ -39,30 +44,32 @@ export const Pagination: React.FC<PaginationProps> = ({
         for (let i = 1; i <= 4; i++) {
           pages.push(i);
         }
-        pages.push('...');
+        pages.push("...");
         pages.push(totalPages);
       } else if (currentPage >= totalPages - 2) {
         pages.push(1);
-        pages.push('...');
+        pages.push("...");
         for (let i = totalPages - 3; i <= totalPages; i++) {
           pages.push(i);
         }
       } else {
         pages.push(1);
-        pages.push('...');
+        pages.push("...");
         for (let i = currentPage - 1; i <= currentPage + 1; i++) {
           pages.push(i);
         }
-        pages.push('...');
+        pages.push("...");
         pages.push(totalPages);
       }
     }
-    
+
     return pages;
   };
 
   return (
-    <div className={`flex items-center ${showResultsInfo ? 'justify-between' : 'justify-end'} ${className}`}>
+    <div
+      className={`flex items-center ${showResultsInfo ? "justify-between" : "justify-end"} ${className}`}
+    >
       {showResultsInfo && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>
@@ -83,13 +90,18 @@ export const Pagination: React.FC<PaginationProps> = ({
         </div>
       )}
 
-      <div className="flex items-center gap-1">
+      <div
+        className="flex items-center gap-1"
+        role="navigation"
+        aria-label="Pagination"
+      >
         <Button
           variant="outline"
           size="sm"
           onClick={() => onPageChange(1)}
           disabled={currentPage === 1}
           className="h-8 w-8 p-0"
+          aria-label="First page"
         >
           <ChevronsLeft className="h-4 w-4" />
         </Button>
@@ -99,20 +111,29 @@ export const Pagination: React.FC<PaginationProps> = ({
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
           className="h-8 w-8 p-0"
+          aria-label="Previous page"
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
 
         {getPageNumbers().map((page, index) => (
           <React.Fragment key={index}>
-            {page === '...' ? (
-              <span className="px-2 py-1 text-sm text-muted-foreground">...</span>
+            {page === "..." ? (
+              <span className="px-2 py-1 text-sm text-muted-foreground">
+                ...
+              </span>
             ) : (
               <Button
                 variant={currentPage === page ? "default" : "outline"}
                 size="sm"
                 onClick={() => onPageChange(page as number)}
                 className="h-8 w-8 p-0"
+                aria-label={
+                  currentPage === page
+                    ? `Current page, page ${page}`
+                    : `Go to page ${page}`
+                }
+                aria-current={currentPage === page ? "page" : undefined}
               >
                 {page}
               </Button>
@@ -126,6 +147,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
           className="h-8 w-8 p-0"
+          aria-label="Next page"
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
@@ -135,6 +157,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           onClick={() => onPageChange(totalPages)}
           disabled={currentPage === totalPages}
           className="h-8 w-8 p-0"
+          aria-label="Last page"
         >
           <ChevronsRight className="h-4 w-4" />
         </Button>

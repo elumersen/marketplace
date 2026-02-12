@@ -34,6 +34,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { formatCurrency as formatCurrencyBase } from "@/lib/formatCurrency";
 import { cn } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -920,12 +921,8 @@ export const JournalEntryList: React.FC<JournalEntryListProps> = ({
     <span className="text-base text-black">{statusLabels[status]}</span>
   );
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) =>
+    formatCurrencyBase(amount, { signedParenthesis: true });
 
   const calculateTotalAmount = (entry: JournalEntry) => {
     if (!entry.lines) return 0;
