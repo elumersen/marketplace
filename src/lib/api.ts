@@ -365,6 +365,30 @@ export const invoiceAPI = {
     api.delete<{ message: string }>(`/invoices/${id}`),
 };
 
+// Public Stripe endpoints (no auth required for customer pay page)
+export const stripePayAPI = {
+  getPayInfo: (invoiceId: string) =>
+    api.get<{
+      invoiceId: string;
+      invoiceNumber: string;
+      totalAmount: number;
+      balanceDue: number;
+      paidAmount: number;
+      customerName: string;
+      currency: string;
+    }>(`/stripe/pay-info/${invoiceId}`),
+  createPaymentIntent: (data: {
+    invoices: Array<{ invoiceId: string; amount: number }>;
+    receiptEmail?: string;
+  }) =>
+    api.post<{
+      clientSecret: string;
+      paymentIntentId: string;
+      amount: number;
+      currency: string;
+    }>('/stripe/create-payment-intent', data),
+};
+
 export const receivePaymentAPI = {
   getAll: (params?: { invoiceId?: string; bankAccountId?: string; startDate?: string; endDate?: string }): Promise<{ receivePayments: ReceivePayment[] }> =>
     api.get<{ receivePayments: ReceivePayment[] }>('/receive-payments', { params }),
