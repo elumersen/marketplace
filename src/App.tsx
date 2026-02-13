@@ -32,6 +32,7 @@ import { BalanceSheet } from '@/pages/reporting/BalanceSheet';
 import { Settings } from '@/pages/Settings';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { RecurringTransactions } from '@/pages/accounting/RecurringTransactions';
+import { PayInvoice } from '@/pages/PayInvoice';
 
 function App() {
   return (
@@ -41,6 +42,17 @@ function App() {
           <TooltipProvider delayDuration={200}>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/pay/:invoiceId" element={<PayInvoice />} />
+              <Route path="/pay/:invoiceId/success" element={
+                <div className="flex min-h-screen items-center justify-center p-4">
+                  <div className="rounded-lg border bg-card p-6 text-center shadow-sm">
+                    <h1 className="text-xl font-semibold">Payment submitted</h1>
+                    <p className="mt-2 text-muted-foreground">
+                      Your payment has been received. It may take a moment to appear on the invoice.
+                    </p>
+                  </div>
+                </div>
+              } />
             
             <Route
               element={

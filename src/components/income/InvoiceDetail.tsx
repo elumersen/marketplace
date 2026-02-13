@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   ArrowLeft,
+  Copy,
   Edit,
   FileText,
   CalendarDays,
@@ -147,6 +148,20 @@ export const InvoiceDetail: React.FC<InvoiceDetailProps> = ({
 
         <div className="flex items-center space-x-3">
           {getStatusBadge(invoice.status)}
+          {balanceDue > 0.01 &&
+            invoice.status !== InvoiceStatus.VOID && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const url = `${window.location.origin}/pay/${invoice.id}`;
+                  navigator.clipboard.writeText(url);
+                  // Could use toast here if available
+                }}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy pay link
+              </Button>
+            )}
           {invoice.status === InvoiceStatus.DRAFT && (
             <Button onClick={() => onEdit?.(invoice)}>
               <Edit className="h-4 w-4 mr-2" />

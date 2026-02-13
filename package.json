@@ -51,6 +51,8 @@
     "react-day-picker": "^8.9.1",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.48.2",
+    "@stripe/react-stripe-js": "^2.4.0",
+    "@stripe/stripe-js": "^4.8.0",
     "react-plaid-link": "^4.1.1",
     "react-resizable-panels": "^0.0.55",
     "react-router-dom": "^6.22.0",
