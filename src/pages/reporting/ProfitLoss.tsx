@@ -1915,6 +1915,7 @@ import {
 } from "@/types/api.types";
 import { getSubTypeOrder } from "@/lib/accountOrdering";
 import { ChevronDown, ChevronRight, Download, TrendingUp } from "lucide-react";
+import * as XLSX from "xlsx-js-style";
 
 interface SubTypeGroup {
   subType: string;
@@ -2497,6 +2498,13 @@ export const ProfitLoss = () => {
         params.comparison = appliedComparisonType;
       }
       if (
+        appliedComparisonType === "previous_period" &&
+        appliedDisplayBy === "months" &&
+        (appliedPreset === "this_year" || appliedPreset === "this_year_to_date")
+      ) {
+        params.comparisonSamePeriodPriorYear = "true";
+      }
+      if (
         appliedComparisonType === "custom_period" &&
         appliedComparisonStartDate &&
         appliedComparisonEndDate
@@ -2890,9 +2898,22 @@ export const ProfitLoss = () => {
 
   const rows = useMemo(buildRows, [accountsByType]);
 
+  /** Total row is only visible when its section is expanded (totals appear at bottom when expanded, on section line when collapsed). */
+  const totalRowToSectionType: Record<string, AccountType> = {
+    "total-income": AccountType.Income,
+    "total-cogs": AccountType.Cost_of_Goods_Sold,
+    "total-expense": AccountType.Expense,
+    "total-other-income": AccountType.Other_Income,
+    "total-other-expense": AccountType.Other_Expense,
+  };
+
   const visibleRows = useMemo(() => {
     return rows.filter((row) => {
       if (row.type === "section") return true;
+      if (row.type === "total") {
+        const sectionType = totalRowToSectionType[row.id];
+        return sectionType ? expandedTypes.has(sectionType) : true;
+      }
       if (row.type === "subtype") {
         const parentType = row.id
           .replace("subtype-", "")
@@ -2933,13 +2954,19 @@ export const ProfitLoss = () => {
       : 1 + periodGroups.length * 3;
 
   const renderRowValues = (row: ReportRow) => {
+    const isSectionExpanded =
+      row.type === "section" &&
+      expandedTypes.has(row.id.replace("section-", "") as AccountType);
     return periodGroups.map((group, i) => {
       const leftBorder = i > 0 ? "border-l border-border" : "";
-      const currentValue = row.account
-        ? getAccountValue(row.account.id, group.key)
-        : row.type === "summary"
-        ? null
-        : sumAccounts(row.accounts || [], group.key);
+      const currentValue =
+        isSectionExpanded
+          ? null
+          : row.account
+          ? getAccountValue(row.account.id, group.key)
+          : row.type === "summary"
+          ? null
+          : sumAccounts(row.accounts || [], group.key);
 
       const comparisonValue =
         appliedComparisonType === "none"
@@ -2952,6 +2979,10 @@ export const ProfitLoss = () => {
 
       let computedCurrent = currentValue ?? 0;
       let computedComparison = comparisonValue;
+      if (isSectionExpanded) {
+        computedCurrent = 0;
+        computedComparison = null;
+      }
 
       if (row.id === "gross-profit") {
         const income = sumAccounts(
@@ -3048,7 +3079,7 @@ export const ProfitLoss = () => {
             key={`${row.id}-${group.key}`}
             className={`px-3 py-1.5 text-right font-mono text-sm tabular-nums ${leftBorder}`}
           >
-            {formatValue(computedCurrent)}
+            {isSectionExpanded ? "" : formatValue(computedCurrent)}
           </TableCell>
         );
       }
@@ -3058,20 +3089,22 @@ export const ProfitLoss = () => {
           <TableCell
             className={`px-3 py-1.5 text-right font-mono text-sm tabular-nums ${leftBorder}`}
           >
-            {formatValue(computedCurrent)}
+            {isSectionExpanded ? "" : formatValue(computedCurrent)}
           </TableCell>
           <TableCell
             className="px-3 py-1.5 text-right font-mono text-sm tabular-nums text-muted-foreground border-l border-border"
           >
-            {formatValue(computedComparison)}
+            {isSectionExpanded ? "" : formatValue(computedComparison)}
           </TableCell>
           <TableCell
             className="px-3 py-1.5 text-right font-mono text-sm tabular-nums border-l border-border"
           >
-            {formatValue(
-              changeValue,
-              comparisonMode === "percent" ? "percent" : "currency"
-            )}
+            {isSectionExpanded
+              ? ""
+              : formatValue(
+                  changeValue,
+                  comparisonMode === "percent" ? "percent" : "currency"
+                )}
           </TableCell>
         </Fragment>
       );
@@ -3092,17 +3125,26 @@ export const ProfitLoss = () => {
       }
     });
 
-    const allRows = rows.map((row) => {
+    const isSectionExpandedForExport = (row: ReportRow) =>
+      row.type === "section" &&
+      expandedTypes.has(row.id.replace("section-", "") as AccountType);
+
+    const allRows = visibleRows.map((row) => {
       const values: string[] = [row.label];
+      const sectionExpanded = isSectionExpandedForExport(row);
       periodGroups.forEach((group) => {
-        const currentValue = row.account
+        const currentValue = sectionExpanded
+          ? null
+          : row.account
           ? getAccountValue(row.account.id, group.key)
           : row.type === "summary"
           ? null
           : sumAccounts(row.accounts || [], group.key);
 
         const comparisonValue =
-          appliedComparisonType === "none"
+          sectionExpanded
+            ? null
+            : appliedComparisonType === "none"
             ? null
             : row.account
             ? getComparisonValue(row.account.id, group.key)
@@ -3199,7 +3241,13 @@ export const ProfitLoss = () => {
 
         const changeValue = getChangeValue(computedCurrent, computedComparison);
 
-        if (appliedComparisonType === "none") {
+        if (sectionExpanded) {
+          if (appliedComparisonType === "none") {
+            values.push("");
+          } else {
+            values.push("", "", "");
+          }
+        } else if (appliedComparisonType === "none") {
           values.push(computedCurrent.toFixed(2));
         } else {
           values.push(computedCurrent.toFixed(2));
@@ -3231,6 +3279,159 @@ export const ProfitLoss = () => {
     link.download = `profit-loss-${format(new Date(), "yyyy-MM-dd")}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportExcel = () => {
+    if (!report) return;
+    const headers: string[] = ["Account"];
+    periodGroups.forEach((group) => {
+      if (appliedComparisonType === "none") {
+        headers.push(group.label);
+      } else {
+        headers.push(`${group.label} - Current`);
+        headers.push(`${group.label} - Previous`);
+        headers.push(`${group.label} - Change`);
+      }
+    });
+    const isSectionExpandedForExport = (row: ReportRow) =>
+      row.type === "section" &&
+      expandedTypes.has(row.id.replace("section-", "") as AccountType);
+    const allRows = visibleRows.map((row) => {
+      const values: string[] = [row.label];
+      const sectionExpanded = isSectionExpandedForExport(row);
+      periodGroups.forEach((group) => {
+        const currentValue = sectionExpanded
+          ? null
+          : row.account
+          ? getAccountValue(row.account.id, group.key)
+          : row.type === "summary"
+          ? null
+          : sumAccounts(row.accounts || [], group.key);
+        const comparisonValue =
+          sectionExpanded
+            ? null
+            : appliedComparisonType === "none"
+            ? null
+            : row.account
+            ? getComparisonValue(row.account.id, group.key)
+            : row.type === "summary"
+            ? null
+            : sumAccounts(row.accounts || [], group.key, true);
+        let computedCurrent = currentValue ?? 0;
+        let computedComparison = comparisonValue;
+        if (row.id === "gross-profit") {
+          computedCurrent =
+            sumAccounts(accountsByType[AccountType.Income], group.key) -
+            sumAccounts(accountsByType[AccountType.Cost_of_Goods_Sold], group.key);
+          if (appliedComparisonType !== "none") {
+            computedComparison =
+              sumAccounts(accountsByType[AccountType.Income], group.key, true) -
+              sumAccounts(accountsByType[AccountType.Cost_of_Goods_Sold], group.key, true);
+          }
+        }
+        if (row.id === "net-income") {
+          computedCurrent =
+            sumAccounts(accountsByType[AccountType.Income], group.key) +
+            sumAccounts(accountsByType[AccountType.Other_Income], group.key) -
+            sumAccounts(accountsByType[AccountType.Cost_of_Goods_Sold], group.key) -
+            sumAccounts(accountsByType[AccountType.Expense], group.key) -
+            sumAccounts(accountsByType[AccountType.Other_Expense], group.key);
+          if (appliedComparisonType !== "none") {
+            computedComparison =
+              sumAccounts(accountsByType[AccountType.Income], group.key, true) +
+              sumAccounts(accountsByType[AccountType.Other_Income], group.key, true) -
+              sumAccounts(accountsByType[AccountType.Cost_of_Goods_Sold], group.key, true) -
+              sumAccounts(accountsByType[AccountType.Expense], group.key, true) -
+              sumAccounts(accountsByType[AccountType.Other_Expense], group.key, true);
+          }
+        }
+        const changeValue = getChangeValue(computedCurrent, computedComparison);
+        if (sectionExpanded) {
+          if (appliedComparisonType === "none") values.push("");
+          else values.push("", "", "");
+        } else if (appliedComparisonType === "none") {
+          values.push(computedCurrent.toFixed(2));
+        } else {
+          values.push(computedCurrent.toFixed(2));
+          values.push((computedComparison ?? 0).toFixed(2));
+          values.push(
+            changeValue === null
+              ? ""
+              : Number.isNaN(changeValue)
+              ? comparisonMode === "percent"
+                ? "N/A"
+                : ""
+              : changeValue.toFixed(2)
+          );
+        }
+      });
+      return values;
+    });
+    const colCount = headers.length;
+    const blankRow = (): string[] => Array(colCount).fill("");
+    const totalIdsBeforeBlank = new Set([
+      "total-income",
+      "total-cogs",
+      "total-expense",
+      "total-other-income",
+      "total-other-expense",
+    ]);
+    const excelRows: string[][] = [];
+    visibleRows.forEach((row, i) => {
+      excelRows.push(allRows[i]);
+      if (totalIdsBeforeBlank.has(row.id)) {
+        excelRows.push(blankRow());
+      }
+    });
+    const aoa: string[][] = [headers, ...excelRows];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const thinBorder = { style: "thin", color: { rgb: "FF000000" } };
+    const headerStyle = {
+      font: { bold: true },
+      border: { bottom: thinBorder },
+    };
+    for (let c = 0; c < colCount; c++) {
+      const ref = XLSX.utils.encode_cell({ r: 0, c });
+      if (!ws[ref]) continue;
+      (ws[ref] as XLSX.CellObject).s = headerStyle;
+    }
+    let excelRowIdx = 1;
+    visibleRows.forEach((row) => {
+      const isSection = row.type === "section";
+      const isTotal = row.type === "total";
+      const isSummary = row.type === "summary";
+      const sectionStyle = {
+        font: { bold: true, underline: true },
+        border: { top: thinBorder },
+      };
+      const totalSummaryStyle = {
+        font: { bold: true },
+        border: { bottom: thinBorder },
+      };
+      for (let c = 0; c < colCount; c++) {
+        const ref = XLSX.utils.encode_cell({ r: excelRowIdx, c });
+        if (!ws[ref]) continue;
+        const cell = ws[ref] as XLSX.CellObject;
+        if (isSection) {
+          cell.s = sectionStyle;
+        } else if (isTotal || isSummary) {
+          cell.s = totalSummaryStyle;
+        }
+      }
+      excelRowIdx += 1;
+      if (totalIdsBeforeBlank.has(row.id)) {
+        excelRowIdx += 1;
+      }
+    });
+    if (ws["!cols"] === undefined) ws["!cols"] = [];
+    ws["!cols"][0] = { wch: 32 };
+    for (let c = 1; c < colCount; c++) {
+      if (!ws["!cols"][c]) ws["!cols"][c] = {};
+      (ws["!cols"][c] as { wch?: number }).wch = 14;
+    }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Profit and Loss");
+    XLSX.writeFile(wb, `profit-loss-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
   };
 
   if (loading) {
@@ -3342,14 +3543,24 @@ export const ProfitLoss = () => {
                 </p>
               )}
             </div>
-            <Button
-              variant="outline"
-              onClick={handleExportCsv}
-              className="gap-2 w-full sm:w-auto shrink-0"
-            >
-              <Download className="h-4 w-4" />
-              Export CSV
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={handleExportCsv}
+                className="gap-2 w-full sm:w-auto shrink-0"
+              >
+                <Download className="h-4 w-4" />
+                Export CSV
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleExportExcel}
+                className="gap-2 w-full sm:w-auto shrink-0"
+              >
+                <Download className="h-4 w-4" />
+                Export Excel
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="min-w-0 space-y-6">
@@ -3480,8 +3691,8 @@ export const ProfitLoss = () => {
                     <TableHead
                       className={
                         appliedDisplayBy !== "total"
-                          ? "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px] sticky left-0 z-20 bg-background"
-                          : "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px]"
+                          ? "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px] sticky left-0 z-20 bg-background border-b border-border"
+                          : "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px] border-b border-border"
                       }
                     >
                       Account
@@ -3489,7 +3700,7 @@ export const ProfitLoss = () => {
                     {periodGroups.map((group) => (
                       <TableHead
                         key={group.key}
-                        className="h-10 px-2 text-right sm:px-3"
+                        className="h-10 px-2 text-right sm:px-3 border-b border-border"
                       >
                         {group.displayLabel}
                       </TableHead>
@@ -3501,17 +3712,17 @@ export const ProfitLoss = () => {
                       <TableHead
                         className={
                           appliedDisplayBy !== "total"
-                            ? "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px] sticky left-0 z-20 bg-background"
-                            : "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px]"
+                            ? "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px] sticky left-0 z-20 bg-background border-b border-border"
+                            : "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px] border-b border-border"
                         }
                       >
                         Account
                       </TableHead>
-                      {periodGroups.map((group) => (
+                      {periodGroups.map((group, groupIndex) => (
                         <TableHead
                           key={group.key}
                           colSpan={3}
-                          className="h-10 px-2 sm:px-3 text-center"
+                          className={`h-10 px-2 sm:px-3 text-center border-b border-border ${groupIndex > 0 ? "border-l-2 border-l-border" : ""}`}
                         >
                           {group.displayLabel}
                         </TableHead>
@@ -3521,11 +3732,11 @@ export const ProfitLoss = () => {
                       <TableHead
                         className={
                           appliedDisplayBy !== "total"
-                            ? "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px] sticky left-0 z-20 bg-background"
-                            : "h-10 px-2 sm:px-3"
+                            ? "h-10 px-2 sm:px-3 min-w-[200px] sm:min-w-[280px] sticky left-0 z-20 bg-background border-b border-border"
+                            : "h-10 px-2 sm:px-3 border-b border-border"
                         }
                       />
-                      {periodGroups.map((group) => {
+                      {periodGroups.map((group, groupIndex) => {
                         const isTotalGroup = group.key === "total";
                         const comparisonEntry =
                           report?.comparisonPeriodBreakdown?.find(
@@ -3548,13 +3759,13 @@ export const ProfitLoss = () => {
 
                         return (
                           <Fragment key={group.key}>
-                            <TableHead className="h-9 text-right px-3 py-1.5 text-xs uppercase text-muted-foreground">
+                            <TableHead className={`h-9 text-right px-3 py-1.5 text-xs uppercase text-muted-foreground border-b border-border ${groupIndex > 0 ? "border-l-2 border-l-border" : ""}`}>
                               {firstSubLabel}
                             </TableHead>
-                            <TableHead className="h-9 text-right px-3 py-1.5 text-xs uppercase text-muted-foreground border-l border-border">
+                            <TableHead className="h-9 text-right px-3 py-1.5 text-xs uppercase text-muted-foreground border-l border-border border-b border-border">
                               {secondSubLabel}
                             </TableHead>
-                            <TableHead className="h-9 text-right px-3 py-1.5 text-xs uppercase text-muted-foreground border-l border-border">
+                            <TableHead className="h-9 text-right px-3 py-1.5 text-xs uppercase text-muted-foreground border-l border-border border-b border-border">
                               {changeLabel}
                             </TableHead>
                           </Fragment>

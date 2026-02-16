@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -170,8 +170,14 @@ export const Registers = () => {
 
   const getAccountNameDisplay = (transaction: RegisterTransaction) => {
     if (transaction.pairedAccount) return transaction.pairedAccount;
-    return "-";
+    const hasAmount =
+      transaction.debitAmount !== 0 || transaction.creditAmount !== 0;
+    if (hasAmount) return "— Missing offset account";
+    return "—";
   };
+
+  const isMissingOffsetAccount = (t: RegisterTransaction) =>
+    !t.pairedAccount && (t.debitAmount !== 0 || t.creditAmount !== 0);
 
   const getReconciliationStatus = (transaction: RegisterTransaction) => {
     return transaction.isReconciled ? "Yes" : "No";
@@ -197,6 +203,16 @@ export const Registers = () => {
   };
 
   const pagination = register?.pagination;
+
+  const sortedTransactions = useMemo(() => {
+    if (!register?.transactions.length) return [];
+    const sorted = [...register.transactions].sort(
+      (a, b) =>
+        new Date(b.transactionDate).getTime() -
+        new Date(a.transactionDate).getTime(),
+    );
+    return sortOrder === "asc" ? sorted.reverse() : sorted;
+  }, [register?.transactions, sortOrder]);
 
   // Min width so table is at least this wide on small screens; table fills available space on larger screens
   const TABLE_MIN_WIDTH = 960;
@@ -265,7 +281,7 @@ export const Registers = () => {
 
   return (
     <div
-      className="flex min-h-0 w-full max-w-full flex-col overflow-hidden py-2 sm:py-3"
+      className="flex min-h-0 w-full max-w-full flex-col overflow-hidden py-2 sm:py-3 -mx-2 sm:-mx-4 lg:-mx-6 px-2 sm:px-2 lg:px-4"
       style={{ height: "calc(100vh - 6rem)", maxHeight: "calc(100vh - 6rem)" }}
     >
       <div className="shrink-0">
@@ -347,7 +363,7 @@ export const Registers = () => {
           {loading ? (
             <div className="min-h-0 flex-1 w-full overflow-auto overflow-x-auto">
               <table
-                className="w-full border-collapse text-sm [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap"
+                className="w-full border-collapse text-sm [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_td]:py-1.5 [&_th]:py-1.5"
                 style={{ minWidth: TABLE_MIN_WIDTH }}
               >
                 <TableHeader>
@@ -406,7 +422,7 @@ export const Registers = () => {
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="min-h-0 min-w-0 flex-1 w-full overflow-auto overflow-x-auto">
                 <table
-                  className="w-full border-collapse text-sm [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap"
+                  className="w-full border-collapse text-sm [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap [&_td]:py-1.5 [&_th]:py-1.5"
                   style={{ minWidth: TABLE_MIN_WIDTH }}
                 >
                   <TableHeader className="sticky top-0 z-10 border-b bg-muted [&_th]:bg-muted [&_th]:shadow-[0_1px_0_0_hsl(var(--border))]">
@@ -438,12 +454,17 @@ export const Registers = () => {
                       <TableHead className="text-center">Memo</TableHead>
                       <TableHead className="text-right">Debit</TableHead>
                       <TableHead className="text-right">Credit</TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
+                      <TableHead
+                        className="text-right"
+                        title="Balance after this transaction"
+                      >
+                        Balance
+                      </TableHead>
                       <TableHead>Reconciled</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {register.transactions.length === 0 ? (
+                    {sortedTransactions.length === 0 ? (
                       <TableRow>
                         <TableCell
                           colSpan={10}
@@ -453,7 +474,7 @@ export const Registers = () => {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      register.transactions.map((transaction) => (
+                      sortedTransactions.map((transaction) => (
                         <TableRow key={transaction.id}>
                           <TableCell>
                             {formatDate(transaction.transactionDate)}
@@ -465,7 +486,13 @@ export const Registers = () => {
                             {transaction.referenceNumber || "-"}
                           </TableCell>
                           <TableCell>{getPayeeDisplay(transaction)}</TableCell>
-                          <TableCell>
+                          <TableCell
+                            className={
+                              isMissingOffsetAccount(transaction)
+                                ? "text-amber-600 dark:text-amber-500"
+                                : undefined
+                            }
+                          >
                             {getAccountNameDisplay(transaction)}
                           </TableCell>
                           <TableCell className="text-center">

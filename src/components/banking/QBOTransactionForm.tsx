@@ -441,7 +441,7 @@ export const QBOTransactionForm: React.FC<QBOTransactionFormProps> = ({
               }
               disabled={loading}
             >
-              <SelectTrigger className="h-8 w-40 text-sm">
+              <SelectTrigger className="h-8 min-w-[8rem] w-max max-w-[20rem] text-sm whitespace-nowrap">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

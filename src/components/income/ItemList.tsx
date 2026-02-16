@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Item } from "@/types/api.types";
 import { itemAPI, getErrorMessage } from "@/lib/api";
-import { Search, Plus, Package, Trash2, ChevronDown, ChevronRight, MoreHorizontal, Edit } from "lucide-react";
+import { Search, Plus, Package, Trash2, MoreHorizontal, Edit } from "lucide-react";
 import { ItemForm } from "./ItemForm";
 import {
   DropdownMenu,
@@ -84,8 +84,9 @@ export const ItemList: React.FC<ItemListProps> = ({
     });
   }, [items, searchTerm]);
 
+  const emptyPlaceholder = "–";
   const formatCurrency = (amount: number | null | undefined) => {
-    if (amount == null) return "—";
+    if (amount == null) return emptyPlaceholder;
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
@@ -119,15 +120,6 @@ export const ItemList: React.FC<ItemListProps> = ({
     } finally {
       setItemToDelete(null);
       setDeleteDialogOpen(false);
-    }
-  };
-
-  const toggleExpand = (id: string) => {
-    if (expandedId === id) {
-      setExpandedId(null);
-    } else {
-      setExpandedId(id);
-      setExpandedMode('view');
     }
   };
 
@@ -225,13 +217,12 @@ export const ItemList: React.FC<ItemListProps> = ({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-8"></TableHead>
                     <TableHead className="whitespace-nowrap">Label/SKU</TableHead>
                     <TableHead className="whitespace-nowrap">Item</TableHead>
                     <TableHead className="whitespace-nowrap">Description</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Sales Price</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Purchase Price</TableHead>
                     <TableHead className="whitespace-nowrap">Sales Account</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Purchase Price</TableHead>
                     <TableHead className="whitespace-nowrap">Purchase Account</TableHead>
                     <TableHead className="text-right whitespace-nowrap w-[80px]">Actions</TableHead>
                   </TableRow>
@@ -239,7 +230,7 @@ export const ItemList: React.FC<ItemListProps> = ({
                 <TableBody>
                   {showInlineForm && (
                     <TableRow className="bg-muted/30 hover:bg-muted/30">
-                      <TableCell colSpan={9} className="p-4">
+                      <TableCell colSpan={8} className="p-4">
                         <div className="bg-white border rounded-lg p-4">
                           <ItemForm
                             onSuccess={handleInlineCreateSuccess}
@@ -251,46 +242,33 @@ export const ItemList: React.FC<ItemListProps> = ({
                   )}
                   {filteredItems.map((item) => (
                     <React.Fragment key={item.id}>
-                      <TableRow
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => toggleExpand(item.id)}
-                      >
-                        <TableCell className="w-8 py-2">
-                          {expandedId === item.id ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </TableCell>
+                      <TableRow className="hover:bg-muted/50">
                         <TableCell className="font-mono whitespace-nowrap">
-                          {item.sku || "—"}
+                          {item.sku || emptyPlaceholder}
                         </TableCell>
                         <TableCell className="font-medium whitespace-nowrap">
                           {item.name}
                         </TableCell>
                         <TableCell className="whitespace-nowrap max-w-[200px] truncate">
-                          {item.description || "—"}
+                          {item.description || emptyPlaceholder}
                         </TableCell>
                         <TableCell className="text-right font-mono whitespace-nowrap">
                           {formatCurrency(item.salesPrice)}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {item.incomeAccount
+                            ? `${item.incomeAccount.code} - ${item.incomeAccount.name}`
+                            : emptyPlaceholder}
                         </TableCell>
                         <TableCell className="text-right font-mono whitespace-nowrap">
                           {formatCurrency(item.purchasePrice)}
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
-                          {item.incomeAccount
-                            ? `${item.incomeAccount.code} - ${item.incomeAccount.name}`
-                            : "—"}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
                           {item.expenseAccount
                             ? `${item.expenseAccount.code} - ${item.expenseAccount.name}`
-                            : "—"}
+                            : emptyPlaceholder}
                         </TableCell>
-                        <TableCell
-                          className="text-right whitespace-nowrap"
-                          onClick={(e) => e.stopPropagation()}
-                        >
+                        <TableCell className="text-right whitespace-nowrap">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm">
@@ -315,68 +293,27 @@ export const ItemList: React.FC<ItemListProps> = ({
                           </DropdownMenu>
                         </TableCell>
                       </TableRow>
-                      {expandedId === item.id && (
+                      {expandedId === item.id && expandedMode === 'edit' && (
                         <TableRow>
-                          <TableCell colSpan={9} className="bg-muted/30 p-4">
-                            {expandedMode === 'view' ? (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-3 text-sm">
-                                <div>
-                                  <span className="text-muted-foreground">Label/SKU</span>
-                                  <p className="font-medium mt-0.5">{item.sku || "—"}</p>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">Item</span>
-                                  <p className="font-medium mt-0.5">{item.name}</p>
-                                </div>
-                                <div className="sm:col-span-2">
-                                  <span className="text-muted-foreground">Description</span>
-                                  <p className="font-medium mt-0.5">{item.description || "—"}</p>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">Sales Price</span>
-                                  <p className="font-medium mt-0.5 font-mono">{formatCurrency(item.salesPrice)}</p>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">Sales Account</span>
-                                  <p className="font-medium mt-0.5">
-                                    {item.incomeAccount
-                                      ? `${item.incomeAccount.code} - ${item.incomeAccount.name}`
-                                      : "—"}
-                                  </p>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">Purchase Price</span>
-                                  <p className="font-medium mt-0.5 font-mono">{formatCurrency(item.purchasePrice)}</p>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">Purchase Account</span>
-                                  <p className="font-medium mt-0.5">
-                                    {item.expenseAccount
-                                      ? `${item.expenseAccount.code} - ${item.expenseAccount.name}`
-                                      : "—"}
-                                  </p>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex-1 min-w-0">
-                                <ItemForm
-                                  initialData={{
-                                    name: item.name,
-                                    sku: item.sku ?? undefined,
-                                    description: item.description ?? undefined,
-                                    salesPrice: item.salesPrice ?? undefined,
-                                    purchasePrice: item.purchasePrice ?? undefined,
-                                    incomeAccountId: item.incomeAccountId ?? undefined,
-                                    expenseAccountId: item.expenseAccountId ?? undefined,
-                                  }}
-                                  onSuccess={handleFormSuccess}
-                                  onCancel={closeExpanded}
-                                  isEditing
-                                  itemId={item.id}
-                                  compact
-                                />
-                              </div>
-                            )}
+                          <TableCell colSpan={8} className="bg-muted/30 p-4">
+                            <div className="flex-1 min-w-0">
+                              <ItemForm
+                                initialData={{
+                                  name: item.name,
+                                  sku: item.sku ?? undefined,
+                                  description: item.description ?? undefined,
+                                  salesPrice: item.salesPrice ?? undefined,
+                                  purchasePrice: item.purchasePrice ?? undefined,
+                                  incomeAccountId: item.incomeAccountId ?? undefined,
+                                  expenseAccountId: item.expenseAccountId ?? undefined,
+                                }}
+                                onSuccess={handleFormSuccess}
+                                onCancel={closeExpanded}
+                                isEditing
+                                itemId={item.id}
+                                compact
+                              />
+                            </div>
                           </TableCell>
                         </TableRow>
                       )}

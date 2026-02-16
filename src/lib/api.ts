@@ -306,6 +306,7 @@ export const reportAPI = {
       comparison?: string;
       comparisonStartDate?: string;
       comparisonEndDate?: string;
+      comparisonSamePeriodPriorYear?: string;
       displayBy?: string;
       accountId?: string;
     },
